@@ -21,8 +21,9 @@ currently have the same native workflow runtime in this environment, so this
 repo starts with the part we can make checkable now: a workflow design contract.
 
 The first slice defines the skill contract and deterministic V0.5 sample
-evidence for workflow blueprints and specs. A plugin or runtime can follow once
-live generation or execution slices prove useful.
+evidence for workflow blueprints and specs. The next slice is a first-slice
+compiler, not a plugin runtime; plugin or runtime work can follow once compile
+and resume contracts prove useful.
 
 ## Use
 
@@ -115,6 +116,13 @@ The next implementation target is the V1 first-slice compiler described in
 V1 should compile an activated `workflow.plan.json` into one inspectable
 first-slice packet, prompt, gate state, and resume/status files without claiming
 a full automatic workflow runtime.
+
+When V1 implementation starts, its release gate adds:
+
+```bash
+python scripts/compile_workflow.py --self-test
+python scripts/compile_workflow.py --manifest fixtures/v1/manifest.json --out out/v1/<suite_id>
+```
 
 ## License
 

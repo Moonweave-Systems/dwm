@@ -70,21 +70,16 @@ Required behavior:
 5. Distinguish skill-only execution from plugin/runtime requirements.
 6. Include evaluation fixtures for the generated designs.
 
-### V1: Plugin Bundle
+### V1: First-Slice Compiler
 
-Package the skill with reusable helper assets:
-
-- additional specialized skills or commands
-- worker role prompts
-- optional scripts for plan linting and fixture evaluation
-- optional hooks for verification reminders
-
-The plugin must remain useful even without a durable runtime.
-
-The first V1 target is the first-slice compiler specified in
+Implement the first-slice compiler specified in
 `docs/v1-first-slice-compiler-spec.md`: compile an activated
 `workflow.plan.json` into one inspectable first-slice packet, prompt, gate
 state, and resume/status files without claiming full automatic orchestration.
+
+V1 may package reusable helper assets only when they support this compiler
+contract. It must remain useful without a durable runtime, plugin daemon, or
+automatic subagent dispatcher.
 
 ### V2: Runtime Prototype
 
@@ -269,6 +264,8 @@ V1 is releasable when:
 - `docs/v1-first-slice-compiler-spec.md` defines the compile and resume-check
   behavior.
 - `scripts/compile_workflow.py --self-test` passes.
+- `python scripts/compile_workflow.py --manifest fixtures/v1/manifest.json --out
+  out/v1/<suite_id>` passes and writes `summary.json`.
 - Existing V0/V0.5 release checks still pass.
 - required V1 compiler fixtures pass, covering activated plans, downgrade
   refusal, output path safety, symlink escape rejection, risk gate blocking,
@@ -307,14 +304,21 @@ python scripts/evaluate_plan.py --self-test
 python scripts/evaluate_plan.py --manifest fixtures/v0.5/manifest.json --out out/v0.5
 ```
 
+When V1 implementation starts, add:
+
+```bash
+python scripts/compile_workflow.py --self-test
+python scripts/compile_workflow.py --manifest fixtures/v1/manifest.json --out out/v1/<suite_id>
+```
+
 The V0.5 manifest depends only on tracked baseline source snapshots named in
 `fixtures/v0.5/manifest.json`. The manifest evaluator regenerates `out/v0.5/`
 and verifies that `docs/v0.5-decision.md` matches the freshly generated summary.
 
 ## Open Questions
 
-- Whether v1 should remain a Codex-first first-slice compiler or also target
-  Claude plugin packaging.
+- Whether V2 should add Claude plugin packaging after the Codex-first
+  first-slice compiler proves useful.
 - Whether a future runtime should wrap existing projects such as
   `claude-dynamic-workflows-codex` after the smaller local adapter proves useful.
 - Whether the V0.5 JSON schema should later compile to JavaScript workflow
