@@ -10,7 +10,7 @@ schema-valid workflow plans and evaluate them against a tracked fixture corpus.
 V1 should close the next practical gap without pretending to be a full workflow
 runtime: compile an activated `workflow.plan.json` into one inspectable
 first-slice packet plus the files needed to audit, manually hand off, block, or
-revalidate that first-slice packet safely.
+revalidate that first-slice packet deterministically.
 
 V1 is a packet compiler, not a runner. It does not execute shell commands,
 spawn subagents, advance between phases, or mark work complete. Those behaviors
@@ -28,8 +28,8 @@ belong to V2 after the file contract is proven.
 V1 should make a workflow easier to start after context loss. It should not
 claim Claude Dynamic Workflow-style orchestration. The measurable value is that
 another Codex agent can open a run directory, read `README.md`, inspect the
-first-slice prompt and packet JSON, see blocked gates, and know whether manual
-handoff is safe or blocked.
+first-slice prompt and packet JSON, see blocked gates, and tell whether manual
+handoff is blocked by V1 checks.
 
 ## Goals
 
@@ -67,8 +67,9 @@ V1 compiles only the first slice:
 - Exactly one inspectable packet is generated: `001-first-slice`.
 - Later phases, workers, barriers, and handoffs are copied as context and schema
   references, not as runnable packet state.
-- `ready` means "safe to hand off manually after reading the packet." It does
-  not mean the compiler will run or dispatch it.
+- `ready` means "not blocked by V1 checks and available for manual review." It
+  does not mean the compiler will run or dispatch it, and it is not proof that
+  execution is safe.
 
 V2 owns:
 
@@ -131,6 +132,8 @@ The compiler must reject:
 - existing directories that do not contain `.compile_workflow-owned.json`
 - existing directories whose ownership sentinel has a different `run_id` or
   `tool`
+- symlinked leaf files for any file the compiler will overwrite, including
+  `status.json` and `resume.md`
 
 The compiler may create a new selected `out/v1/<run_id>` directory. It may
 clear and recreate an existing selected run directory only when that directory
@@ -141,6 +144,16 @@ contains `.compile_workflow-owned.json` with:
 - `run_id`: matching the requested run ID
 
 It must not delete any path outside that resolved, compiler-owned run directory.
+It must write files with no-follow semantics where available, or by writing a
+new regular file in the owned directory and atomically replacing only a
+non-symlink regular file.
+
+For `--manifest`, the selected owned directory is `out/v1/<suite_id>`. The suite
+root sentinel uses `run_id: "<suite_id>"` and `mode: "manifest"`. Each fixture
+subdirectory must also contain a sentinel with run ID
+`<suite_id>/<fixture_id>` and `mode: "fixture"`. A rerun may clear the suite root
+only when the root sentinel matches; individual fixture compiles may clear only
+their own matching fixture subdirectory.
 
 Future versions may add an explicit unsafe external output override, but V1 does
 not include it.
@@ -182,7 +195,7 @@ out/v1/<run_id>/
 first, the blocked gates, the allowed next manual action, and the fact that V1
 does not execute the workflow. If any packet is `blocked-risk-gate`, the README
 must say that V1 has no machine approval path; the operator must return to the
-user or wait for V2 tooling before treating the packet as safe to execute.
+user or wait for V2 tooling before treating the packet as actionable.
 
 `.compile_workflow-owned.json` is the deletion sentinel. It must be written as
 canonical JSON with these fields:
@@ -190,6 +203,7 @@ canonical JSON with these fields:
 - `tool`: `"compile_workflow.py"`
 - `schema_version`: `"1.0"`
 - `run_id`
+- `mode`: `"compile"`, `"manifest"`, or `"fixture"`
 - `created_at`
 
 ## Canonical Hashing
@@ -210,15 +224,22 @@ Hash preimages:
 - `packet_hash`: canonical packet JSON. Packet JSON includes `prompt_hash` and
   does not include `packet_hash`, so there is no cycle.
 - `input_snapshot_hash`: canonical JSON of `input_snapshots`, sorted by
-  `input_label`.
+  `input_id`.
+- `input_snapshots[].hash`: canonical JSON of one input snapshot record with the
+  `hash` field omitted. For `path` and `glob`, this includes
+  `snapshot_entries`; for `literal` and `url`, this includes the single
+  normalized-value entry.
 - `handoff_schema_hash`: canonical JSON of the handoff schema file.
 - `approval_state_hash`: canonical JSON of `gates/approval-state.json`.
 - `gate_approval_hash`: canonical JSON of one gate record inside
   `approval-state.json`.
+- `gate_snapshot_hash`: canonical JSON of the ordered packet `risk_gate_refs`
+  gate IDs plus each referenced `gate_approval_hash`.
 
 ## Deterministic IDs
 
-All IDs are derived from canonical JSON plus source position:
+All IDs are derived from canonical JSON plus source position. Indexes are
+zero-based integers formatted as four decimal digits: `0000`, `0001`, and so on.
 
 - packet ID: always `001-first-slice`
 - handoff ID: `handoff-<zero-padded-index>-<sha8(canonical_handoff_json)>`
@@ -234,6 +255,11 @@ for V1 resume purposes and invalidates related snapshots.
 Synthetic gates are generated only for detected risk categories that do not have
 a matching source gate. Their detection record must include `risk_category`,
 `source_field`, `source_id`, and `normalized_token`.
+
+Gate ordering is source gates first in original source order, followed by
+synthetic gates sorted by `risk_category`, then `source_field`, then `source_id`,
+then `normalized_token`. `risk_gate_refs`, `gate_statuses`, Markdown approval
+files, and `approval-state.json.gates` must all use that order.
 
 ## Validation Interface
 
@@ -259,6 +285,7 @@ Required fields:
 - `schema_version`: `"1.0"`
 - `created_at`
 - `source_plan_path`
+- `source_plan_hash`
 - `plan_hash`
 - `compiler_version`
 - `mode`: `"compile"`
@@ -266,6 +293,10 @@ Required fields:
 - `status_path`
 - `packet_paths`
 - `approval_state_path`
+
+`source_plan_hash` is the canonical hash of the original file at
+`source_plan_path` at compile time. `plan_hash` is the canonical hash of
+`plan.snapshot.json`.
 
 `risk_policy` is fixed to `block-all` in V1. Approved execution is outside V1;
 approval files exist only to make manual gates explicit and machine-checkable.
@@ -278,6 +309,7 @@ Required fields:
 
 - `run_id`
 - `plan_hash`
+- `source_plan_hash`
 - `resume_state`: `fresh`, `resumable`, or `invalidated`
 - `packet_statuses`
 - `handoff_statuses`
@@ -365,14 +397,35 @@ First-slice derivation is deliberately conservative:
   `context_only: true`.
 - `handoff_refs` includes every generated handoff ID in source order with
   `context_only: true`.
-- `risk_gate_refs` includes every generated gate ID in source order; status
-  decides whether each gate is required for this packet.
+- `risk_gate_refs` includes every generated gate ID in the deterministic gate
+  ordering defined above; status decides whether each gate is required for this
+  packet.
+- `objective` is copied from top-level `objective`.
+- `surface_refs` includes every source surface in original order as
+  `{ "surface_id", "kind", "locator", "access_mode" }`.
+- `allowed_tools` is the union of every source worker's `tool_permissions`:
+  boolean permissions are `true` if any worker has `true`; `mcp_connectors` and
+  `requires_escalation_for` are unique sorted lists.
+- `forbidden_actions` is the unique ordered union of
+  `execution_path.first_slice.forbidden_actions` followed by every worker's
+  `forbidden_actions`.
+- `verification` is copied from top-level `verification` in source order.
+- `completion_check` is copied from
+  `execution_path.first_slice.completion_check`.
+- `prompt_contract` contains `{ "inputs", "required_output_schema",
+  "stop_conditions" }` where `inputs` is copied from
+  `execution_path.first_slice.inputs`, `required_output_schema` is
+  `execution_path.first_slice.expected_output`, and `stop_conditions` is the
+  unique ordered union of the first slice forbidden actions plus blocked gate
+  triggers.
 
 This avoids fabricating executable assignment semantics that do not exist in the
 V0.5 plan schema.
 
 `input_snapshots` schema:
 
+- `input_id`: `input-<zero-padded-source-index>-<sha8(canonical_input_record)>`
+- `source_index`
 - `input_label`
 - `input_kind`: `literal`, `path`, `glob`, `url`, or `unknown`
 - `normalized_value`
@@ -398,6 +451,49 @@ be called out in `resume.md`. For `glob` inputs, the compiler expands matching
 files, sorts them by POSIX-style relative path, and hashes canonical JSON of
 records `{ "path", "exists", "sha256" }`. Bare directories inside a glob result
 are recorded with `sha256: null`.
+
+Duplicate `input_label` values are allowed because V0.5 treats inputs as
+arbitrary labels. Resume invalidators must target `input_id`, not label text.
+
+## Context Artifacts
+
+`context/phases.json` is canonical JSON with:
+
+- `schema_version`: `"1.0"`
+- `source_plan_id`
+- `phases`: every source phase in original order, each with `phase_id`,
+  `depends_on`, `worker_ids`, `handoffs_in`, `handoffs_out`, and
+  `context_only: true`
+
+`handoffs_in` and `handoffs_out` are lists of generated handoff IDs calculated
+from source handoffs whose `to_phase` or `from_phase` matches the phase ID.
+
+`context/workers.json` is canonical JSON with:
+
+- `schema_version`: `"1.0"`
+- `source_plan_id`
+- `workers`: every source worker in original order with `worker_id`, `role`,
+  `ownership`, `tool_permissions`, `forbidden_actions`, `context_budget`, and
+  `prompt_contract`
+
+`context/parallelism.json` is canonical JSON with:
+
+- `schema_version`: `"1.0"`
+- `source_plan_id`
+- `parallelism`: the top-level `parallelism` object copied from the source plan
+
+`handoffs/<handoff-id>.schema.json` is canonical JSON with:
+
+- `schema_version`: `"1.0"`
+- `handoff_id`
+- `source_index`
+- `from_phase`
+- `to_phase`
+- `artifact`
+- `artifact_schema`
+
+The handoff ID hash uses the full source handoff record. The
+`handoff_schema_hash` uses the generated handoff schema file above.
 
 ## Packet Prompt
 
@@ -430,18 +526,24 @@ Required digest fields:
 
 - `packet_id`
 - `source_plan_id`
+- `source_first_slice`
 - `objective`
-- `input_snapshot_hash`
+- `surface_refs`
+- `phase_context`
+- `worker_refs`
 - `allowed_tools`
 - `forbidden_actions`
 - `risk_gate_refs`
 - `handoff_refs`
 - `verification`
 - `completion_check`
+- `input_snapshot_hash`
+- `prompt_contract`
 
 The digest values must equal the corresponding packet JSON values after
-canonical JSON normalization. Mismatch is a compile failure with
-`ERR_PROMPT_PACKET_DRIFT`.
+canonical JSON normalization. The digest deliberately excludes `prompt_path` and
+`prompt_hash` because those are file metadata, not operator instructions.
+Mismatch is a compile failure with `ERR_PROMPT_PACKET_DRIFT`.
 
 ## Approval State
 
@@ -488,9 +590,10 @@ The compiler uses a closed risk category vocabulary:
 - `history-rewrite`
 - `delete`
 
-Risk detection uses only structured source fields and exact normalized tokens.
-Normalization lowercases text and treats spaces, underscores, and hyphens as the
-same separator. It must not use broad prose substring search.
+Risk detection uses only structured source fields and exact normalized token
+sequences. Normalization lowercases text and treats spaces, underscores, and
+hyphens as the same separator. It must not use broad prose substring search:
+`networking` does not match `network`, and `shellfish` does not match `shell`.
 
 Structured risk sources:
 
@@ -499,18 +602,40 @@ Structured risk sources:
 - `workers[].tool_permissions.shell: true` maps to `shell-process`.
 - `workers[].tool_permissions.network: true` maps to `network`.
 - non-empty `workers[].tool_permissions.mcp_connectors` maps to
-  `external-message` unless the connector is explicitly read-only in the plan.
-- `workers[].tool_permissions.requires_escalation_for[]` tokens map to the risk
-  vocabulary.
-- `risk_gates[].trigger` tokens map to the risk vocabulary.
+  `external-message`.
+- `workers[].tool_permissions.requires_escalation_for[]` tokens are copied into
+  `allowed_tools` and may help match source gates, but they do not by themselves
+  make a first-slice packet blocked unless another structured risk source is
+  present.
+- `risk_gates[].trigger` token sequences map to the risk vocabulary and aliases.
 - `execution_path.first_slice.instruction`,
   `execution_path.first_slice.expected_output`, and
   `execution_path.first_slice.completion_check` are scanned only for exact
   normalized risk tokens from the vocabulary.
+- `execution_path.first_slice.forbidden_actions[]` tokens map to the risk
+  vocabulary and aliases.
 
 A source gate matches a detected category only when its normalized `trigger`
-contains the exact normalized category token. Otherwise the detected category
-requires a synthetic gate.
+contains the exact normalized category token sequence or one of that category's
+compatibility alias token sequences. Otherwise the detected category requires a
+synthetic gate.
+
+Compatibility aliases for existing V0.5 plans:
+
+| Category | Accepted aliases |
+| --- | --- |
+| `write` | `write-action`, `source-edits` |
+| `shell-process` | `shell`, `shell-action`, `process-execution` |
+| `network` | `network-action`, `external-network-calls` |
+| `dependency-install` | `dependency-install`, `dependency-installs`, `dependency-change`, `dependency-changes` |
+| `database-migration` | `database-migration`, `database-migrations` |
+| `production-deploy` | `production-deploy`, `production-deploys` |
+| `public-api-change` | `public-api-change`, `public-api-changes` |
+| `external-message` | `external-message-action`, `external-messages` |
+| `paid-api` | `paid-api`, `paid-external-api-use` |
+| `secret-access` | `secret`, `secret-access` |
+| `history-rewrite` | `history-rewrite`, `force-push`, `hard-reset` |
+| `delete` | `delete`, `deletion` |
 
 If any structured source maps to a risk category, packet status is
 `blocked-risk-gate` and at least one gate status must be `blocked`. If the plan
@@ -525,7 +650,8 @@ edits Markdown approval notes.
 
 `--resume out/v1/<run_id>` recomputes:
 
-- plan hash from `plan.snapshot.json`
+- source plan hash from `source_plan_path`
+- plan snapshot hash from `plan.snapshot.json`
 - packet JSON hash
 - prompt hash
 - input snapshot hash
@@ -539,6 +665,12 @@ Resume outcomes:
 - `resumable`: all stored hashes match recomputed hashes
 - `invalidated`: any hash differs, any required artifact is missing, or the
   current compiler version cannot parse the run
+
+If `source_plan_path` no longer exists, is not a regular file, or hashes
+differently from `run.json.source_plan_hash`, resume must emit
+`ERR_RESUME_STALE_PLAN`. If `plan.snapshot.json` differs from
+`status.json.snapshots.plan_hash`, resume must also emit
+`ERR_RESUME_STALE_PLAN` with `id: "plan.snapshot.json"`.
 
 `invalidators` must be a list of structured records:
 
@@ -609,6 +741,11 @@ Minimum fixture set:
 - negative: output path outside `out/v1/<run_id>` is rejected
 - negative: symlink escape from `out/v1/` is rejected
 - risk: one fixture for each closed risk category becomes `blocked-risk-gate`
+- risk: detected risk without a matching source gate emits a synthetic blocked
+  gate
+- risk: compatibility aliases match current V0.5 gate triggers without creating
+  duplicate synthetic gates
+- risk: near-miss tokens and unrelated prose do not create false positive gates
 - drift: prompt/packet mismatch is rejected by self-test
 - resume: untouched run remains `resumable` with empty `invalidators`
 - resume: modified plan hash invalidates run
@@ -622,6 +759,8 @@ Each fixture must validate:
 
 - generated file set
 - deterministic IDs
+- exact canonical content or hash for packet JSON, handoff schema files, context
+  artifacts, approval state, and status snapshots
 - status values
 - blocked risk gates
 - prompt/packet structural agreement
@@ -641,6 +780,9 @@ IDs must be unique. A skipped fixture is a failure. The manifest run writes
 - unsafe output path rejection
 - symlink escape rejection
 - one blocked gate case for each closed risk category
+- synthetic gate generation when no source gate matches
+- compatibility alias matching for current V0.5 trigger wording
+- near-miss risk-token false-positive rejection
 - prompt/packet drift failure
 - clean resume returns `resumable`
 - stale plan hash resume failure
