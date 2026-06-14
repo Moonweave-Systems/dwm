@@ -1191,6 +1191,8 @@ def require_resume_metadata(sentinel: dict[str, Any], run: dict[str, Any], statu
     for key in ["packet_statuses", "handoff_statuses", "gate_statuses"]:
         if not isinstance(sentinel.get(key), list):
             raise CompileError("ERR_RESUME_MISSING_ARTIFACT", f"sentinel missing list key: {key}", path=run_dir)
+        if not sentinel[key]:
+            raise CompileError("ERR_RESUME_MISSING_ARTIFACT", f"sentinel list is empty: {key}", path=run_dir)
         if not all(isinstance(item, dict) for item in sentinel[key]):
             raise CompileError("ERR_RESUME_MISSING_ARTIFACT", f"sentinel list contains non-object entries: {key}", path=run_dir)
     sentinel_status_keys = {
@@ -1202,6 +1204,9 @@ def require_resume_metadata(sentinel: dict[str, Any], run: dict[str, Any], statu
         for item in sentinel[section]:
             if not required_keys <= set(item):
                 raise CompileError("ERR_RESUME_MISSING_ARTIFACT", f"sentinel status entry is malformed: {section}", path=run_dir)
+            for key, value in item.items():
+                if value is not None and not isinstance(value, (str, int)):
+                    raise CompileError("ERR_RESUME_MISSING_ARTIFACT", f"sentinel status entry has invalid field type: {section}.{key}", path=run_dir)
 
 
 def read_resume_json(path: Path, kind: str, artifact_id: str, invalidators: list[dict[str, Any]], *, root: Path | None = None) -> dict[str, Any] | None:
@@ -1215,9 +1220,14 @@ def read_resume_json(path: Path, kind: str, artifact_id: str, invalidators: list
         invalidators.append(missing_invalidator(kind, artifact_id, "artifact is missing or symlinked"))
         return None
     try:
-        data = json.loads(path.read_text())
+        text = path.read_text()
+    except UnicodeDecodeError:
+        invalidators.append(hash_invalidator(kind, artifact_id, None, sha256_text(path.read_bytes()), "artifact JSON is malformed"))
+        return None
+    try:
+        data = json.loads(text)
     except json.JSONDecodeError:
-        invalidators.append(hash_invalidator(kind, artifact_id, None, sha256_text(path.read_text()), "artifact JSON is malformed"))
+        invalidators.append(hash_invalidator(kind, artifact_id, None, sha256_text(text), "artifact JSON is malformed"))
         return None
     if not isinstance(data, dict):
         invalidators.append(hash_invalidator(kind, artifact_id, None, canonical_hash(data), "artifact JSON root must be an object"))
@@ -1235,7 +1245,11 @@ def read_resume_text(path: Path, kind: str, artifact_id: str, invalidators: list
     if not path.is_file() or path.is_symlink():
         invalidators.append(missing_invalidator(kind, artifact_id, "artifact is missing or symlinked"))
         return None
-    return path.read_text()
+    try:
+        return path.read_text()
+    except UnicodeDecodeError:
+        invalidators.append(hash_invalidator(kind, artifact_id, None, sha256_text(path.read_bytes()), "artifact is not valid UTF-8"))
+        return None
 
 
 def input_drift_id(stored: list[dict[str, Any]], recomputed: list[dict[str, Any]]) -> str:
@@ -1729,6 +1743,46 @@ def expected_resume_signatures(fixture: dict[str, Any], plan_path: Path, run_dir
             restore_bytes(watched_path, content)
 
 
+def expected_record_shapes(fixture: dict[str, Any], plan_path: Path, run_dir: Path) -> list[dict[str, str]]:
+    records = fixture.get("expected_invalidator_records")
+    if not isinstance(records, list):
+        raise CompileError("ERR_SELF_TEST_WRONG_REASON", "resume fixture missing expected_invalidator_records", fixture_id=fixture["id"])
+    packet = json.loads((run_dir / "packets" / "001-first-slice.packet.json").read_text())
+    sentinel = json.loads((run_dir / SENTINEL).read_text())
+    live_input_id = next(
+        (
+            item["input_id"]
+            for item in packet.get("input_snapshots", [])
+            if item.get("input_label") == "path:live-input.txt"
+        ),
+        "",
+    )
+    handoff_id = next(iter(sentinel["snapshots"]["handoff_schema_hashes"]))
+    replacements = {
+        "<fixture_plan>": rel_or_abs(plan_path),
+        "<live_input>": live_input_id,
+        "<ready_plan_abs>": str((ROOT / "fixtures" / "v1" / "plans" / "ready-readonly.workflow.plan.json").resolve()),
+        "<unsafe_source_plan>": str(ROOT / "__unsafe_resume_source_plan__"),
+        "<handoff_id>": handoff_id,
+    }
+    resolved = []
+    for record in records:
+        if not isinstance(record, dict):
+            raise CompileError("ERR_SELF_TEST_WRONG_REASON", "expected invalidator record must be an object", fixture_id=fixture["id"])
+        item = {}
+        for key in ["code", "kind", "id", "message"]:
+            value = record.get(key)
+            if not isinstance(value, str):
+                raise CompileError("ERR_SELF_TEST_WRONG_REASON", f"expected invalidator record missing string key: {key}", fixture_id=fixture["id"])
+            item[key] = replacements.get(value, value)
+        resolved.append(item)
+    return resolved
+
+
+def invalidator_record_shape(signature: dict[str, Any]) -> dict[str, str]:
+    return {key: signature[key] for key in ["code", "kind", "id", "message"]}
+
+
 def check_fixture_result(fixture: dict[str, Any], result: dict[str, Any]) -> None:
     validate_generated_artifacts(result)
     status = result["status"]["packet_statuses"][0]["status"]
@@ -1794,6 +1848,11 @@ def run_fixture(fixture: dict[str, Any], suite_dir: Path, temp_root: Path, *, su
                 if "expected_error" not in fixture and "expected_resume_state" not in fixture
                 else []
             )
+            expected_shapes = (
+                expected_record_shapes(fixture, plan_path, run_dir)
+                if "expected_error" not in fixture and "expected_resume_state" not in fixture
+                else []
+            )
             mutate_run_artifact(run_dir, plan_path, fixture["mutate_artifact"])
             try:
                 status = resume_run(run_dir)
@@ -1810,6 +1869,13 @@ def run_fixture(fixture: dict[str, Any], suite_dir: Path, temp_root: Path, *, su
                 raise CompileError(
                     "ERR_SELF_TEST_WRONG_REASON",
                     f"expected resume invalidators {expected_signatures}, got {actual_signatures}",
+                    fixture_id=fixture_id,
+                )
+            actual_shapes = [invalidator_record_shape(item) for item in actual_signatures]
+            if actual_shapes != expected_shapes:
+                raise CompileError(
+                    "ERR_SELF_TEST_WRONG_REASON",
+                    f"expected resume invalidator record shapes {expected_shapes}, got {actual_shapes}",
                     fixture_id=fixture_id,
                 )
             actual_codes = [item["code"] for item in actual_signatures]
@@ -2091,6 +2157,11 @@ def mutate_run_artifact(run_dir: Path, plan_path: Path, mutation: str) -> None:
         data = json.loads(path.read_text())
         data["packet_statuses"] = [{}]
         write_json_atomic(path, data)
+    elif mutation == "sentinel_empty_status_sections":
+        path = run_dir / SENTINEL
+        data = json.loads(path.read_text())
+        data["packet_statuses"] = []
+        write_json_atomic(path, data)
     elif mutation == "sentinel_invalid_utf8":
         (run_dir / SENTINEL).write_bytes(b"\xff")
     elif mutation == "compiler":
@@ -2169,10 +2240,8 @@ def evaluate_manifest(manifest_path: Path, out_dir: Path) -> dict[str, Any]:
         failures.append({"code": "ERR_PLAN_INVALID", "message": "duplicate fixture ID", "fixture_id": fixture_id})
     for fixture_id in required_duplicates:
         failures.append({"code": "ERR_PLAN_INVALID", "message": "duplicate required fixture ID", "fixture_id": fixture_id})
-    skipped_required = set(required) - set(fixture_ids)
-    skipped_required.update(set(required) & invalid_fixture_ids)
-    skipped_required.update(set(required) & set(duplicate))
-    skipped = len(skipped_required)
+    skipped_fixture_entries = sum(1 for fixture_id in fixture_ids if fixture_id in invalid_fixture_ids or fixture_id in duplicate)
+    skipped = skipped_fixture_entries + len(set(required) - set(fixture_ids))
     required_set = set(required)
     required_failures = [
         failure
@@ -2201,10 +2270,8 @@ def evaluate_manifest(manifest_path: Path, out_dir: Path) -> dict[str, Any]:
         "failures": failures,
     }
     write_json_atomic(staging / "summary.json", summary, root=staging)
-    if summary["decision"] == "keep" or not suite_dir.exists():
-        publish_owned_tree(staging, suite_dir, suite_id, "manifest")
+    publish_owned_tree(staging, suite_dir, suite_id, "manifest")
     if summary["decision"] != "keep":
-        shutil.rmtree(staging, ignore_errors=True)
         raise CompileError("ERR_PLAN_INVALID", "manifest decision is kill", path=manifest_path)
     return summary
 
@@ -2256,9 +2323,10 @@ def self_test() -> None:
             if exc.code != "ERR_PLAN_INVALID":
                 raise
         else:
-            raise CompileError("ERR_SELF_TEST_WRONG_REASON", "kill manifest unexpectedly replaced preserved suite")
-        if json.loads((preserved_out / "summary.json").read_text()) != preserved_summary:
-            raise CompileError("ERR_SELF_TEST_WRONG_REASON", "kill manifest replaced previous published summary")
+            raise CompileError("ERR_SELF_TEST_WRONG_REASON", "kill manifest unexpectedly returned keep")
+        latest_summary = json.loads((preserved_out / "summary.json").read_text())
+        if latest_summary == preserved_summary or latest_summary["decision"] != "kill":
+            raise CompileError("ERR_SELF_TEST_WRONG_REASON", "kill manifest did not publish latest kill summary")
         duplicate_optional_manifest = {
             "suite_id": "duplicate-optional",
             "fixtures": [
@@ -2285,7 +2353,7 @@ def self_test() -> None:
             or duplicate_summary["passed"] != 1
             or duplicate_summary["failed"] != 2
             or duplicate_summary["required_passed"] != 1
-            or duplicate_summary["skipped"] != 0
+            or duplicate_summary["skipped"] != 2
         ):
             raise CompileError("ERR_SELF_TEST_WRONG_REASON", "duplicate optional fixture summary was not fatal and complete")
         with tempfile.TemporaryDirectory(prefix="compile-workflow-external-plan-") as external_tmp:
@@ -2364,7 +2432,7 @@ def self_test() -> None:
             or required_duplicate_summary["required_fixture_count"] != 1
             or required_duplicate_summary["required_passed"] != 0
             or required_duplicate_summary["passed"] != 0
-            or required_duplicate_summary["skipped"] != 1
+            or required_duplicate_summary["skipped"] != 2
         ):
             raise CompileError("ERR_SELF_TEST_WRONG_REASON", "required duplicate fixture summary did not count skipped required fixture")
         symlink_root = tmp_path / "symlink-write"

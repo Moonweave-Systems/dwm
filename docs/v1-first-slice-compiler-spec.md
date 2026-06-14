@@ -777,8 +777,8 @@ Minimum fixture set:
 - resume: forged `status.json` metadata or snapshot fields invalidate run
 - resume: forged previous-invalidated status sections invalidate run, including
   full invalidated and impossible hybrid clean/invalidated status section shapes
-- resume: missing, malformed, or invalid UTF-8 sentinel status-section anchors
-  produce structured `ERR_RESUME_MISSING_ARTIFACT`
+- resume: missing, empty, malformed, or invalid UTF-8 sentinel status-section
+  anchors produce structured `ERR_RESUME_MISSING_ARTIFACT`
 - resume: repo-relative `source_plan_path` retargeting invalidates run
 - resume: a previously invalidated `status.json` remains invalidated even after
   artifact repair; rerun compile to restore trusted clean status sections
@@ -832,6 +832,8 @@ IDs must be unique. A skipped fixture is a failure. The manifest run writes
 
 The self-test must fail for the exact reason under test. It must not count a
 failure caused by an unrelated missing required field as a pass.
+Resume fixtures must declare exact ordered invalidator record shapes (`code`,
+`kind`, `id`, and `message`) in addition to exact ordered invalidator codes.
 
 ## Decision Gate
 

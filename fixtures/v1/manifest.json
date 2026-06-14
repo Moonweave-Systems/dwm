@@ -363,6 +363,14 @@
     },
     {
       "expected_invalidator": "ERR_RESUME_STALE_PLAN",
+      "expected_invalidator_records": [
+        {
+          "code": "ERR_RESUME_STALE_PLAN",
+          "id": "<fixture_plan>",
+          "kind": "plan",
+          "message": "source plan hash changed"
+        }
+      ],
       "id": "resume-stale-source-plan",
       "mutate_artifact": "source_plan",
       "mutation": {
@@ -373,12 +381,34 @@
     },
     {
       "expected_invalidator": "ERR_RESUME_STALE_PLAN",
+      "expected_invalidator_records": [
+        {
+          "code": "ERR_RESUME_STALE_PLAN",
+          "id": "plan.snapshot.json",
+          "kind": "plan",
+          "message": "plan snapshot hash changed"
+        }
+      ],
       "id": "resume-stale-plan-snapshot",
       "mutate_artifact": "plan_snapshot",
       "plan": "fixtures/v1/plans/ready-readonly.workflow.plan.json",
       "type": "resume"
     },
     {
+      "expected_invalidator_records": [
+        {
+          "code": "ERR_RESUME_STALE_PACKET",
+          "id": "001-first-slice",
+          "kind": "packet",
+          "message": "packet hash changed"
+        },
+        {
+          "code": "ERR_RESUME_STALE_PROMPT",
+          "id": "packets/001-first-slice.prompt.md",
+          "kind": "prompt",
+          "message": "prompt and packet contract disagree"
+        }
+      ],
       "expected_invalidators": [
         "ERR_RESUME_STALE_PACKET",
         "ERR_RESUME_STALE_PROMPT"
@@ -389,6 +419,26 @@
       "type": "resume"
     },
     {
+      "expected_invalidator_records": [
+        {
+          "code": "ERR_RESUME_STALE_PACKET",
+          "id": "status.json.snapshots.packet_hashes",
+          "kind": "packet",
+          "message": "status snapshot packet_hashes changed"
+        },
+        {
+          "code": "ERR_RESUME_STALE_PACKET",
+          "id": "001-first-slice",
+          "kind": "packet",
+          "message": "packet hash changed"
+        },
+        {
+          "code": "ERR_RESUME_STALE_PROMPT",
+          "id": "packets/001-first-slice.prompt.md",
+          "kind": "prompt",
+          "message": "prompt and packet contract disagree"
+        }
+      ],
       "expected_invalidators": [
         "ERR_RESUME_STALE_PACKET",
         "ERR_RESUME_STALE_PACKET",
@@ -400,6 +450,26 @@
       "type": "resume"
     },
     {
+      "expected_invalidator_records": [
+        {
+          "code": "ERR_RESUME_STALE_PACKET",
+          "id": "status.json.snapshots.packet_hashes",
+          "kind": "packet",
+          "message": "status snapshot packet_hashes changed"
+        },
+        {
+          "code": "ERR_RESUME_STALE_PACKET",
+          "id": "001-first-slice",
+          "kind": "packet",
+          "message": "packet hash changed"
+        },
+        {
+          "code": "ERR_RESUME_STALE_PROMPT",
+          "id": "packets/001-first-slice.prompt.md",
+          "kind": "prompt",
+          "message": "packet prompt hash changed"
+        }
+      ],
       "expected_invalidators": [
         "ERR_RESUME_STALE_PACKET",
         "ERR_RESUME_STALE_PACKET",
@@ -411,6 +481,26 @@
       "type": "resume"
     },
     {
+      "expected_invalidator_records": [
+        {
+          "code": "ERR_RESUME_STALE_PACKET",
+          "id": "status.json.snapshots.packet_hashes",
+          "kind": "packet",
+          "message": "status snapshot packet_hashes changed"
+        },
+        {
+          "code": "ERR_RESUME_STALE_PACKET",
+          "id": "001-first-slice",
+          "kind": "packet",
+          "message": "packet hash changed"
+        },
+        {
+          "code": "ERR_RESUME_STALE_PROMPT",
+          "id": "packets/001-first-slice.prompt.md",
+          "kind": "prompt",
+          "message": "packet prompt path changed"
+        }
+      ],
       "expected_invalidators": [
         "ERR_RESUME_STALE_PACKET",
         "ERR_RESUME_STALE_PACKET",
@@ -422,6 +512,38 @@
       "type": "resume"
     },
     {
+      "expected_invalidator_records": [
+        {
+          "code": "ERR_RESUME_STALE_PACKET",
+          "id": "status.json.snapshots.packet_hashes",
+          "kind": "packet",
+          "message": "status snapshot packet_hashes changed"
+        },
+        {
+          "code": "ERR_RESUME_STALE_PROMPT",
+          "id": "status.json.snapshots.prompt_hashes",
+          "kind": "prompt",
+          "message": "status snapshot prompt_hashes changed"
+        },
+        {
+          "code": "ERR_RESUME_STALE_PACKET",
+          "id": "001-first-slice",
+          "kind": "packet",
+          "message": "packet hash changed"
+        },
+        {
+          "code": "ERR_RESUME_STALE_PROMPT",
+          "id": "packets/001-first-slice.prompt.md",
+          "kind": "prompt",
+          "message": "prompt hash changed"
+        },
+        {
+          "code": "ERR_RESUME_STALE_PACKET",
+          "id": "status.json.packet_statuses",
+          "kind": "packet",
+          "message": "status packet_statuses changed"
+        }
+      ],
       "expected_invalidators": [
         "ERR_RESUME_STALE_PACKET",
         "ERR_RESUME_STALE_PROMPT",
@@ -436,6 +558,14 @@
     },
     {
       "expected_invalidator": "ERR_RESUME_STALE_PACKET",
+      "expected_invalidator_records": [
+        {
+          "code": "ERR_RESUME_STALE_PACKET",
+          "id": "001-first-slice",
+          "kind": "packet",
+          "message": "artifact JSON is malformed"
+        }
+      ],
       "id": "resume-malformed-packet",
       "mutate_artifact": "malformed_packet",
       "plan": "fixtures/v1/plans/ready-readonly.workflow.plan.json",
@@ -443,12 +573,34 @@
     },
     {
       "expected_invalidator": "ERR_RESUME_STALE_PACKET",
+      "expected_invalidator_records": [
+        {
+          "code": "ERR_RESUME_STALE_PACKET",
+          "id": "001-first-slice",
+          "kind": "packet",
+          "message": "artifact JSON root must be an object"
+        }
+      ],
       "id": "resume-packet-array",
       "mutate_artifact": "packet_array",
       "plan": "fixtures/v1/plans/ready-readonly.workflow.plan.json",
       "type": "resume"
     },
     {
+      "expected_invalidator_records": [
+        {
+          "code": "ERR_RESUME_STALE_PACKET",
+          "id": "001-first-slice",
+          "kind": "packet",
+          "message": "packet hash changed"
+        },
+        {
+          "code": "ERR_RESUME_STALE_INPUT",
+          "id": "001-first-slice",
+          "kind": "input",
+          "message": "packet input snapshots are malformed"
+        }
+      ],
       "expected_invalidators": [
         "ERR_RESUME_STALE_PACKET",
         "ERR_RESUME_STALE_INPUT"
@@ -459,6 +611,20 @@
       "type": "resume"
     },
     {
+      "expected_invalidator_records": [
+        {
+          "code": "ERR_RESUME_STALE_PROMPT",
+          "id": "packets/001-first-slice.prompt.md",
+          "kind": "prompt",
+          "message": "prompt hash changed"
+        },
+        {
+          "code": "ERR_RESUME_STALE_PROMPT",
+          "id": "packets/001-first-slice.prompt.md",
+          "kind": "prompt",
+          "message": "packet prompt hash changed"
+        }
+      ],
       "expected_invalidators": [
         "ERR_RESUME_STALE_PROMPT",
         "ERR_RESUME_STALE_PROMPT"
@@ -476,6 +642,20 @@
       "type": "resume-repair"
     },
     {
+      "expected_invalidator_records": [
+        {
+          "code": "ERR_RESUME_STALE_PACKET",
+          "id": "001-first-slice",
+          "kind": "packet",
+          "message": "packet hash changed"
+        },
+        {
+          "code": "ERR_RESUME_STALE_INPUT",
+          "id": "001-first-slice",
+          "kind": "input",
+          "message": "input snapshot hash changed"
+        }
+      ],
       "expected_invalidators": [
         "ERR_RESUME_STALE_PACKET",
         "ERR_RESUME_STALE_INPUT"
@@ -487,12 +667,40 @@
     },
     {
       "expected_invalidator": "ERR_RESUME_STALE_PLAN",
+      "expected_invalidator_records": [
+        {
+          "code": "ERR_RESUME_STALE_PLAN",
+          "id": "plan.snapshot.json",
+          "kind": "plan",
+          "message": "artifact JSON root must be an object"
+        }
+      ],
       "id": "resume-snapshot-null",
       "mutate_artifact": "plan_snapshot_null",
       "plan": "fixtures/v1/plans/ready-readonly.workflow.plan.json",
       "type": "resume"
     },
     {
+      "expected_invalidator_records": [
+        {
+          "code": "ERR_RESUME_STALE_PLAN",
+          "id": "sentinel.snapshots",
+          "kind": "plan",
+          "message": "sentinel snapshots do not match source plan"
+        },
+        {
+          "code": "ERR_RESUME_STALE_PACKET",
+          "id": "sentinel.packet_statuses",
+          "kind": "packet",
+          "message": "sentinel packet_statuses does not match source plan"
+        },
+        {
+          "code": "ERR_RESUME_STALE_INPUT",
+          "id": "<live_input>",
+          "kind": "input",
+          "message": "live input snapshot hash changed"
+        }
+      ],
       "expected_invalidators": [
         "ERR_RESUME_STALE_PLAN",
         "ERR_RESUME_STALE_PACKET",
@@ -519,6 +727,20 @@
       "type": "resume"
     },
     {
+      "expected_invalidator_records": [
+        {
+          "code": "ERR_RESUME_STALE_GATE",
+          "id": "approval-state.json",
+          "kind": "gate",
+          "message": "approval state hash changed"
+        },
+        {
+          "code": "ERR_RESUME_STALE_GATE",
+          "id": "gate-0000-d58c9cd5",
+          "kind": "gate",
+          "message": "gate approval hash changed"
+        }
+      ],
       "expected_invalidators": [
         "ERR_RESUME_STALE_GATE",
         "ERR_RESUME_STALE_GATE"
@@ -529,6 +751,38 @@
       "type": "resume"
     },
     {
+      "expected_invalidator_records": [
+        {
+          "code": "ERR_RESUME_STALE_GATE",
+          "id": "status.json.snapshots.approval_state_hash",
+          "kind": "gate",
+          "message": "status snapshot approval_state_hash changed"
+        },
+        {
+          "code": "ERR_RESUME_STALE_GATE",
+          "id": "status.json.snapshots.gate_approval_hashes",
+          "kind": "gate",
+          "message": "status snapshot gate_approval_hashes changed"
+        },
+        {
+          "code": "ERR_RESUME_STALE_GATE",
+          "id": "approval-state.json",
+          "kind": "gate",
+          "message": "approval state hash changed"
+        },
+        {
+          "code": "ERR_RESUME_STALE_GATE",
+          "id": "gate-0000-6213db5e",
+          "kind": "gate",
+          "message": "gate approval hash changed"
+        },
+        {
+          "code": "ERR_RESUME_STALE_GATE",
+          "id": "status.json.gate_statuses",
+          "kind": "gate",
+          "message": "status gate_statuses changed"
+        }
+      ],
       "expected_invalidators": [
         "ERR_RESUME_STALE_GATE",
         "ERR_RESUME_STALE_GATE",
@@ -547,6 +801,20 @@
       "type": "resume"
     },
     {
+      "expected_invalidator_records": [
+        {
+          "code": "ERR_RESUME_STALE_PLAN",
+          "id": "status.json.source_plan_hash",
+          "kind": "plan",
+          "message": "status source plan hash changed"
+        },
+        {
+          "code": "ERR_RESUME_STALE_PLAN",
+          "id": "status.json.plan_hash",
+          "kind": "plan",
+          "message": "status plan hash changed"
+        }
+      ],
       "expected_invalidators": [
         "ERR_RESUME_STALE_PLAN",
         "ERR_RESUME_STALE_PLAN"
@@ -558,12 +826,28 @@
     },
     {
       "expected_invalidator": "ERR_RESUME_STALE_PACKET",
+      "expected_invalidator_records": [
+        {
+          "code": "ERR_RESUME_STALE_PACKET",
+          "id": "status.json.packet_statuses",
+          "kind": "packet",
+          "message": "status packet_statuses changed"
+        }
+      ],
       "id": "resume-status-packet-status",
       "mutate_artifact": "status_packet_status",
       "plan": "fixtures/v1/plans/ready-readonly.workflow.plan.json",
       "type": "resume"
     },
     {
+      "expected_invalidator_records": [
+        {
+          "code": "ERR_RESUME_STALE_PACKET",
+          "id": "status.json.packet_statuses",
+          "kind": "packet",
+          "message": "status packet_statuses changed"
+        }
+      ],
       "expected_invalidators": [
         "ERR_RESUME_STALE_PACKET"
       ],
@@ -573,6 +857,14 @@
       "type": "resume"
     },
     {
+      "expected_invalidator_records": [
+        {
+          "code": "ERR_RESUME_STALE_PACKET",
+          "id": "status.json.packet_statuses",
+          "kind": "packet",
+          "message": "status packet_statuses changed"
+        }
+      ],
       "expected_invalidators": [
         "ERR_RESUME_STALE_PACKET"
       ],
@@ -582,6 +874,20 @@
       "type": "resume"
     },
     {
+      "expected_invalidator_records": [
+        {
+          "code": "ERR_RESUME_STALE_PACKET",
+          "id": "status.json.packet_statuses",
+          "kind": "packet",
+          "message": "status packet_statuses changed"
+        },
+        {
+          "code": "ERR_RESUME_STALE_GATE",
+          "id": "status.json.gate_statuses",
+          "kind": "gate",
+          "message": "status gate_statuses changed"
+        }
+      ],
       "expected_invalidators": [
         "ERR_RESUME_STALE_PACKET",
         "ERR_RESUME_STALE_GATE"
@@ -593,6 +899,14 @@
     },
     {
       "expected_invalidator": "ERR_RESUME_STALE_GATE",
+      "expected_invalidator_records": [
+        {
+          "code": "ERR_RESUME_STALE_GATE",
+          "id": "status.json.gate_statuses",
+          "kind": "gate",
+          "message": "status gate_statuses changed"
+        }
+      ],
       "id": "resume-status-gate-status",
       "mutate_artifact": "status_gate_status",
       "plan": "fixtures/v1/plans/ready-readonly.workflow.plan.json",
@@ -600,6 +914,14 @@
     },
     {
       "expected_invalidator": "ERR_RESUME_STALE_PLAN",
+      "expected_invalidator_records": [
+        {
+          "code": "ERR_RESUME_STALE_PLAN",
+          "id": "status.json.run_id",
+          "kind": "plan",
+          "message": "status run id changed"
+        }
+      ],
       "id": "resume-status-run-id",
       "mutate_artifact": "status_run_id",
       "plan": "fixtures/v1/plans/ready-readonly.workflow.plan.json",
@@ -607,12 +929,40 @@
     },
     {
       "expected_invalidator": "ERR_RESUME_STALE_COMPILER",
+      "expected_invalidator_records": [
+        {
+          "code": "ERR_RESUME_STALE_COMPILER",
+          "id": "status.json.snapshots.compiler_version",
+          "kind": "compiler",
+          "message": "status snapshot compiler_version changed"
+        }
+      ],
       "id": "resume-status-snapshot-compiler",
       "mutate_artifact": "status_snapshot_compiler",
       "plan": "fixtures/v1/plans/ready-readonly.workflow.plan.json",
       "type": "resume"
     },
     {
+      "expected_invalidator_records": [
+        {
+          "code": "ERR_RESUME_STALE_PLAN",
+          "id": "run.json.source_plan_path",
+          "kind": "plan",
+          "message": "source plan path changed"
+        },
+        {
+          "code": "ERR_RESUME_STALE_PLAN",
+          "id": "<ready_plan_abs>",
+          "kind": "plan",
+          "message": "source plan path is unsafe"
+        },
+        {
+          "code": "ERR_RESUME_STALE_PLAN",
+          "id": "<unsafe_source_plan>",
+          "kind": "plan",
+          "message": "source plan is missing"
+        }
+      ],
       "expected_invalidators": [
         "ERR_RESUME_STALE_PLAN",
         "ERR_RESUME_STALE_PLAN",
@@ -624,6 +974,50 @@
       "type": "resume"
     },
     {
+      "expected_invalidator_records": [
+        {
+          "code": "ERR_RESUME_STALE_PLAN",
+          "id": "run.json.source_plan_path",
+          "kind": "plan",
+          "message": "source plan path changed"
+        },
+        {
+          "code": "ERR_RESUME_STALE_PLAN",
+          "id": "run.json.source_plan_hash",
+          "kind": "plan",
+          "message": "run source plan hash changed"
+        },
+        {
+          "code": "ERR_RESUME_STALE_PLAN",
+          "id": "run.json.plan_hash",
+          "kind": "plan",
+          "message": "run plan hash changed"
+        },
+        {
+          "code": "ERR_RESUME_STALE_PLAN",
+          "id": "status.json.source_plan_hash",
+          "kind": "plan",
+          "message": "status source plan hash changed"
+        },
+        {
+          "code": "ERR_RESUME_STALE_PLAN",
+          "id": "status.json.plan_hash",
+          "kind": "plan",
+          "message": "status plan hash changed"
+        },
+        {
+          "code": "ERR_RESUME_STALE_PLAN",
+          "id": "status.json.snapshots.plan_hash",
+          "kind": "plan",
+          "message": "status snapshot plan_hash changed"
+        },
+        {
+          "code": "ERR_RESUME_STALE_PLAN",
+          "id": "samples/v0.5/candidates/pos-cross-source-research.workflow.plan.json",
+          "kind": "plan",
+          "message": "source plan hash changed"
+        }
+      ],
       "expected_invalidators": [
         "ERR_RESUME_STALE_PLAN",
         "ERR_RESUME_STALE_PLAN",
@@ -640,6 +1034,14 @@
     },
     {
       "expected_invalidator": "ERR_RESUME_STALE_GATE",
+      "expected_invalidator_records": [
+        {
+          "code": "ERR_RESUME_STALE_GATE",
+          "id": "approval-state.json",
+          "kind": "gate",
+          "message": "approval state hash changed"
+        }
+      ],
       "id": "resume-gate-empty-object",
       "mutate_artifact": "gate_empty_object",
       "plan": "fixtures/v1/plans/ready-readonly.workflow.plan.json",
@@ -647,6 +1049,14 @@
     },
     {
       "expected_invalidator": "ERR_RESUME_STALE_COMPILER",
+      "expected_invalidator_records": [
+        {
+          "code": "ERR_RESUME_STALE_COMPILER",
+          "id": "compile_workflow.py",
+          "kind": "compiler",
+          "message": "compiler version changed"
+        }
+      ],
       "id": "resume-stale-compiler",
       "mutate_artifact": "compiler",
       "plan": "fixtures/v1/plans/ready-readonly.workflow.plan.json",
@@ -654,12 +1064,34 @@
     },
     {
       "expected_invalidator": "ERR_RESUME_MISSING_ARTIFACT",
+      "expected_invalidator_records": [
+        {
+          "code": "ERR_RESUME_MISSING_ARTIFACT",
+          "id": "approval-state.json",
+          "kind": "gate",
+          "message": "artifact is missing or symlinked"
+        }
+      ],
       "id": "resume-symlink-gate",
       "mutate_artifact": "approval_symlink",
       "plan": "fixtures/v1/plans/ready-readonly.workflow.plan.json",
       "type": "resume"
     },
     {
+      "expected_invalidator_records": [
+        {
+          "code": "ERR_RESUME_MISSING_ARTIFACT",
+          "id": "001-first-slice",
+          "kind": "packet",
+          "message": "artifact path is missing, unsafe, or symlinked"
+        },
+        {
+          "code": "ERR_RESUME_MISSING_ARTIFACT",
+          "id": "packets/001-first-slice.prompt.md",
+          "kind": "prompt",
+          "message": "artifact path is missing, unsafe, or symlinked"
+        }
+      ],
       "expected_invalidators": [
         "ERR_RESUME_MISSING_ARTIFACT",
         "ERR_RESUME_MISSING_ARTIFACT"
@@ -713,6 +1145,13 @@
     },
     {
       "expected_error": "ERR_RESUME_MISSING_ARTIFACT",
+      "id": "resume-sentinel-empty-status-sections",
+      "mutate_artifact": "sentinel_empty_status_sections",
+      "plan": "fixtures/v1/plans/ready-readonly.workflow.plan.json",
+      "type": "resume"
+    },
+    {
+      "expected_error": "ERR_RESUME_MISSING_ARTIFACT",
       "id": "resume-sentinel-invalid-utf8",
       "mutate_artifact": "sentinel_invalid_utf8",
       "plan": "fixtures/v1/plans/ready-readonly.workflow.plan.json",
@@ -720,12 +1159,34 @@
     },
     {
       "expected_invalidator": "ERR_RESUME_MISSING_ARTIFACT",
+      "expected_invalidator_records": [
+        {
+          "code": "ERR_RESUME_MISSING_ARTIFACT",
+          "id": "<handoff_id>",
+          "kind": "handoff",
+          "message": "artifact is missing or symlinked"
+        }
+      ],
       "id": "resume-missing-handoff",
       "mutate_artifact": "missing_handoff",
       "plan": "fixtures/v1/plans/ready-readonly.workflow.plan.json",
       "type": "resume"
     },
     {
+      "expected_invalidator_records": [
+        {
+          "code": "ERR_RESUME_STALE_HANDOFF",
+          "id": "status.json.snapshots.handoff_schema_hashes",
+          "kind": "handoff",
+          "message": "status snapshot handoff_schema_hashes changed"
+        },
+        {
+          "code": "ERR_RESUME_MISSING_ARTIFACT",
+          "id": "../../outside",
+          "kind": "handoff",
+          "message": "handoff snapshot id is unsafe"
+        }
+      ],
       "expected_invalidators": [
         "ERR_RESUME_STALE_HANDOFF",
         "ERR_RESUME_MISSING_ARTIFACT"
@@ -802,6 +1263,7 @@
     "resume-sentinel-missing-status-sections",
     "resume-sentinel-malformed-status-sections",
     "resume-sentinel-empty-status-object",
+    "resume-sentinel-empty-status-sections",
     "resume-sentinel-invalid-utf8",
     "resume-missing-handoff",
     "resume-handoff-traversal"

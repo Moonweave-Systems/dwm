@@ -85,15 +85,26 @@ def require_decision_summary_text(summary: dict[str, object], decision_text: str
             raise SystemExit(f"docs/v0.5-decision.md contains unsupported claim: {claim}")
 
 
+def run_contract_command(args: list[str]) -> subprocess.CompletedProcess[str]:
+    try:
+        return subprocess.run(args, cwd=ROOT, check=True, capture_output=True, text=True)
+    except subprocess.CalledProcessError as exc:
+        raise SystemExit(
+            "release command failed: "
+            + " ".join(args)
+            + f"\nstdout:\n{exc.stdout}\nstderr:\n{exc.stderr}"
+        ) from exc
+
+
 def require_decision_summary_consistency() -> None:
+    completed = run_contract_command([sys.executable, "scripts/evaluate_plan.py", "--manifest", "fixtures/v0.5/manifest.json", "--out", "out/v0.5"])
+    match = re.search(r"manifest evaluated: (\d+) fixtures, decision=(\w+)", completed.stdout)
+    if not match:
+        raise SystemExit(f"V0.5 manifest command output was not recognized: {completed.stdout}")
     out_root = ROOT / "out" / "v0.5-contract-check"
-    if out_root.exists():
-        shutil.rmtree(out_root)
     try:
         summary = evaluate_plan.evaluate_manifest(ROOT / "fixtures" / "v0.5" / "manifest.json", out_root)
         require_decision_summary_text(summary, (ROOT / "docs" / "v0.5-decision.md").read_text())
-    except evaluate_plan.EvaluationError as exc:
-        raise SystemExit(f"V0.5 decision consistency failed: {exc}") from exc
     finally:
         shutil.rmtree(out_root, ignore_errors=True)
 
@@ -120,7 +131,7 @@ def require_v1_decision_summary_text(summary: dict[str, object], decision_text: 
 
 def require_v1_decision_summary_consistency() -> None:
     try:
-        completed = subprocess.run(
+        completed = run_contract_command(
             [
                 sys.executable,
                 "scripts/compile_workflow.py",
@@ -129,15 +140,24 @@ def require_v1_decision_summary_consistency() -> None:
                 "--out",
                 "out/v1/final",
             ],
-            cwd=ROOT,
-            check=True,
-            capture_output=True,
-            text=True,
         )
         summary = json.loads(completed.stdout)
         require_v1_decision_summary_text(summary, (ROOT / "docs" / "v1-decision.md").read_text())
-    except (json.JSONDecodeError, subprocess.CalledProcessError) as exc:
+    except json.JSONDecodeError as exc:
         raise SystemExit(f"V1 decision consistency failed: {exc}") from exc
+
+
+def require_release_commands_pass() -> None:
+    commands = [
+        [sys.executable, "scripts/quick_validate_skill.py", "."],
+        [sys.executable, "scripts/evaluate_plan.py", "--self-test"],
+        [sys.executable, "scripts/compile_workflow.py", "--self-test"],
+        [sys.executable, "scripts/check_whitespace.py", "."],
+        [sys.executable, "scripts/check_release_text.py", "."],
+        [sys.executable, "scripts/check_release_text.py", "--self-test"],
+    ]
+    for command in commands:
+        run_contract_command(command)
 
 
 def canonical_patterns() -> set[str]:
@@ -385,10 +405,10 @@ Overclaims execution: no
 
     v1_summary = {
         "suite_id": "final",
-        "fixture_count": 68,
-        "required_fixture_count": 68,
-        "required_passed": 68,
-        "passed": 68,
+        "fixture_count": 69,
+        "required_fixture_count": 69,
+        "required_passed": 69,
+        "passed": 69,
         "failed": 0,
         "skipped": 0,
         "decision": "keep",
@@ -397,10 +417,10 @@ Overclaims execution: no
         "Decision: keep\n"
         "python scripts/compile_workflow.py --manifest fixtures/v1/manifest.json --out out/v1/final\n"
         "- `suite_id`: `final`\n"
-        "- `fixture_count`: 68\n"
-        "- `required_fixture_count`: 68\n"
-        "- `required_passed`: 68\n"
-        "- `passed`: 68\n"
+        "- `fixture_count`: 69\n"
+        "- `required_fixture_count`: 69\n"
+        "- `required_passed`: 69\n"
+        "- `passed`: 69\n"
         "- `failed`: 0\n"
         "- `skipped`: 0\n"
         "- `decision`: `keep`\n"
@@ -408,7 +428,7 @@ Overclaims execution: no
     )
     require_v1_decision_summary_text(v1_summary, good_v1_decision)
     try:
-        require_v1_decision_summary_text(v1_summary, good_v1_decision.replace("68", "67", 1))
+        require_v1_decision_summary_text(v1_summary, good_v1_decision.replace("69", "68", 1))
     except SystemExit:
         pass
     else:
@@ -463,6 +483,8 @@ def main() -> None:
             "python scripts/check_release_text.py --self-test",
             "python scripts/compile_workflow.py --plan workflow.plan.json --out out/v1/<run_id>",
             "python scripts/compile_workflow.py --resume out/v1/<run_id>",
+            "python scripts/compile_workflow.py --self-test",
+            "python scripts/compile_workflow.py --manifest fixtures/v1/manifest.json --out out/v1/final",
             "workflow.plan.json` to live under this repository root",
         ],
     )
@@ -473,7 +495,8 @@ def main() -> None:
             "forged previous-invalidated status sections",
             "full invalidated",
             "hybrid clean/invalidated status section shapes",
-            "invalid utf-8 sentinel status-section anchors",
+            "missing, empty, malformed, or invalid utf-8 sentinel status-section",
+            "exact ordered invalidator record shapes",
             "rerun compile to restore trusted clean status sections",
             "err_resume_missing_artifact",
         ],
@@ -515,6 +538,7 @@ def main() -> None:
         ],
     )
     require_fixture_smoke()
+    require_release_commands_pass()
     require_decision_summary_consistency()
     require_v1_decision_summary_consistency()
     print("contract smoke: pass")
