@@ -26,6 +26,8 @@ Positioning:
   work before execution.
 - Future `workflow-orchestrator` plugin/runtime: execute saved workflow plans
   with resumability, monitoring, and subagent coordination.
+- V0.5 continuation gate: prove the skill can emit a machine-readable
+  `workflow.plan.json` plus an evaluator before plugin/runtime work begins.
 
 ## Users
 
@@ -194,6 +196,25 @@ For each fixture, record:
 - whether verification can falsify the result
 - whether the plan overclaims execution
 
+### Fixture Smoke Gate
+
+Before calling v0 final, run at least two fixtures against the current skill
+instructions:
+
+1. one codebase-facing fixture, such as the API auth audit or 500-file migration
+2. one non-code or meta fixture, such as research, architecture judging, or
+   runtime planning
+
+Each smoke output passes only if it includes every field in
+`Workflow Design Output`, chooses patterns from `references/workflow-patterns.md`,
+names at least one falsifiable verification check, gates risky actions with a
+safe default, and does not imply the requested work has already been executed.
+
+Record the prompt, selected patterns, generated workflow output, failed
+criteria, and resulting spec/skill change if any under `docs/fixture-smoke/`. If
+a fixture fails, update `SKILL.md`, `docs/spec.md`, or
+`references/workflow-patterns.md`, then rerun the fixture category that failed.
+
 ## Release Criteria
 
 V0 is releasable when:
@@ -204,6 +225,10 @@ V0 is releasable when:
 - `docs/github-research.md` records prior-art decisions.
 - `docs/spec.md` has fixtures and non-goals.
 - `references/workflow-patterns.md` gives enough pattern guidance for v0.
+- at least two fixture smoke checks pass, covering one codebase-facing fixture
+  and one non-code or meta fixture, with records in `docs/fixture-smoke/`.
+- V0.5 remains a separate continuation gate; V0 release does not claim the
+  evaluator slice is complete.
 - whitespace check passes.
 - secret scan finds no committed secrets.
 
@@ -227,12 +252,17 @@ rg -n --pcre2 "(?i)(api[_-]?key|secret|token|password)\s*[:=]\s*['\"][^'\"]{8,}|
 rg -n "T[O]DO|T[B]D|PLACE[H]OLDER|FIX[M]E" --glob '*.md' .; test $? -eq 1
 ```
 
+```bash
+python scripts/check_contract.py
+python scripts/check_contract.py --self-test
+```
+
 ## Open Questions
 
 - Whether v1 should be a Codex plugin, a Claude plugin, or both.
 - Whether a future runtime should wrap existing projects such as
   `claude-dynamic-workflows-codex` or start with a smaller local adapter.
-- Whether workflow designs should be serialized as Markdown, JSON, JavaScript,
-  or a dual spec plus generated script.
+- Whether the V0.5 JSON schema should later compile to JavaScript workflow
+  scripts, MCP runtime plans, or both.
 - Whether forward-testing should use live subagents or fixture-only review for
   the first release.

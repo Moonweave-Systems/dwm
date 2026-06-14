@@ -40,7 +40,11 @@ Use $dynamic-workflow-designer to plan a 500-file migration with verification ga
 ```text
 .
 ├── SKILL.md                         # Runtime skill instructions
+├── scripts/check_contract.py         # Release contract smoke check
 ├── references/workflow-patterns.md  # Pattern guide for workflow designs
+├── docs/fixture-smoke/v0-smoke.md    # Auditable fixture smoke results
+├── docs/v0.5-plan-schema-evaluator-spec.md
+│                                      # Next continuation gate
 ├── docs/github-research.md          # Prior-art survey and import decisions
 ├── docs/spec.md                     # Product spec and release criteria
 ├── agents/openai.yaml               # UI metadata
@@ -69,10 +73,18 @@ Run from the repository root:
 
 ```bash
 uv run python "$HOME/.codex/skills/.system/skill-creator/scripts/quick_validate.py" .
+python scripts/check_contract.py
+python scripts/check_contract.py --self-test
 git diff --check "$(git hash-object -t tree /dev/null)" HEAD
 rg -n --pcre2 "(?i)(api[_-]?key|secret|token|password)\s*[:=]\s*['\"][^'\"]{8,}|-----BEGIN (RSA|OPENSSH) PRIVATE KEY-----" --glob '!LICENSE' .; test $? -eq 1
 rg -n "T[O]DO|T[B]D|PLACE[H]OLDER|FIX[M]E" --glob '*.md' .; test $? -eq 1
 ```
+
+The contract check requires passing fixture records under
+[`docs/fixture-smoke/`](docs/fixture-smoke/).
+
+The next continuation gate is
+[`docs/v0.5-plan-schema-evaluator-spec.md`](docs/v0.5-plan-schema-evaluator-spec.md).
 
 ## License
 
