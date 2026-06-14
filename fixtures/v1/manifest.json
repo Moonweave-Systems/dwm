@@ -408,6 +408,13 @@
     },
     {
       "expected_invalidator": "ERR_RESUME_STALE_PACKET",
+      "id": "resume-coherent-packet-status-forgery",
+      "mutate_artifact": "coherent_packet_prompt_status",
+      "plan": "fixtures/v1/plans/ready-readonly.workflow.plan.json",
+      "type": "resume"
+    },
+    {
+      "expected_invalidator": "ERR_RESUME_STALE_PACKET",
       "id": "resume-malformed-packet",
       "mutate_artifact": "malformed_packet",
       "plan": "fixtures/v1/plans/ready-readonly.workflow.plan.json",
@@ -433,6 +440,13 @@
       "mutate_artifact": "prompt",
       "plan": "fixtures/v1/plans/ready-readonly.workflow.plan.json",
       "type": "resume"
+    },
+    {
+      "expected_resume_state": "resumable",
+      "id": "resume-repair-after-invalidated",
+      "mutate_artifact": "prompt",
+      "plan": "fixtures/v1/plans/ready-readonly.workflow.plan.json",
+      "type": "resume-repair"
     },
     {
       "expected_invalidator": "ERR_RESUME_STALE_INPUT",
@@ -478,6 +492,18 @@
       "type": "resume"
     },
     {
+      "expected_invalidator": "ERR_RESUME_STALE_GATE",
+      "id": "resume-gate-status-rehash",
+      "mutate_artifact": "gate_status_rehash",
+      "mutation": {
+        "gate_trigger": "write action",
+        "plan_id": "resume-gate-status-rehash",
+        "surface_write": true
+      },
+      "plan": "fixtures/v1/plans/ready-readonly.workflow.plan.json",
+      "type": "resume"
+    },
+    {
       "expected_invalidator": "ERR_RESUME_STALE_PLAN",
       "id": "resume-stale-status-hash",
       "mutate_artifact": "status_plan_hash",
@@ -500,8 +526,29 @@
     },
     {
       "expected_invalidator": "ERR_RESUME_STALE_PLAN",
+      "id": "resume-status-run-id",
+      "mutate_artifact": "status_run_id",
+      "plan": "fixtures/v1/plans/ready-readonly.workflow.plan.json",
+      "type": "resume"
+    },
+    {
+      "expected_invalidator": "ERR_RESUME_STALE_COMPILER",
+      "id": "resume-status-snapshot-compiler",
+      "mutate_artifact": "status_snapshot_compiler",
+      "plan": "fixtures/v1/plans/ready-readonly.workflow.plan.json",
+      "type": "resume"
+    },
+    {
+      "expected_invalidator": "ERR_RESUME_STALE_PLAN",
       "id": "resume-source-plan-path-absolute",
       "mutate_artifact": "run_source_path_absolute",
+      "plan": "fixtures/v1/plans/ready-readonly.workflow.plan.json",
+      "type": "resume"
+    },
+    {
+      "expected_invalidator": "ERR_RESUME_STALE_PLAN",
+      "id": "resume-source-plan-path-repo-relative",
+      "mutate_artifact": "run_source_path_repo_relative_rehash",
       "plan": "fixtures/v1/plans/ready-readonly.workflow.plan.json",
       "type": "resume"
     },
@@ -604,18 +651,24 @@
     "resume-prompt-packet-disagree",
     "resume-packet-prompt-hash",
     "resume-packet-prompt-path",
+    "resume-coherent-packet-status-forgery",
     "resume-malformed-packet",
     "resume-packet-array",
     "resume-malformed-packet-inputs",
     "resume-stale-prompt",
+    "resume-repair-after-invalidated",
     "resume-stale-input",
     "resume-snapshot-null",
     "resume-stale-live-input",
     "resume-stale-gate",
+    "resume-gate-status-rehash",
     "resume-stale-status-hash",
     "resume-status-packet-status",
     "resume-status-gate-status",
+    "resume-status-run-id",
+    "resume-status-snapshot-compiler",
     "resume-source-plan-path-absolute",
+    "resume-source-plan-path-repo-relative",
     "resume-gate-empty-object",
     "resume-stale-compiler",
     "resume-symlink-gate",

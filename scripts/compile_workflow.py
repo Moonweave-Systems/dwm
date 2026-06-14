@@ -348,17 +348,7 @@ def prepare_owned_dir(path: Path, run_id: str, mode: str, *, clear: bool) -> Non
         if clear:
             shutil.rmtree(path)
     path.mkdir(parents=True, exist_ok=True)
-    write_json_atomic(
-        path / SENTINEL,
-        {
-            "tool": TOOL,
-            "schema_version": SCHEMA_VERSION,
-            "run_id": run_id,
-            "mode": mode,
-            "created_at": now_utc(),
-        },
-        root=path,
-    )
+    write_json_atomic(path / SENTINEL, sentinel_payload(run_id, mode), root=path)
 
 
 def ensure_safe_leaf(path: Path) -> None:
@@ -888,6 +878,61 @@ def build_status(
     }
 
 
+def build_compile_artifacts(plan: dict[str, Any], plan_path: Path, run_id: str, source_plan_hash: str) -> dict[str, Any]:
+    plan_hash = canonical_hash(plan)
+    handoff_schemas = build_handoff_schemas(plan)
+    gates, approval_wrappers = build_gates(plan, plan_hash, run_id)
+    approval_state = approval_wrappers[0]
+    prompt_hash_placeholder = "0" * 64
+    packet = build_packet(plan, plan_path.resolve(strict=False), handoff_schemas, gates, prompt_hash_placeholder)
+    prompt = render_prompt(packet, gates)
+    prompt_hash = sha256_text(prompt)
+    packet = build_packet(plan, plan_path.resolve(strict=False), handoff_schemas, gates, prompt_hash)
+    prompt = render_prompt(packet, gates)
+    verify_prompt_packet(prompt, packet, gates)
+    status = build_status(run_id, plan_hash, source_plan_hash, packet, handoff_schemas, gates, approval_state)
+    context_phases = {"schema_version": SCHEMA_VERSION, "source_plan_id": plan["plan_id"], "phases": build_phase_context(plan, handoff_schemas)}
+    context_workers = {"schema_version": SCHEMA_VERSION, "source_plan_id": plan["plan_id"], "workers": build_worker_refs(plan)}
+    context_parallelism = {"schema_version": SCHEMA_VERSION, "source_plan_id": plan["plan_id"], "parallelism": plan["parallelism"]}
+    return {
+        "plan_hash": plan_hash,
+        "handoffs": handoff_schemas,
+        "gates": gates,
+        "approval_state": approval_state,
+        "packet": packet,
+        "prompt": prompt,
+        "status": status,
+        "contexts": {
+            "context/phases.json": context_phases,
+            "context/workers.json": context_workers,
+            "context/parallelism.json": context_parallelism,
+        },
+    }
+
+
+def sentinel_payload(run_id: str, mode: str, run: dict[str, Any] | None = None, status: dict[str, Any] | None = None) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "tool": TOOL,
+        "schema_version": SCHEMA_VERSION,
+        "run_id": run_id,
+        "mode": mode,
+        "created_at": now_utc(),
+    }
+    if run is not None and status is not None:
+        payload.update(
+            {
+                "source_plan_path": run["source_plan_path"],
+                "source_plan_hash": run["source_plan_hash"],
+                "plan_hash": run["plan_hash"],
+                "snapshots": status["snapshots"],
+                "packet_statuses": status["packet_statuses"],
+                "handoff_statuses": status["handoff_statuses"],
+                "gate_statuses": status["gate_statuses"],
+            }
+        )
+    return payload
+
+
 def render_readme(status: dict[str, Any], gates: list[dict[str, Any]]) -> str:
     packet_status = status["packet_statuses"][0]["status"]
     blocked = [gate for gate in gates if gate["status"] == "blocked"]
@@ -945,6 +990,64 @@ def render_resume(status: dict[str, Any], packet: dict[str, Any] | None = None) 
     return "\n".join(lines) + "\n"
 
 
+def ensure_replaceable_run_dir(path: Path, run_id: str, mode: str) -> None:
+    if not path.exists():
+        return
+    if path.is_symlink():
+        raise CompileError("ERR_OUT_PATH_SYMLINK", "run directory is a symlink", path=path)
+    if not path.is_dir():
+        raise CompileError("ERR_OUT_PATH_UNSAFE", "output path exists and is not a directory", path=path)
+    if not sentinel_matches(path, run_id, mode):
+        raise CompileError("ERR_OUT_PATH_NOT_OWNED", "existing run directory is not compiler-owned", path=path)
+
+
+def write_compile_tree(out_dir: Path, run: dict[str, Any], artifacts: dict[str, Any], mode: str) -> None:
+    status = artifacts["status"]
+    packet = artifacts["packet"]
+    gates = artifacts["gates"]
+    handoff_schemas = artifacts["handoffs"]
+    write_json_atomic(out_dir / "run.json", run, root=out_dir)
+    write_json_atomic(out_dir / "status.json", status, root=out_dir)
+    write_text_atomic(out_dir / "resume.md", render_resume(status, packet), root=out_dir)
+    write_text_atomic(out_dir / "README.md", render_readme(status, gates), root=out_dir)
+    write_json_atomic(out_dir / "plan.snapshot.json", artifacts["plan"], root=out_dir)
+    write_text_atomic(out_dir / "plan.sha256", artifacts["plan_hash"] + "\n", root=out_dir)
+    write_json_atomic(out_dir / "packets" / "001-first-slice.packet.json", packet, root=out_dir)
+    write_text_atomic(out_dir / "packets" / "001-first-slice.prompt.md", artifacts["prompt"], root=out_dir)
+    for handoff in handoff_schemas:
+        write_json_atomic(out_dir / "handoffs" / f"{handoff['handoff_id']}.schema.json", handoff, root=out_dir)
+    write_json_atomic(out_dir / "gates" / "approval-state.json", artifacts["approval_state"], root=out_dir)
+    for gate in gates:
+        write_text_atomic(
+            out_dir / "gates" / f"{gate['gate_id']}.approval.md",
+            f"# Gate {gate['gate_id']}\n\nStatus: {gate['status']}\n\nTrigger: {gate['trigger']}\n\nV1 does not accept Markdown approval as machine approval.\n",
+            root=out_dir,
+        )
+    for rel_path, context in artifacts["contexts"].items():
+        write_json_atomic(out_dir / rel_path, context, root=out_dir)
+    write_json_atomic(out_dir / SENTINEL, sentinel_payload(run["run_id"], mode, run, status), root=out_dir)
+
+
+def publish_compile_tree(out_dir: Path, run_id: str, mode: str, run: dict[str, Any], artifacts: dict[str, Any]) -> None:
+    OUT_ROOT.mkdir(parents=True, exist_ok=True)
+    ensure_safe_artifact_parent(OUT_ROOT, out_dir.parent / ".publish")
+    ensure_replaceable_run_dir(out_dir, run_id, mode)
+    staging = Path(tempfile.mkdtemp(prefix=f".{out_dir.name}.", dir=out_dir.parent))
+    backup: Path | None = None
+    try:
+        write_json_atomic(staging / SENTINEL, sentinel_payload(run_id, mode), root=staging)
+        write_compile_tree(staging, run, artifacts, mode)
+        ensure_replaceable_run_dir(out_dir, run_id, mode)
+        if out_dir.exists():
+            backup = out_dir.parent / f".{out_dir.name}.old-{os.getpid()}-{sha8(str(staging))}"
+            os.replace(out_dir, backup)
+        os.replace(staging, out_dir)
+        if backup is not None:
+            shutil.rmtree(backup, ignore_errors=True)
+    finally:
+        shutil.rmtree(staging, ignore_errors=True)
+
+
 def compile_plan(plan_path: Path, out_dir: Path, *, run_id: str | None = None, mode: str = "compile") -> dict[str, Any]:
     plan_path = plan_path.resolve(strict=False)
     try:
@@ -954,20 +1057,10 @@ def compile_plan(plan_path: Path, out_dir: Path, *, run_id: str | None = None, m
     run_id = run_id or out_dir.name
     out_dir = resolve_v1_out(out_dir)
     plan, source_plan_hash = load_plan(plan_path)
-    plan_hash = canonical_hash(plan)
-    prepare_owned_dir(out_dir, run_id, mode, clear=True)
-    handoff_schemas = build_handoff_schemas(plan)
-    gates, approval_wrappers = build_gates(plan, plan_hash, run_id)
-    approval_state = approval_wrappers[0]
-    prompt_hash_placeholder = "0" * 64
-    packet = build_packet(plan, plan_path.resolve(), handoff_schemas, gates, prompt_hash_placeholder)
-    prompt = render_prompt(packet, gates)
-    prompt_hash = sha256_text(prompt)
-    packet = build_packet(plan, plan_path.resolve(), handoff_schemas, gates, prompt_hash)
-    prompt = render_prompt(packet, gates)
-    verify_prompt_packet(prompt, packet, gates)
-    packet_hash = canonical_hash(packet)
-    status = build_status(run_id, plan_hash, source_plan_hash, packet, handoff_schemas, gates, approval_state)
+    artifacts = build_compile_artifacts(plan, plan_path, run_id, source_plan_hash)
+    artifacts["plan"] = plan
+    plan_hash = artifacts["plan_hash"]
+    packet_hash = canonical_hash(artifacts["packet"])
     run = {
         "run_id": run_id,
         "schema_version": SCHEMA_VERSION,
@@ -982,40 +1075,14 @@ def compile_plan(plan_path: Path, out_dir: Path, *, run_id: str | None = None, m
         "packet_paths": ["packets/001-first-slice.packet.json"],
         "approval_state_path": "gates/approval-state.json",
     }
-    context_phases = {"schema_version": SCHEMA_VERSION, "source_plan_id": plan["plan_id"], "phases": build_phase_context(plan, handoff_schemas)}
-    context_workers = {"schema_version": SCHEMA_VERSION, "source_plan_id": plan["plan_id"], "workers": build_worker_refs(plan)}
-    context_parallelism = {"schema_version": SCHEMA_VERSION, "source_plan_id": plan["plan_id"], "parallelism": plan["parallelism"]}
-    write_json_atomic(out_dir / "run.json", run, root=out_dir)
-    write_json_atomic(out_dir / "status.json", status, root=out_dir)
-    write_text_atomic(out_dir / "resume.md", render_resume(status, packet), root=out_dir)
-    write_text_atomic(out_dir / "README.md", render_readme(status, gates), root=out_dir)
-    write_json_atomic(out_dir / "plan.snapshot.json", plan, root=out_dir)
-    write_text_atomic(out_dir / "plan.sha256", plan_hash + "\n", root=out_dir)
-    write_json_atomic(out_dir / "packets" / "001-first-slice.packet.json", packet, root=out_dir)
-    write_text_atomic(out_dir / "packets" / "001-first-slice.prompt.md", prompt, root=out_dir)
-    for handoff in handoff_schemas:
-        write_json_atomic(out_dir / "handoffs" / f"{handoff['handoff_id']}.schema.json", handoff, root=out_dir)
-    write_json_atomic(out_dir / "gates" / "approval-state.json", approval_state, root=out_dir)
-    for gate in gates:
-        write_text_atomic(
-            out_dir / "gates" / f"{gate['gate_id']}.approval.md",
-            f"# Gate {gate['gate_id']}\n\nStatus: {gate['status']}\n\nTrigger: {gate['trigger']}\n\nV1 does not accept Markdown approval as machine approval.\n",
-            root=out_dir,
-        )
-    write_json_atomic(out_dir / "context" / "phases.json", context_phases, root=out_dir)
-    write_json_atomic(out_dir / "context" / "workers.json", context_workers, root=out_dir)
-    write_json_atomic(out_dir / "context" / "parallelism.json", context_parallelism, root=out_dir)
+    publish_compile_tree(out_dir, run_id, mode, run, artifacts)
     return {
         "run": run,
-        "status": status,
-        "packet": packet,
-        "gates": gates,
-        "handoffs": handoff_schemas,
-        "contexts": {
-            "context/phases.json": context_phases,
-            "context/workers.json": context_workers,
-            "context/parallelism.json": context_parallelism,
-        },
+        "status": artifacts["status"],
+        "packet": artifacts["packet"],
+        "gates": artifacts["gates"],
+        "handoffs": artifacts["handoffs"],
+        "contexts": artifacts["contexts"],
         "packet_hash": packet_hash,
         "out_dir": out_dir,
     }
@@ -1077,6 +1144,18 @@ def require_resume_metadata(sentinel: dict[str, Any], run: dict[str, Any], statu
     for key in ["packet_hashes", "prompt_hashes", "input_snapshot_hashes", "handoff_schema_hashes", "gate_approval_hashes"]:
         if not isinstance(snapshots.get(key), dict):
             raise CompileError("ERR_RESUME_MISSING_ARTIFACT", f"status snapshots missing object key: {key}", path=run_dir)
+    for key in ["source_plan_path", "source_plan_hash", "plan_hash"]:
+        if not isinstance(sentinel.get(key), str):
+            raise CompileError("ERR_RESUME_MISSING_ARTIFACT", f"sentinel missing string key: {key}", path=run_dir)
+    sentinel_snapshots = sentinel.get("snapshots")
+    if not isinstance(sentinel_snapshots, dict):
+        raise CompileError("ERR_RESUME_MISSING_ARTIFACT", "sentinel missing snapshots object", path=run_dir)
+    for key in ["plan_hash", "approval_state_hash", "compiler_version"]:
+        if not isinstance(sentinel_snapshots.get(key), str):
+            raise CompileError("ERR_RESUME_MISSING_ARTIFACT", f"sentinel snapshots missing string key: {key}", path=run_dir)
+    for key in ["packet_hashes", "prompt_hashes", "input_snapshot_hashes", "handoff_schema_hashes", "gate_approval_hashes"]:
+        if not isinstance(sentinel_snapshots.get(key), dict):
+            raise CompileError("ERR_RESUME_MISSING_ARTIFACT", f"sentinel snapshots missing object key: {key}", path=run_dir)
 
 
 def read_resume_json(path: Path, kind: str, artifact_id: str, invalidators: list[dict[str, Any]], *, root: Path | None = None) -> dict[str, Any] | None:
@@ -1139,86 +1218,143 @@ def resume_run(run_dir: Path) -> dict[str, Any]:
     ):
         raise CompileError("ERR_OUT_PATH_NOT_OWNED", "resume sentinel does not match run metadata", path=run_dir)
     invalidators: list[dict[str, Any]] = []
-    snapshots = old_status["snapshots"]
+    trusted_snapshots = sentinel["snapshots"]
+    if sentinel["source_plan_path"] != run["source_plan_path"]:
+        invalidators.append(
+            hash_invalidator("plan", "run.json.source_plan_path", sentinel["source_plan_path"], run["source_plan_path"], "source plan path changed")
+        )
+    if sentinel["source_plan_hash"] != run["source_plan_hash"]:
+        invalidators.append(
+            hash_invalidator("plan", "run.json.source_plan_hash", sentinel["source_plan_hash"], run["source_plan_hash"], "run source plan hash changed")
+        )
+    if sentinel["plan_hash"] != run["plan_hash"]:
+        invalidators.append(hash_invalidator("plan", "run.json.plan_hash", sentinel["plan_hash"], run["plan_hash"], "run plan hash changed"))
+    if old_status.get("run_id") != run["run_id"]:
+        invalidators.append(hash_invalidator("plan", "status.json.run_id", run["run_id"], str(old_status.get("run_id")), "status run id changed"))
+    if old_status["source_plan_hash"] != sentinel["source_plan_hash"]:
+        invalidators.append(
+            hash_invalidator(
+                "plan",
+                "status.json.source_plan_hash",
+                sentinel["source_plan_hash"],
+                old_status["source_plan_hash"],
+                "status source plan hash changed",
+            )
+        )
+    if old_status["plan_hash"] != sentinel["plan_hash"]:
+        invalidators.append(
+            hash_invalidator(
+                "plan",
+                "status.json.plan_hash",
+                sentinel["plan_hash"],
+                old_status["plan_hash"],
+                "status plan hash changed",
+            )
+        )
+    status_snapshots = old_status["snapshots"]
+    for key, kind in [
+        ("plan_hash", "plan"),
+        ("compiler_version", "compiler"),
+        ("approval_state_hash", "gate"),
+        ("packet_hashes", "packet"),
+        ("prompt_hashes", "prompt"),
+        ("input_snapshot_hashes", "input"),
+        ("handoff_schema_hashes", "handoff"),
+        ("gate_approval_hashes", "gate"),
+    ]:
+        if status_snapshots.get(key) != trusted_snapshots.get(key):
+            invalidators.append(
+                hash_invalidator(
+                    kind,
+                    f"status.json.snapshots.{key}",
+                    canonical_hash(trusted_snapshots.get(key)),
+                    canonical_hash(status_snapshots.get(key)),
+                    f"status snapshot {key} changed",
+                )
+            )
     try:
         source_plan = safe_resume_source_plan_path(run["source_plan_path"])
     except CompileError:
         source_plan = ROOT / "__unsafe_resume_source_plan__"
-        invalidators.append(hash_invalidator("plan", run["source_plan_path"], run.get("source_plan_hash"), None, "source plan path is unsafe"))
+        invalidators.append(hash_invalidator("plan", run["source_plan_path"], sentinel["source_plan_hash"], None, "source plan path is unsafe"))
     source_hash = None
+    expected_artifacts: dict[str, Any] | None = None
     if not source_plan.is_file() or source_plan.is_symlink():
-        invalidators.append(hash_invalidator("plan", str(source_plan), run.get("source_plan_hash"), None, "source plan is missing"))
+        invalidators.append(hash_invalidator("plan", str(source_plan), sentinel["source_plan_hash"], None, "source plan is missing"))
         plan = None
     else:
         plan = read_resume_json(source_plan, "plan", run["source_plan_path"], invalidators)
         if isinstance(plan, dict):
             source_hash = canonical_hash(plan)
-            if source_hash != run["source_plan_hash"]:
-                invalidators.append(hash_invalidator("plan", run["source_plan_path"], run["source_plan_hash"], source_hash, "source plan hash changed"))
+            if source_hash != sentinel["source_plan_hash"]:
+                invalidators.append(hash_invalidator("plan", run["source_plan_path"], sentinel["source_plan_hash"], source_hash, "source plan hash changed"))
             try:
                 validate_plan(plan)
             except EvaluationError as exc:
-                invalidators.append(hash_invalidator("plan", run["source_plan_path"], run["source_plan_hash"], source_hash, f"source plan is invalid: {exc}"))
+                invalidators.append(hash_invalidator("plan", run["source_plan_path"], sentinel["source_plan_hash"], source_hash, f"source plan is invalid: {exc}"))
                 plan = None
-    if old_status["source_plan_hash"] != run["source_plan_hash"]:
-        invalidators.append(
-            hash_invalidator(
-                "plan",
-                "status.json.source_plan_hash",
-                run["source_plan_hash"],
-                old_status["source_plan_hash"],
-                "status source plan hash changed",
-            )
-        )
+            if isinstance(plan, dict) and source_hash == sentinel["source_plan_hash"]:
+                expected_artifacts = build_compile_artifacts(plan, source_plan, run["run_id"], sentinel["source_plan_hash"])
+                expected_status = expected_artifacts["status"]
+                if expected_status["snapshots"] != trusted_snapshots:
+                    invalidators.append(
+                        hash_invalidator(
+                            "plan",
+                            "sentinel.snapshots",
+                            canonical_hash(expected_status["snapshots"]),
+                            canonical_hash(trusted_snapshots),
+                            "sentinel snapshots do not match source plan",
+                        )
+                    )
+                for section, kind in [
+                    ("packet_statuses", "packet"),
+                    ("gate_statuses", "gate"),
+                    ("handoff_statuses", "handoff"),
+                ]:
+                    if sentinel.get(section) != expected_status[section]:
+                        invalidators.append(
+                            hash_invalidator(
+                                kind,
+                                f"sentinel.{section}",
+                                canonical_hash(expected_status[section]),
+                                canonical_hash(sentinel.get(section)),
+                                f"sentinel {section} does not match source plan",
+                            )
+                        )
     snapshot_path = run_dir / "plan.snapshot.json"
     snapshot = read_resume_json(snapshot_path, "plan", "plan.snapshot.json", invalidators, root=run_dir)
-    plan_hash_for_status = snapshots["plan_hash"]
     if isinstance(snapshot, dict):
         actual = canonical_hash(snapshot)
-        expected = snapshots["plan_hash"]
-        plan_hash_for_status = actual
+        expected = trusted_snapshots["plan_hash"]
         if actual != expected:
             invalidators.append(hash_invalidator("plan", "plan.snapshot.json", expected, actual, "plan snapshot hash changed"))
-    if old_status["plan_hash"] != snapshots["plan_hash"]:
-        invalidators.append(
-            hash_invalidator(
-                "plan",
-                "status.json.plan_hash",
-                snapshots["plan_hash"],
-                old_status["plan_hash"],
-                "status plan hash changed",
-            )
-        )
     packet_path = run_dir / "packets" / "001-first-slice.packet.json"
     packet: dict[str, Any] | None = None
     raw_packet = read_resume_json(packet_path, "packet", PACKET_ID, invalidators, root=run_dir)
     if isinstance(raw_packet, dict):
         required_packet_keys = {"prompt_hash", "input_snapshot_hash", "prompt_path", "input_snapshots"}
         if not required_packet_keys <= set(raw_packet):
-            invalidators.append(hash_invalidator("packet", PACKET_ID, snapshots["packet_hashes"].get(PACKET_ID), canonical_hash(raw_packet), "packet JSON is missing required fields"))
+            invalidators.append(hash_invalidator("packet", PACKET_ID, trusted_snapshots["packet_hashes"].get(PACKET_ID), canonical_hash(raw_packet), "packet JSON is missing required fields"))
         else:
             packet = raw_packet
     if packet is not None:
         actual = canonical_hash(packet)
-        expected = snapshots["packet_hashes"].get(PACKET_ID)
+        expected = trusted_snapshots["packet_hashes"].get(PACKET_ID)
         if actual != expected:
             invalidators.append(hash_invalidator("packet", PACKET_ID, expected, actual, "packet hash changed"))
         stored_inputs = packet.get("input_snapshots", [])
         if isinstance(stored_inputs, list) and all(valid_input_snapshot(item) for item in stored_inputs):
             input_actual = input_snapshot_hash(stored_inputs)
-            input_expected = snapshots["input_snapshot_hashes"].get(PACKET_ID)
+            input_expected = trusted_snapshots["input_snapshot_hashes"].get(PACKET_ID)
             if input_actual != input_expected:
                 invalidators.append(hash_invalidator("input", PACKET_ID, input_expected, input_actual, "input snapshot hash changed"))
         else:
-            input_expected = snapshots["input_snapshot_hashes"].get(PACKET_ID)
+            input_expected = trusted_snapshots["input_snapshot_hashes"].get(PACKET_ID)
             stored_inputs = []
             invalidators.append(hash_invalidator("input", PACKET_ID, input_expected, None, "packet input snapshots are malformed"))
             packet = None
-        if isinstance(plan, dict):
-            recomputed_inputs = [
-                snapshot_input(label, index, plan, source_plan.resolve(strict=False))
-                for index, label in enumerate(plan["execution_path"]["first_slice"]["inputs"])
-            ]
+        if expected_artifacts is not None:
+            recomputed_inputs = expected_artifacts["packet"]["input_snapshots"]
             recomputed_hash = input_snapshot_hash(recomputed_inputs)
             if recomputed_hash != input_expected:
                 invalidators.append(
@@ -1235,7 +1371,7 @@ def resume_run(run_dir: Path) -> dict[str, Any]:
     prompt_text = read_resume_text(prompt_path, "prompt", prompt_rel, invalidators, root=run_dir)
     if prompt_text is not None:
         actual = sha256_text(prompt_text)
-        expected = snapshots["prompt_hashes"].get(prompt_rel)
+        expected = trusted_snapshots["prompt_hashes"].get(prompt_rel)
         if actual != expected:
             invalidators.append(hash_invalidator("prompt", prompt_rel, expected, actual, "prompt hash changed"))
         if packet is not None:
@@ -1248,7 +1384,12 @@ def resume_run(run_dir: Path) -> dict[str, Any]:
             if packet.get("prompt_hash") != actual:
                 invalidators.append(hash_invalidator("prompt", prompt_rel, actual, str(packet.get("prompt_hash")), "packet prompt hash changed"))
     handoff_schemas = []
-    for handoff_id, expected in snapshots["handoff_schema_hashes"].items():
+    for handoff_id in old_status["snapshots"].get("handoff_schema_hashes", {}):
+        try:
+            safe_descendant_path(run_dir / "handoffs", f"{handoff_id}.schema.json")
+        except CompileError:
+            invalidators.append(missing_invalidator("handoff", str(handoff_id), "handoff snapshot id is unsafe"))
+    for handoff_id, expected in trusted_snapshots["handoff_schema_hashes"].items():
         path = run_dir / "handoffs" / f"{handoff_id}.schema.json"
         item = read_resume_json(path, "handoff", handoff_id, invalidators, root=run_dir)
         if not isinstance(item, dict):
@@ -1269,9 +1410,9 @@ def resume_run(run_dir: Path) -> dict[str, Any]:
         raw_gates = approval_state.get("gates", [])
         if not isinstance(raw_gates, list):
             raw_gates = []
-            invalidators.append(hash_invalidator("gate", "approval-state.json", snapshots["approval_state_hash"], canonical_hash(approval_state), "approval state gates are malformed"))
+            invalidators.append(hash_invalidator("gate", "approval-state.json", trusted_snapshots["approval_state_hash"], canonical_hash(approval_state), "approval state gates are malformed"))
         actual = canonical_hash(approval_state)
-        expected = snapshots["approval_state_hash"]
+        expected = trusted_snapshots["approval_state_hash"]
         if actual != expected:
             invalidators.append(hash_invalidator("gate", "approval-state.json", expected, actual, "approval state hash changed"))
         gates = []
@@ -1282,55 +1423,66 @@ def resume_run(run_dir: Path) -> dict[str, Any]:
                 continue
             gate_id = gate["gate_id"]
             actual_gate = canonical_hash(gate)
-            expected_gate = snapshots["gate_approval_hashes"].get(gate_id)
+            expected_gate = trusted_snapshots["gate_approval_hashes"].get(gate_id)
             if actual_gate != expected_gate:
                 invalidators.append(hash_invalidator("gate", gate_id, expected_gate, actual_gate, "gate approval hash changed"))
             gates.append(gate)
         approval_state = {**approval_state, "gates": gates}
-    expected_status_sections = build_status(
-        run["run_id"],
-        old_status["plan_hash"],
-        old_status["source_plan_hash"],
-        packet or {"prompt_hash": "", "input_snapshot_hash": "", "prompt_path": prompt_rel},
-        handoff_schemas,
-        gates,
-        approval_state,
+    previous_invalidated = (
+        old_status.get("resume_state") == "invalidated"
+        and old_status.get("last_resume_result") == "invalidated"
+        and isinstance(old_status.get("invalidators"), list)
+        and bool(old_status.get("invalidators"))
     )
-    for section, kind in [
-        ("packet_statuses", "packet"),
-        ("gate_statuses", "gate"),
-        ("handoff_statuses", "handoff"),
-    ]:
-        actual_section = old_status.get(section)
-        expected_section = expected_status_sections[section]
-        if actual_section != expected_section:
-            invalidators.append(
-                hash_invalidator(
-                    kind,
-                    f"status.json.{section}",
-                    canonical_hash(expected_section),
-                    canonical_hash(actual_section),
-                    f"status {section} changed",
+    if not previous_invalidated:
+        for section, kind in [
+            ("packet_statuses", "packet"),
+            ("gate_statuses", "gate"),
+            ("handoff_statuses", "handoff"),
+        ]:
+            actual_section = old_status.get(section)
+            expected_section = sentinel.get(section)
+            if actual_section != expected_section:
+                invalidators.append(
+                    hash_invalidator(
+                        kind,
+                        f"status.json.{section}",
+                        canonical_hash(expected_section),
+                        canonical_hash(actual_section),
+                        f"status {section} changed",
+                    )
                 )
-            )
     if run.get("compiler_version") != COMPILER_VERSION:
         invalidators.append(hash_invalidator("compiler", TOOL, run.get("compiler_version"), COMPILER_VERSION, "compiler version changed"))
+    if trusted_snapshots.get("compiler_version") != COMPILER_VERSION:
+        invalidators.append(
+            hash_invalidator("compiler", "sentinel.snapshots.compiler_version", COMPILER_VERSION, trusted_snapshots.get("compiler_version"), "sentinel compiler version changed")
+        )
     resume_state = "invalidated" if invalidators else "resumable"
+    status_packet = packet
+    if status_packet is None and expected_artifacts is not None:
+        status_packet = expected_artifacts["packet"]
+    if status_packet is None:
+        status_packet = {"prompt_hash": "", "input_snapshot_hash": "", "prompt_path": prompt_rel}
+    status_handoffs = handoff_schemas if handoff_schemas else (expected_artifacts["handoffs"] if expected_artifacts is not None else [])
+    status_gates = gates if gates else (expected_artifacts["gates"] if expected_artifacts is not None else [])
+    status_approval_state = approval_state if approval_state.get("gates") else (expected_artifacts["approval_state"] if expected_artifacts is not None else approval_state)
     status = build_status(
         run["run_id"],
-        plan_hash_for_status,
-        source_hash or run["source_plan_hash"],
-        packet or {"prompt_hash": "", "input_snapshot_hash": "", "prompt_path": prompt_rel},
-        handoff_schemas,
-        gates,
-        approval_state,
+        sentinel["plan_hash"],
+        sentinel["source_plan_hash"],
+        status_packet,
+        status_handoffs,
+        status_gates,
+        status_approval_state,
         resume_state=resume_state,
         invalidators=invalidators,
         checked_at=now_utc(),
         resume_result=resume_state,
     )
+    status["snapshots"] = copy.deepcopy(trusted_snapshots)
     write_json_atomic(status_path, status, root=run_dir)
-    write_text_atomic(run_dir / "resume.md", render_resume(status, packet), root=run_dir)
+    write_text_atomic(run_dir / "resume.md", render_resume(status, packet or (expected_artifacts["packet"] if expected_artifacts is not None else None)), root=run_dir)
     return status
 
 
@@ -1556,6 +1708,24 @@ def run_fixture(fixture: dict[str, Any], suite_dir: Path, temp_root: Path) -> di
             codes = [item["code"] for item in status["invalidators"]]
             if fixture["expected_invalidator"] not in codes:
                 raise CompileError(fixture["expected_invalidator"], f"resume invalidator not found: {codes}", fixture_id=fixture_id)
+        elif fixture_type == "resume-repair":
+            plan_path = write_fixture_plan(temp_root, fixture)
+            result = compile_plan(plan_path, fixture_run_dir(suite_dir, fixture_id), run_id=f"{suite_dir.name}/{fixture_id}", mode="fixture")
+            run_dir = result["out_dir"]
+            prompt_path = run_dir / "packets" / "001-first-slice.prompt.md"
+            original_prompt = prompt_path.read_text()
+            mutate_run_artifact(run_dir, plan_path, fixture["mutate_artifact"])
+            first_status = resume_run(run_dir)
+            if first_status["resume_state"] != "invalidated":
+                raise CompileError("ERR_SELF_TEST_WRONG_REASON", "first repair resume did not invalidate", fixture_id=fixture_id)
+            write_text_atomic(prompt_path, original_prompt, root=run_dir)
+            second_status = resume_run(run_dir)
+            if second_status["resume_state"] != fixture["expected_resume_state"]:
+                raise CompileError(
+                    "ERR_SELF_TEST_WRONG_REASON",
+                    f"expected repaired resume state {fixture['expected_resume_state']}, got {second_status['resume_state']}",
+                    fixture_id=fixture_id,
+                )
         else:
             raise CompileError("ERR_PLAN_INVALID", f"unknown fixture type: {fixture_type}", fixture_id=fixture_id)
     except CompileError as exc:
@@ -1608,6 +1778,25 @@ def mutate_run_artifact(run_dir: Path, plan_path: Path, mutation: str) -> None:
         status = json.loads(status_path.read_text())
         status["snapshots"]["packet_hashes"][PACKET_ID] = canonical_hash(data)
         write_json_atomic(status_path, status)
+    elif mutation == "coherent_packet_prompt_status":
+        packet_path = run_dir / "packets" / "001-first-slice.packet.json"
+        prompt_path = run_dir / "packets" / "001-first-slice.prompt.md"
+        approval_state = json.loads((run_dir / "gates" / "approval-state.json").read_text())
+        packet = json.loads(packet_path.read_text())
+        packet["objective"] += " forged"
+        packet["prompt_hash"] = "0" * 64
+        prompt = render_prompt(packet, approval_state["gates"])
+        packet["prompt_hash"] = sha256_text(prompt)
+        prompt = render_prompt(packet, approval_state["gates"])
+        write_json_atomic(packet_path, packet)
+        write_text_atomic(prompt_path, prompt)
+        status_path = run_dir / "status.json"
+        status = json.loads(status_path.read_text())
+        status["snapshots"]["packet_hashes"][PACKET_ID] = canonical_hash(packet)
+        status["snapshots"]["prompt_hashes"][packet["prompt_path"]] = sha256_text(prompt)
+        status["packet_statuses"][0]["packet_hash"] = canonical_hash(packet)
+        status["packet_statuses"][0]["prompt_hash"] = sha256_text(prompt)
+        write_json_atomic(status_path, status)
     elif mutation == "malformed_packet":
         path = run_dir / "packets" / "001-first-slice.packet.json"
         write_text_atomic(path, "{not-json\n")
@@ -1654,11 +1843,60 @@ def mutate_run_artifact(run_dir: Path, plan_path: Path, mutation: str) -> None:
         data = json.loads(path.read_text())
         data["gate_statuses"].append({"gate_id": "forged", "status": "ready"})
         write_json_atomic(path, data)
+    elif mutation == "status_run_id":
+        path = run_dir / "status.json"
+        data = json.loads(path.read_text())
+        data["run_id"] = "forged-run-id"
+        write_json_atomic(path, data)
+    elif mutation == "status_snapshot_compiler":
+        path = run_dir / "status.json"
+        data = json.loads(path.read_text())
+        data["snapshots"]["compiler_version"] = "0.0.0-forged"
+        write_json_atomic(path, data)
+    elif mutation == "gate_status_rehash":
+        approval_path = run_dir / "gates" / "approval-state.json"
+        approval_state = json.loads(approval_path.read_text())
+        approval_state["gates"][0]["status"] = "ready"
+        approval_state["gates"][0]["approved"] = True
+        write_json_atomic(approval_path, approval_state)
+        status_path = run_dir / "status.json"
+        status = json.loads(status_path.read_text())
+        status["snapshots"]["approval_state_hash"] = canonical_hash(approval_state)
+        status["snapshots"]["gate_approval_hashes"] = {gate["gate_id"]: canonical_hash(gate) for gate in approval_state["gates"]}
+        status["gate_statuses"] = [
+            {
+                "gate_id": gate["gate_id"],
+                "trigger": gate["trigger"],
+                "status": gate["status"],
+                "approval_hash": canonical_hash(gate),
+                "source": gate["source"],
+                "source_index": gate["source_index"],
+                "risk_category": gate["risk_category"],
+            }
+            for gate in approval_state["gates"]
+        ]
+        write_json_atomic(status_path, status)
     elif mutation == "run_source_path_absolute":
         path = run_dir / "run.json"
         data = json.loads(path.read_text())
         data["source_plan_path"] = str((ROOT / "fixtures" / "v1" / "plans" / "ready-readonly.workflow.plan.json").resolve())
         write_json_atomic(path, data)
+    elif mutation == "run_source_path_repo_relative_rehash":
+        replacement = ROOT / "samples" / "v0.5" / "candidates" / "pos-cross-source-research.workflow.plan.json"
+        replacement_plan = read_json(replacement)
+        replacement_hash = canonical_hash(replacement_plan)
+        path = run_dir / "run.json"
+        data = json.loads(path.read_text())
+        data["source_plan_path"] = rel(replacement)
+        data["source_plan_hash"] = replacement_hash
+        data["plan_hash"] = replacement_hash
+        write_json_atomic(path, data)
+        status_path = run_dir / "status.json"
+        status = json.loads(status_path.read_text())
+        status["source_plan_hash"] = replacement_hash
+        status["plan_hash"] = replacement_hash
+        status["snapshots"]["plan_hash"] = replacement_hash
+        write_json_atomic(status_path, status)
     elif mutation == "status_handoff_traversal":
         path = run_dir / "status.json"
         data = json.loads(path.read_text())
