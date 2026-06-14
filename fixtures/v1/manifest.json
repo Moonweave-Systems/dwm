@@ -652,6 +652,20 @@
       "type": "resume"
     },
     {
+      "expected_error": "ERR_RESUME_MISSING_ARTIFACT",
+      "id": "resume-sentinel-malformed-status-sections",
+      "mutate_artifact": "sentinel_malformed_status_sections",
+      "plan": "fixtures/v1/plans/ready-readonly.workflow.plan.json",
+      "type": "resume"
+    },
+    {
+      "expected_error": "ERR_RESUME_MISSING_ARTIFACT",
+      "id": "resume-sentinel-invalid-utf8",
+      "mutate_artifact": "sentinel_invalid_utf8",
+      "plan": "fixtures/v1/plans/ready-readonly.workflow.plan.json",
+      "type": "resume"
+    },
+    {
       "expected_invalidator": "ERR_RESUME_MISSING_ARTIFACT",
       "id": "resume-missing-handoff",
       "mutate_artifact": "missing_handoff",
@@ -732,6 +746,8 @@
     "resume-malformed-status",
     "resume-malformed-sentinel",
     "resume-sentinel-missing-status-sections",
+    "resume-sentinel-malformed-status-sections",
+    "resume-sentinel-invalid-utf8",
     "resume-missing-handoff",
     "resume-handoff-traversal"
   ],

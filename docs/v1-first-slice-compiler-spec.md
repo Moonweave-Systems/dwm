@@ -777,8 +777,8 @@ Minimum fixture set:
 - resume: forged `status.json` metadata or snapshot fields invalidate run
 - resume: forged previous-invalidated status sections invalidate run, including
   impossible hybrid clean/invalidated status section shapes
-- resume: malformed sentinel status-section anchors produce structured
-  `ERR_RESUME_MISSING_ARTIFACT`
+- resume: missing, malformed, or invalid UTF-8 sentinel status-section anchors
+  produce structured `ERR_RESUME_MISSING_ARTIFACT`
 - resume: repo-relative `source_plan_path` retargeting invalidates run
 - resume: after a transient invalidation, restoring the original artifact can
   return the run to `resumable`

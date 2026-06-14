@@ -1149,7 +1149,7 @@ def read_metadata_json(path: Path, run_dir: Path, label: str) -> dict[str, Any]:
         raise CompileError("ERR_RESUME_MISSING_ARTIFACT", f"{label} is missing or symlinked", path=path)
     try:
         data = json.loads(path.read_text())
-    except json.JSONDecodeError as exc:
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise CompileError("ERR_RESUME_MISSING_ARTIFACT", f"{label} JSON is malformed: {exc}", path=path) from exc
     if not isinstance(data, dict):
         raise CompileError("ERR_RESUME_MISSING_ARTIFACT", f"{label} JSON root must be an object", path=path)
@@ -1189,6 +1189,8 @@ def require_resume_metadata(sentinel: dict[str, Any], run: dict[str, Any], statu
     for key in ["packet_statuses", "handoff_statuses", "gate_statuses"]:
         if not isinstance(sentinel.get(key), list):
             raise CompileError("ERR_RESUME_MISSING_ARTIFACT", f"sentinel missing list key: {key}", path=run_dir)
+        if not all(isinstance(item, dict) for item in sentinel[key]):
+            raise CompileError("ERR_RESUME_MISSING_ARTIFACT", f"sentinel list contains non-object entries: {key}", path=run_dir)
 
 
 def read_resume_json(path: Path, kind: str, artifact_id: str, invalidators: list[dict[str, Any]], *, root: Path | None = None) -> dict[str, Any] | None:
@@ -1694,179 +1696,35 @@ def invalidator_signature(record: dict[str, Any]) -> dict[str, Any]:
         value = record.get(key)
         if value is None:
             signature[key] = None
-        elif isinstance(value, str) and re.fullmatch(r"[0-9a-f]{64}", value):
-            signature[key] = "sha256"
         elif isinstance(value, str):
-            signature[key] = "value"
+            signature[key] = value
         else:
             raise CompileError("ERR_SELF_TEST_WRONG_REASON", f"invalidator {key} is not a string or null")
     return signature
 
 
-def resume_sig(
-    code: str,
-    kind: str,
-    artifact_id: str,
-    message: str,
-    *,
-    expected_hash: str | None = "sha256",
-    actual_hash: str | None = "sha256",
-) -> dict[str, Any]:
-    return {
-        "code": code,
-        "kind": kind,
-        "id": artifact_id,
-        "message": message,
-        "expected_hash": expected_hash,
-        "actual_hash": actual_hash,
-    }
+def restore_bytes(path: Path, before: bytes | None) -> None:
+    if before is None:
+        if path.exists() or path.is_symlink():
+            path.unlink()
+    else:
+        path.write_bytes(before)
 
 
 def expected_resume_signatures(fixture: dict[str, Any], plan_path: Path, run_dir: Path) -> list[dict[str, Any]]:
-    sentinel = json.loads((run_dir / SENTINEL).read_text())
-    packet = json.loads((run_dir / "packets" / "001-first-slice.packet.json").read_text())
-    mutation = fixture["mutate_artifact"]
-    gate_ids = [item["gate_id"] for item in sentinel.get("gate_statuses", [])]
-    handoff_ids = list(sentinel["snapshots"]["handoff_schema_hashes"])
-    live_input_id = ""
-    if mutation == "live_input":
-        live_input_id = next(
-            item["input_id"]
-            for item in packet.get("input_snapshots", [])
-            if item.get("input_label") == "path:live-input.txt"
-        )
-    ready_plan_abs = str((ROOT / "fixtures" / "v1" / "plans" / "ready-readonly.workflow.plan.json").resolve())
-    unsafe_source_plan = str(ROOT / "__unsafe_resume_source_plan__")
-    signatures = {
-        "source_plan": [
-            resume_sig("ERR_RESUME_STALE_PLAN", "plan", rel_or_abs(plan_path), "source plan hash changed"),
-        ],
-        "plan_snapshot": [
-            resume_sig("ERR_RESUME_STALE_PLAN", "plan", "plan.snapshot.json", "plan snapshot hash changed"),
-        ],
-        "packet": [
-            resume_sig("ERR_RESUME_STALE_PACKET", "packet", PACKET_ID, "packet hash changed"),
-            resume_sig("ERR_RESUME_STALE_PROMPT", "prompt", "packets/001-first-slice.prompt.md", "prompt and packet contract disagree"),
-        ],
-        "packet_status_rehash": [
-            resume_sig("ERR_RESUME_STALE_PACKET", "packet", "status.json.snapshots.packet_hashes", "status snapshot packet_hashes changed"),
-            resume_sig("ERR_RESUME_STALE_PACKET", "packet", PACKET_ID, "packet hash changed"),
-            resume_sig("ERR_RESUME_STALE_PROMPT", "prompt", "packets/001-first-slice.prompt.md", "prompt and packet contract disagree"),
-        ],
-        "packet_prompt_hash_rehash": [
-            resume_sig("ERR_RESUME_STALE_PACKET", "packet", "status.json.snapshots.packet_hashes", "status snapshot packet_hashes changed"),
-            resume_sig("ERR_RESUME_STALE_PACKET", "packet", PACKET_ID, "packet hash changed"),
-            resume_sig("ERR_RESUME_STALE_PROMPT", "prompt", "packets/001-first-slice.prompt.md", "packet prompt hash changed"),
-        ],
-        "packet_prompt_path_rehash": [
-            resume_sig("ERR_RESUME_STALE_PACKET", "packet", "status.json.snapshots.packet_hashes", "status snapshot packet_hashes changed"),
-            resume_sig("ERR_RESUME_STALE_PACKET", "packet", PACKET_ID, "packet hash changed"),
-            resume_sig("ERR_RESUME_STALE_PROMPT", "prompt", "packets/001-first-slice.prompt.md", "packet prompt path changed", expected_hash="value", actual_hash="value"),
-        ],
-        "coherent_packet_prompt_status": [
-            resume_sig("ERR_RESUME_STALE_PACKET", "packet", "status.json.snapshots.packet_hashes", "status snapshot packet_hashes changed"),
-            resume_sig("ERR_RESUME_STALE_PROMPT", "prompt", "status.json.snapshots.prompt_hashes", "status snapshot prompt_hashes changed"),
-            resume_sig("ERR_RESUME_STALE_PACKET", "packet", PACKET_ID, "packet hash changed"),
-            resume_sig("ERR_RESUME_STALE_PROMPT", "prompt", "packets/001-first-slice.prompt.md", "prompt hash changed"),
-            resume_sig("ERR_RESUME_STALE_PACKET", "packet", "status.json.packet_statuses", "status packet_statuses changed"),
-        ],
-        "malformed_packet": [
-            resume_sig("ERR_RESUME_STALE_PACKET", "packet", PACKET_ID, "artifact JSON is malformed", expected_hash=None),
-        ],
-        "packet_array": [
-            resume_sig("ERR_RESUME_STALE_PACKET", "packet", PACKET_ID, "artifact JSON root must be an object", expected_hash=None),
-        ],
-        "packet_malformed_inputs": [
-            resume_sig("ERR_RESUME_STALE_PACKET", "packet", PACKET_ID, "packet hash changed"),
-            resume_sig("ERR_RESUME_STALE_INPUT", "input", PACKET_ID, "packet input snapshots are malformed", actual_hash=None),
-        ],
-        "prompt": [
-            resume_sig("ERR_RESUME_STALE_PROMPT", "prompt", "packets/001-first-slice.prompt.md", "prompt hash changed"),
-            resume_sig("ERR_RESUME_STALE_PROMPT", "prompt", "packets/001-first-slice.prompt.md", "packet prompt hash changed"),
-        ],
-        "input": [
-            resume_sig("ERR_RESUME_STALE_PACKET", "packet", PACKET_ID, "packet hash changed"),
-            resume_sig("ERR_RESUME_STALE_INPUT", "input", PACKET_ID, "input snapshot hash changed"),
-        ],
-        "plan_snapshot_null": [
-            resume_sig("ERR_RESUME_STALE_PLAN", "plan", "plan.snapshot.json", "artifact JSON root must be an object", expected_hash=None),
-        ],
-        "live_input": [
-            resume_sig("ERR_RESUME_STALE_PLAN", "plan", "sentinel.snapshots", "sentinel snapshots do not match source plan"),
-            resume_sig("ERR_RESUME_STALE_PACKET", "packet", "sentinel.packet_statuses", "sentinel packet_statuses does not match source plan"),
-            resume_sig("ERR_RESUME_STALE_INPUT", "input", live_input_id, "live input snapshot hash changed"),
-        ],
-        "gate": [
-            resume_sig("ERR_RESUME_STALE_GATE", "gate", "approval-state.json", "approval state hash changed"),
-            resume_sig("ERR_RESUME_STALE_GATE", "gate", gate_ids[0], "gate approval hash changed"),
-        ],
-        "gate_status_rehash": [
-            resume_sig("ERR_RESUME_STALE_GATE", "gate", "status.json.snapshots.approval_state_hash", "status snapshot approval_state_hash changed"),
-            resume_sig("ERR_RESUME_STALE_GATE", "gate", "status.json.snapshots.gate_approval_hashes", "status snapshot gate_approval_hashes changed"),
-            resume_sig("ERR_RESUME_STALE_GATE", "gate", "approval-state.json", "approval state hash changed"),
-            resume_sig("ERR_RESUME_STALE_GATE", "gate", gate_ids[0], "gate approval hash changed"),
-            resume_sig("ERR_RESUME_STALE_GATE", "gate", "status.json.gate_statuses", "status gate_statuses changed"),
-        ],
-        "status_plan_hash": [
-            resume_sig("ERR_RESUME_STALE_PLAN", "plan", "status.json.source_plan_hash", "status source plan hash changed"),
-            resume_sig("ERR_RESUME_STALE_PLAN", "plan", "status.json.plan_hash", "status plan hash changed"),
-        ],
-        "status_packet_status": [
-            resume_sig("ERR_RESUME_STALE_PACKET", "packet", "status.json.packet_statuses", "status packet_statuses changed"),
-        ],
-        "status_forged_previous_invalidated": [
-            resume_sig("ERR_RESUME_STALE_PACKET", "packet", "status.json.packet_statuses", "status packet_statuses changed"),
-        ],
-        "status_hybrid_previous_invalidated": [
-            resume_sig("ERR_RESUME_STALE_PACKET", "packet", "status.json.packet_statuses", "status packet_statuses changed"),
-        ],
-        "status_gate_status": [
-            resume_sig("ERR_RESUME_STALE_GATE", "gate", "status.json.gate_statuses", "status gate_statuses changed"),
-        ],
-        "status_run_id": [
-            resume_sig("ERR_RESUME_STALE_PLAN", "plan", "status.json.run_id", "status run id changed", expected_hash="value", actual_hash="value"),
-        ],
-        "status_snapshot_compiler": [
-            resume_sig("ERR_RESUME_STALE_COMPILER", "compiler", "status.json.snapshots.compiler_version", "status snapshot compiler_version changed"),
-        ],
-        "run_source_path_absolute": [
-            resume_sig("ERR_RESUME_STALE_PLAN", "plan", "run.json.source_plan_path", "source plan path changed", expected_hash="value", actual_hash="value"),
-            resume_sig("ERR_RESUME_STALE_PLAN", "plan", ready_plan_abs, "source plan path is unsafe", actual_hash=None),
-            resume_sig("ERR_RESUME_STALE_PLAN", "plan", unsafe_source_plan, "source plan is missing", actual_hash=None),
-        ],
-        "run_source_path_repo_relative_rehash": [
-            resume_sig("ERR_RESUME_STALE_PLAN", "plan", "run.json.source_plan_path", "source plan path changed", expected_hash="value", actual_hash="value"),
-            resume_sig("ERR_RESUME_STALE_PLAN", "plan", "run.json.source_plan_hash", "run source plan hash changed"),
-            resume_sig("ERR_RESUME_STALE_PLAN", "plan", "run.json.plan_hash", "run plan hash changed"),
-            resume_sig("ERR_RESUME_STALE_PLAN", "plan", "status.json.source_plan_hash", "status source plan hash changed"),
-            resume_sig("ERR_RESUME_STALE_PLAN", "plan", "status.json.plan_hash", "status plan hash changed"),
-            resume_sig("ERR_RESUME_STALE_PLAN", "plan", "status.json.snapshots.plan_hash", "status snapshot plan_hash changed"),
-            resume_sig("ERR_RESUME_STALE_PLAN", "plan", "samples/v0.5/candidates/pos-cross-source-research.workflow.plan.json", "source plan hash changed"),
-        ],
-        "gate_empty_object": [
-            resume_sig("ERR_RESUME_STALE_GATE", "gate", "approval-state.json", "approval state hash changed"),
-        ],
-        "compiler": [
-            resume_sig("ERR_RESUME_STALE_COMPILER", "compiler", TOOL, "compiler version changed", expected_hash="value", actual_hash="value"),
-        ],
-        "approval_symlink": [
-            resume_sig("ERR_RESUME_MISSING_ARTIFACT", "gate", "approval-state.json", "artifact is missing or symlinked", expected_hash=None, actual_hash=None),
-        ],
-        "packets_dir_symlink": [
-            resume_sig("ERR_RESUME_MISSING_ARTIFACT", "packet", PACKET_ID, "artifact path is missing, unsafe, or symlinked", expected_hash=None, actual_hash=None),
-            resume_sig("ERR_RESUME_MISSING_ARTIFACT", "prompt", "packets/001-first-slice.prompt.md", "artifact path is missing, unsafe, or symlinked", expected_hash=None, actual_hash=None),
-        ],
-        "missing_handoff": [
-            resume_sig("ERR_RESUME_MISSING_ARTIFACT", "handoff", handoff_ids[0], "artifact is missing or symlinked", expected_hash=None, actual_hash=None),
-        ],
-        "status_handoff_traversal": [
-            resume_sig("ERR_RESUME_STALE_HANDOFF", "handoff", "status.json.snapshots.handoff_schema_hashes", "status snapshot handoff_schema_hashes changed"),
-            resume_sig("ERR_RESUME_MISSING_ARTIFACT", "handoff", "../../outside", "handoff snapshot id is unsafe", expected_hash=None, actual_hash=None),
-        ],
-    }
-    if mutation not in signatures:
-        raise CompileError("ERR_SELF_TEST_WRONG_REASON", f"resume fixture lacks exact invalidator signature mapping: {mutation}", fixture_id=fixture["id"])
-    return signatures[mutation]
+    scratch = run_dir.parent / f".{run_dir.name}.expected-{os.getpid()}-{sha8(fixture['id'])}"
+    watched_paths = [plan_path, plan_path.parent / "live-input.txt"]
+    before = {path: path.read_bytes() if path.exists() and not path.is_symlink() else None for path in watched_paths}
+    try:
+        shutil.rmtree(scratch, ignore_errors=True)
+        shutil.copytree(run_dir, scratch, symlinks=True)
+        mutate_run_artifact(scratch, plan_path, fixture["mutate_artifact"])
+        status = resume_run(scratch)
+        return [invalidator_signature(item) for item in status["invalidators"]]
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+        for watched_path, content in before.items():
+            restore_bytes(watched_path, content)
 
 
 def check_fixture_result(fixture: dict[str, Any], result: dict[str, Any]) -> None:
@@ -1950,6 +1808,17 @@ def run_fixture(fixture: dict[str, Any], suite_dir: Path, temp_root: Path, *, su
                 raise CompileError(
                     "ERR_SELF_TEST_WRONG_REASON",
                     f"expected resume invalidators {expected_signatures}, got {actual_signatures}",
+                    fixture_id=fixture_id,
+                )
+            actual_codes = [item["code"] for item in actual_signatures]
+            if "expected_invalidators" in fixture:
+                declared_codes = fixture["expected_invalidators"]
+            else:
+                declared_codes = [fixture["expected_invalidator"]]
+            if sorted(set(actual_codes)) != sorted(set(declared_codes)):
+                raise CompileError(
+                    "ERR_SELF_TEST_WRONG_REASON",
+                    f"manifest expected resume invalidators {declared_codes}, got {actual_codes}",
                     fixture_id=fixture_id,
                 )
         elif fixture_type == "resume-repair":
@@ -2190,6 +2059,13 @@ def mutate_run_artifact(run_dir: Path, plan_path: Path, mutation: str) -> None:
         data = json.loads(path.read_text())
         data.pop("packet_statuses", None)
         write_json_atomic(path, data)
+    elif mutation == "sentinel_malformed_status_sections":
+        path = run_dir / SENTINEL
+        data = json.loads(path.read_text())
+        data["packet_statuses"] = [1]
+        write_json_atomic(path, data)
+    elif mutation == "sentinel_invalid_utf8":
+        (run_dir / SENTINEL).write_bytes(b"\xff")
     elif mutation == "compiler":
         path = run_dir / "run.json"
         data = json.loads(path.read_text())

@@ -116,18 +116,12 @@ def require_v1_decision_summary_text(summary: dict[str, object], decision_text: 
 
 
 def require_v1_decision_summary_consistency() -> None:
-    out_root = ROOT / "out" / "v1" / "contract-check"
-    if out_root.exists():
-        shutil.rmtree(out_root)
+    out_root = ROOT / "out" / "v1" / "final"
     try:
         summary = compile_workflow.evaluate_manifest(ROOT / "fixtures" / "v1" / "manifest.json", out_root)
-        display_summary = dict(summary)
-        display_summary["suite_id"] = "final"
-        require_v1_decision_summary_text(display_summary, (ROOT / "docs" / "v1-decision.md").read_text())
+        require_v1_decision_summary_text(summary, (ROOT / "docs" / "v1-decision.md").read_text())
     except compile_workflow.CompileError as exc:
         raise SystemExit(f"V1 decision consistency failed: {exc}") from exc
-    finally:
-        shutil.rmtree(out_root, ignore_errors=True)
 
 
 def canonical_patterns() -> set[str]:
@@ -375,10 +369,10 @@ Overclaims execution: no
 
     v1_summary = {
         "suite_id": "final",
-        "fixture_count": 64,
-        "required_fixture_count": 64,
-        "required_passed": 64,
-        "passed": 64,
+        "fixture_count": 66,
+        "required_fixture_count": 66,
+        "required_passed": 66,
+        "passed": 66,
         "failed": 0,
         "skipped": 0,
         "decision": "keep",
@@ -387,10 +381,10 @@ Overclaims execution: no
         "Decision: keep\n"
         "python scripts/compile_workflow.py --manifest fixtures/v1/manifest.json --out out/v1/final\n"
         "- `suite_id`: `final`\n"
-        "- `fixture_count`: 64\n"
-        "- `required_fixture_count`: 64\n"
-        "- `required_passed`: 64\n"
-        "- `passed`: 64\n"
+        "- `fixture_count`: 66\n"
+        "- `required_fixture_count`: 66\n"
+        "- `required_passed`: 66\n"
+        "- `passed`: 66\n"
         "- `failed`: 0\n"
         "- `skipped`: 0\n"
         "- `decision`: `keep`\n"
@@ -398,7 +392,7 @@ Overclaims execution: no
     )
     require_v1_decision_summary_text(v1_summary, good_v1_decision)
     try:
-        require_v1_decision_summary_text(v1_summary, good_v1_decision.replace("64", "63", 1))
+        require_v1_decision_summary_text(v1_summary, good_v1_decision.replace("66", "65", 1))
     except SystemExit:
         pass
     else:
@@ -462,7 +456,7 @@ def main() -> None:
         [
             "forged previous-invalidated status sections",
             "hybrid clean/invalidated status section shapes",
-            "malformed sentinel status-section anchors",
+            "invalid utf-8 sentinel status-section anchors",
             "err_resume_missing_artifact",
         ],
     )
