@@ -1243,6 +1243,10 @@ def resume_run(run_dir: Path) -> dict[str, Any]:
                 verify_prompt_packet(prompt_text, packet)
             except CompileError:
                 invalidators.append(hash_invalidator("prompt", prompt_rel, expected, actual, "prompt and packet contract disagree"))
+            if packet.get("prompt_path") != prompt_rel:
+                invalidators.append(hash_invalidator("prompt", prompt_rel, prompt_rel, str(packet.get("prompt_path")), "packet prompt path changed"))
+            if packet.get("prompt_hash") != actual:
+                invalidators.append(hash_invalidator("prompt", prompt_rel, actual, str(packet.get("prompt_hash")), "packet prompt hash changed"))
     handoff_schemas = []
     for handoff_id, expected in snapshots["handoff_schema_hashes"].items():
         path = run_dir / "handoffs" / f"{handoff_id}.schema.json"
@@ -1283,6 +1287,32 @@ def resume_run(run_dir: Path) -> dict[str, Any]:
                 invalidators.append(hash_invalidator("gate", gate_id, expected_gate, actual_gate, "gate approval hash changed"))
             gates.append(gate)
         approval_state = {**approval_state, "gates": gates}
+    expected_status_sections = build_status(
+        run["run_id"],
+        old_status["plan_hash"],
+        old_status["source_plan_hash"],
+        packet or {"prompt_hash": "", "input_snapshot_hash": "", "prompt_path": prompt_rel},
+        handoff_schemas,
+        gates,
+        approval_state,
+    )
+    for section, kind in [
+        ("packet_statuses", "packet"),
+        ("gate_statuses", "gate"),
+        ("handoff_statuses", "handoff"),
+    ]:
+        actual_section = old_status.get(section)
+        expected_section = expected_status_sections[section]
+        if actual_section != expected_section:
+            invalidators.append(
+                hash_invalidator(
+                    kind,
+                    f"status.json.{section}",
+                    canonical_hash(expected_section),
+                    canonical_hash(actual_section),
+                    f"status {section} changed",
+                )
+            )
     if run.get("compiler_version") != COMPILER_VERSION:
         invalidators.append(hash_invalidator("compiler", TOOL, run.get("compiler_version"), COMPILER_VERSION, "compiler version changed"))
     resume_state = "invalidated" if invalidators else "resumable"
@@ -1560,6 +1590,24 @@ def mutate_run_artifact(run_dir: Path, plan_path: Path, mutation: str) -> None:
         status = json.loads(status_path.read_text())
         status["snapshots"]["packet_hashes"][PACKET_ID] = canonical_hash(data)
         write_json_atomic(status_path, status)
+    elif mutation == "packet_prompt_hash_rehash":
+        path = run_dir / "packets" / "001-first-slice.packet.json"
+        data = json.loads(path.read_text())
+        data["prompt_hash"] = "0" * 64
+        write_json_atomic(path, data)
+        status_path = run_dir / "status.json"
+        status = json.loads(status_path.read_text())
+        status["snapshots"]["packet_hashes"][PACKET_ID] = canonical_hash(data)
+        write_json_atomic(status_path, status)
+    elif mutation == "packet_prompt_path_rehash":
+        path = run_dir / "packets" / "001-first-slice.packet.json"
+        data = json.loads(path.read_text())
+        data["prompt_path"] = "packets/alternate.prompt.md"
+        write_json_atomic(path, data)
+        status_path = run_dir / "status.json"
+        status = json.loads(status_path.read_text())
+        status["snapshots"]["packet_hashes"][PACKET_ID] = canonical_hash(data)
+        write_json_atomic(status_path, status)
     elif mutation == "malformed_packet":
         path = run_dir / "packets" / "001-first-slice.packet.json"
         write_text_atomic(path, "{not-json\n")
@@ -1595,6 +1643,16 @@ def mutate_run_artifact(run_dir: Path, plan_path: Path, mutation: str) -> None:
         data = json.loads(path.read_text())
         data["plan_hash"] = "0" * 64
         data["source_plan_hash"] = "1" * 64
+        write_json_atomic(path, data)
+    elif mutation == "status_packet_status":
+        path = run_dir / "status.json"
+        data = json.loads(path.read_text())
+        data["packet_statuses"][0]["status"] = "forged"
+        write_json_atomic(path, data)
+    elif mutation == "status_gate_status":
+        path = run_dir / "status.json"
+        data = json.loads(path.read_text())
+        data["gate_statuses"].append({"gate_id": "forged", "status": "ready"})
         write_json_atomic(path, data)
     elif mutation == "run_source_path_absolute":
         path = run_dir / "run.json"

@@ -393,6 +393,20 @@
       "type": "resume"
     },
     {
+      "expected_invalidator": "ERR_RESUME_STALE_PROMPT",
+      "id": "resume-packet-prompt-hash",
+      "mutate_artifact": "packet_prompt_hash_rehash",
+      "plan": "fixtures/v1/plans/ready-readonly.workflow.plan.json",
+      "type": "resume"
+    },
+    {
+      "expected_invalidator": "ERR_RESUME_STALE_PROMPT",
+      "id": "resume-packet-prompt-path",
+      "mutate_artifact": "packet_prompt_path_rehash",
+      "plan": "fixtures/v1/plans/ready-readonly.workflow.plan.json",
+      "type": "resume"
+    },
+    {
       "expected_invalidator": "ERR_RESUME_STALE_PACKET",
       "id": "resume-malformed-packet",
       "mutate_artifact": "malformed_packet",
@@ -467,6 +481,20 @@
       "expected_invalidator": "ERR_RESUME_STALE_PLAN",
       "id": "resume-stale-status-hash",
       "mutate_artifact": "status_plan_hash",
+      "plan": "fixtures/v1/plans/ready-readonly.workflow.plan.json",
+      "type": "resume"
+    },
+    {
+      "expected_invalidator": "ERR_RESUME_STALE_PACKET",
+      "id": "resume-status-packet-status",
+      "mutate_artifact": "status_packet_status",
+      "plan": "fixtures/v1/plans/ready-readonly.workflow.plan.json",
+      "type": "resume"
+    },
+    {
+      "expected_invalidator": "ERR_RESUME_STALE_GATE",
+      "id": "resume-status-gate-status",
+      "mutate_artifact": "status_gate_status",
       "plan": "fixtures/v1/plans/ready-readonly.workflow.plan.json",
       "type": "resume"
     },
@@ -574,6 +602,8 @@
     "resume-stale-plan-snapshot",
     "resume-stale-packet",
     "resume-prompt-packet-disagree",
+    "resume-packet-prompt-hash",
+    "resume-packet-prompt-path",
     "resume-malformed-packet",
     "resume-packet-array",
     "resume-malformed-packet-inputs",
@@ -583,6 +613,8 @@
     "resume-stale-live-input",
     "resume-stale-gate",
     "resume-stale-status-hash",
+    "resume-status-packet-status",
+    "resume-status-gate-status",
     "resume-source-plan-path-absolute",
     "resume-gate-empty-object",
     "resume-stale-compiler",
