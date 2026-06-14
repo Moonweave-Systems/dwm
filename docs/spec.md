@@ -244,17 +244,19 @@ V0.5 is releasable when:
 - tracked candidate samples under `samples/v0.5/candidates/` validate as
   schema-valid plans or valid downgrade artifacts.
 - tracked raw outputs under `samples/v0.5/raw/` are distinct from parsed plans
-  and contain the prompt, parsed `workflow_plan`, and rendered blueprint that
-  matches the parsed plan.
+  and contain `raw_kind`, `fixture_id`, the prompt, producer, current
+  `SKILL.md` hash, packet hashes, parsed `workflow_plan`, and rendered blueprint
+  that matches the parsed plan.
 - each fixture has a structured consumer report under `samples/v0.5/consumer/`.
 - both confirmed baseline snapshots, `workflow-router-skill` and
-  `claude-agent-workflow-designer`, are scored per fixture through
-  source-hashed normalization-failure records whose scores are derived by the
-  evaluator from structured observations.
+  `claude-agent-workflow-designer`, are scored through fixture-indexed,
+  prompt-matched source-hashed normalization-failure records whose scores are
+  derived by the evaluator from structured source-snapshot observations.
 - `python scripts/evaluate_plan.py --manifest fixtures/v0.5/manifest.json --out
   out/v0.5` regenerates scorecards, parsed plans, raw outputs, skill hashes, and
   rendered blueprints, then validates and copies tracked consumer reports; the
-  command exits nonzero if the keep/kill decision is not `keep`.
+  command exits nonzero if the keep/kill decision is not `keep` or if
+  `docs/v0.5-decision.md` drifts from the regenerated summary.
 - `docs/v0.5-decision.md` records the keep/kill outcome.
 
 ### Reproducible Check

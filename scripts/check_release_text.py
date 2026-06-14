@@ -5,20 +5,13 @@ from __future__ import annotations
 
 import argparse
 import re
+import tempfile
 import sys
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
 SKIP_DIRS = {".git", ".pytest_cache", ".ruff_cache", "__pycache__", "out"}
-TEXT_SUFFIXES = {
-    ".json",
-    ".md",
-    ".py",
-    ".txt",
-    ".yaml",
-    ".yml",
-}
 SECRET_PATTERN = re.compile(
     r"(?i)(api[_-]?key|secret|token|password)\s*[:=]\s*['\"][^'\"]{8,}|"
     r"-----BEGIN (RSA|OPENSSH) PRIVATE KEY-----"
@@ -30,23 +23,36 @@ class TextCheckError(ValueError):
     """Raised when release text checks fail."""
 
 
-def iter_text_files(root: Path) -> list[Path]:
+def read_text_file(path: Path) -> str | None:
+    try:
+        data = path.read_bytes()
+    except OSError:
+        return None
+    if b"\x00" in data:
+        return None
+    try:
+        return data.decode("utf-8")
+    except UnicodeDecodeError:
+        return None
+
+
+def iter_text_files(root: Path) -> list[tuple[Path, str]]:
     paths: list[Path] = []
     for path in sorted(root.rglob("*")):
         if not path.is_file():
             continue
         if any(part in SKIP_DIRS for part in path.relative_to(root).parts):
             continue
-        if path.suffix.lower() in TEXT_SUFFIXES:
-            paths.append(path)
+        text = read_text_file(path)
+        if text is not None:
+            paths.append((path, text))
     return paths
 
 
 def check_files(root: Path) -> None:
     secret_hits: list[str] = []
     placeholder_hits: list[str] = []
-    for path in iter_text_files(root):
-        text = path.read_text(errors="replace")
+    for path, text in iter_text_files(root):
         rel_path = path.relative_to(root)
         if SECRET_PATTERN.search(text):
             secret_hits.append(str(rel_path))
@@ -66,6 +72,26 @@ def self_test() -> None:
         raise TextCheckError("self-test failed: placeholder pattern missed")
     if SECRET_PATTERN.search("secret access requires approval"):
         raise TextCheckError("self-test failed: benign secret phrase matched")
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        env_secret = "API_" + 'KEY="1234567890abcdef"'
+        (root / ".env").write_text(env_secret + "\n")
+        try:
+            check_files(root)
+        except TextCheckError:
+            pass
+        else:
+            raise TextCheckError("self-test failed: .env secret file passed")
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        shell_secret = "api_" + 'key="1234567890abcdef"'
+        (root / "deploy.sh").write_text(shell_secret + "\n")
+        try:
+            check_files(root)
+        except TextCheckError:
+            pass
+        else:
+            raise TextCheckError("self-test failed: shell secret file passed")
     print("release text check self-test: pass")
 
 

@@ -409,7 +409,7 @@ def main() -> None:
             "source-hashed normalization failure",
             "does not claim runtime execution or live model generation",
             "current skill hash",
-            "source-backed evidence excerpt",
+            "source-backed evidence",
             "blinded sample-review provenance",
             "out/v0.5/summary.json",
         ],

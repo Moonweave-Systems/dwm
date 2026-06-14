@@ -92,6 +92,9 @@ FORBIDDEN_PROVENANCE_TERMS = {
     "expected answer",
     "expected-answer",
     "gold answer",
+    "ground truth",
+    "marking pass",
+    "rubric",
     "scorecard",
     "separate note",
     "docs/spec",
@@ -148,6 +151,7 @@ BASELINE_OBSERVATION_KEYS = [
     "consumer_can_route",
 ]
 BASELINE_OBSERVATION_TERMS = {
+    "activation_decision": {"activate", "activation", "downgrade", "route", "schema"},
     "handoff_guidance": {"handoff", "summary", "downstream", "continuation"},
     "verification_guidance": {"verification", "verify", "evidence", "check", "falsifier"},
     "safety_gates": {"safety", "gate", "safe-default", "approval", "destructive"},
@@ -803,6 +807,8 @@ def validate_plan(
             any(surface["kind"] == "repo" for surface in plan["surfaces"]),
             "repo-bound fixtures must declare at least one repo surface",
         )
+    if expected and expected.get("fixture_category") == "meta":
+        require(plan["execution_path"]["mode"] == "backlog", "meta fixtures must use a backlog execution path")
     validate_assumptions(plan, activated)
     validate_patterns(plan, expected)
     validate_workers(plan, activated)
@@ -861,7 +867,7 @@ def packet_hashes(plan: dict[str, Any]) -> dict[str, str]:
                 ]
             }
         )
-        hashes["repository path"] = sha256_text(repo_input)
+        hashes["repository surfaces"] = sha256_text(repo_input)
     return hashes
 
 
@@ -892,6 +898,22 @@ def score_baseline_failure(
     expected: dict[str, Any],
     source_text: str,
 ) -> dict[str, int]:
+    require_keys(
+        failure,
+        [
+            "adapter_version",
+            "baseline",
+            "fixture_id",
+            "normalization_failure_kind",
+            "normalized",
+            "observation_evidence",
+            "observations",
+            "prompt",
+            "reason",
+            "source_sha256",
+        ],
+        "baseline normalization_failure",
+    )
     require("scores" not in failure, "normalization failure records must not contain hand-authored scores")
     require(failure.get("adapter_version") == BASELINE_ADAPTER_VERSION, "baseline adapter version mismatch")
     require(non_empty_string(failure.get("source_sha256")), "baseline source hash is empty")
@@ -959,6 +981,10 @@ def score_baseline_failure(
                     f"baseline evidence {key} interpretation omits the observation topic",
                 )
         else:
+            require(
+                interpretation_mentions_observation(key, item["interpretation"]),
+                "baseline evidence activation_decision interpretation omits the observation topic",
+            )
             require(
                 item["activation_support"] in {"activate", "downgrade", "ambiguous"},
                 "baseline evidence activation_decision support is invalid",
@@ -1288,7 +1314,8 @@ def evaluate_fixture(
     skill_hash: str,
 ) -> dict[str, Any]:
     fixture_id = fixture["id"]
-    expected = fixture["expected"]
+    expected = dict(fixture["expected"])
+    expected["fixture_category"] = fixture["category"]
     plan_path = ROOT / fixture["candidate_plan"]
     prompt_path = ROOT / fixture["prompt_path"]
     raw_path = ROOT / fixture["raw_output"]
@@ -1872,6 +1899,15 @@ def self_test() -> None:
     else:
         raise EvaluationError("self-test failed: gold-answer consumer provenance leak passed")
     bad_report = json.loads(json.dumps(valid_report))
+    bad_report["provenance"]["reviewer_note"] = "Reviewed against the ground truth rubric before marking pass."
+    write_json(tmp_report, bad_report)
+    try:
+        validate_consumer_report(tmp_report, active, {"activation": "activate"})
+    except EvaluationError:
+        pass
+    else:
+        raise EvaluationError("self-test failed: ground-truth consumer provenance leak passed")
+    bad_report = json.loads(json.dumps(valid_report))
     bad_report["provenance"]["field_support"]["safe_defaults"] += "; docs / spec"
     write_json(tmp_report, bad_report)
     try:
@@ -2005,7 +2041,7 @@ def self_test() -> None:
     repo_hash_plan = json.loads(json.dumps(active))
     changed_repo_hash_plan = json.loads(json.dumps(active))
     changed_repo_hash_plan["surfaces"][0]["locator"] = "different/repo/path"
-    if packet_hashes(repo_hash_plan)["repository path"] == packet_hashes(changed_repo_hash_plan)["repository path"]:
+    if packet_hashes(repo_hash_plan)["repository surfaces"] == packet_hashes(changed_repo_hash_plan)["repository surfaces"]:
         raise EvaluationError("self-test failed: repository packet hash ignored repo locator")
     raw_with_extra = json.loads(tmp_raw.read_text())
     raw_with_extra["unexpected_raw_field"] = True
@@ -2056,6 +2092,14 @@ def self_test() -> None:
         pass
     else:
         raise EvaluationError("self-test failed: non-repo first-slice repo alias passed")
+    bad_meta = json.loads(json.dumps(active))
+    bad_meta["execution_path"]["mode"] = "runtime"
+    try:
+        validate_plan(bad_meta, {"activation": "activate", "fixture_category": "meta"})
+    except EvaluationError:
+        pass
+    else:
+        raise EvaluationError("self-test failed: meta fixture runtime execution path passed")
     bad_phase = json.loads(json.dumps(active))
     bad_phase["phases"].append(
         {
@@ -2190,6 +2234,7 @@ def self_test() -> None:
         "source_sha256": "0" * 64,
         "normalization_failure_kind": "no-schema-valid-artifact",
         "normalized": False,
+        "reason": "Self-test baseline does not emit workflow.plan.json.",
         "observations": {
             "activation_decision": "ambiguous",
             "handoff_guidance": True,
@@ -2286,6 +2331,14 @@ def self_test() -> None:
     else:
         raise EvaluationError("self-test failed: hand-authored baseline scores passed")
     baseline_failure.pop("scores")
+    baseline_failure["unexpected"] = True
+    try:
+        score_baseline_failure(baseline_failure, {"activation": "activate"}, source_text)
+    except EvaluationError:
+        pass
+    else:
+        raise EvaluationError("self-test failed: baseline extra field passed")
+    baseline_failure.pop("unexpected")
     baseline_failure["observation_evidence"]["consumer_can_route"]["source_excerpt"] = "not in source"
     try:
         score_baseline_failure(baseline_failure, {"activation": "activate"}, source_text)
