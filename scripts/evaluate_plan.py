@@ -84,6 +84,11 @@ FORBIDDEN_PROVENANCE_TERMS = {
     "v0.5-plan",
     "fixture expectation",
 }
+DOWNGRADE_EXECUTION_TARGETS = {
+    "direct-codex": ("direct-codex", "human"),
+    "workflow-router": ("direct-codex", "human"),
+    "simple-plan": ("direct-codex", "human"),
+}
 BASELINE_OBSERVATION_KEYS = [
     "activation_decision",
     "handoff_guidance",
@@ -177,17 +182,26 @@ def safe_default_blocks_before_action(text: str) -> bool:
     normalized = " ".join(text.lower().split())
     if any(term in normalized for term in UNSAFE_DEFAULT_TERMS):
         return False
-    return (
-        normalized.startswith("stop before ")
-        or (normalized.startswith("do not ") and "without approval" in normalized)
-        or ("ask before" in normalized and ("stop" in normalized or "preserve" in normalized))
-    )
+    allowed = [
+        r"^stop before [a-z0-9 ,/.-]+ and ask for approval$",
+        r"^do not [a-z0-9 ,/.-]+ without approval$",
+        r"^preserve [a-z0-9 ,/.-]+ and ask before [a-z0-9 ,/.-]+$",
+    ]
+    return any(re.fullmatch(pattern, normalized) for pattern in allowed)
+
+
+def normalized_provenance_text(text: str) -> str:
+    return " ".join(re.findall(r"[a-z0-9]+", text.lower()))
 
 
 def forbid_provenance_leaks(text: str, where: str) -> None:
-    normalized = text.lower()
+    normalized = normalized_provenance_text(text)
     for forbidden in FORBIDDEN_PROVENANCE_TERMS:
-        require(forbidden not in normalized, f"{where} references forbidden provenance source: {forbidden}")
+        normalized_forbidden = normalized_provenance_text(forbidden)
+        require(
+            normalized_forbidden not in normalized,
+            f"{where} references forbidden provenance source: {forbidden}",
+        )
 
 
 def resolve_out_root(value: str) -> Path:
@@ -590,6 +604,11 @@ def validate_budget_resume_execution(plan: dict[str, Any], activated: bool) -> N
     require_keys(execution, ["mode", "first_slice", "consumer"], "execution_path")
     require(execution["mode"] in EXECUTION_MODES, "invalid execution mode")
     require(execution["consumer"] in CONSUMERS, "invalid consumer")
+    if not activated:
+        target = plan["activation"]["downgrade_target"]
+        expected_mode, expected_consumer = DOWNGRADE_EXECUTION_TARGETS[target]
+        require(execution["mode"] == expected_mode, "downgrade execution mode contradicts target")
+        require(execution["consumer"] == expected_consumer, "downgrade consumer contradicts target")
     first_slice = execution["first_slice"]
     require(isinstance(first_slice, dict), "first_slice must be an object")
     require_keys(
@@ -950,19 +969,33 @@ def average(scores: dict[str, int], metrics: list[str]) -> float:
     return sum(scores[metric] for metric in metrics) / len(metrics)
 
 
-def validate_decision_doc(summary: dict[str, Any]) -> None:
-    decision_path = ROOT / "docs" / "v0.5-decision.md"
-    text = " ".join(decision_path.read_text().lower().split())
-    required = [
-        f"decision: {summary['decision']}",
-        f"{summary['fixture_count']} fixtures",
-        f"candidate keep/kill average: {summary['candidate_keep_kill_average']}",
-        "aggregate keep/kill average",
-    ]
+def validate_decision_doc(summary: dict[str, Any], decision_path: Path | None = None) -> None:
+    decision_path = ROOT / "docs" / "v0.5-decision.md" if decision_path is None else decision_path
+    raw_text = decision_path.read_text()
+    text = " ".join(raw_text.lower().split())
+
+    decisions = re.findall(r"(?im)^decision:\s*([a-z0-9-]+)\s*$", raw_text)
+    require(decisions == [summary["decision"]], "docs/v0.5-decision.md has contradictory decision values")
+
+    fixture_matches = re.findall(r"(?i)(\d+)\s+fixtures evaluated\.", raw_text)
+    require(
+        fixture_matches == [str(summary["fixture_count"])],
+        "docs/v0.5-decision.md fixture count does not match generated summary",
+    )
+
+    candidate_matches = re.findall(r"(?i)candidate keep/kill average:\s*([0-9.]+)\.", raw_text)
+    require(
+        candidate_matches == [str(summary["candidate_keep_kill_average"])],
+        "docs/v0.5-decision.md candidate average does not match generated summary",
+    )
     for name, value in summary["baseline_keep_kill_averages"].items():
-        required.append(f"`{name}` baseline average: {value}")
-    missing = [snippet for snippet in required if snippet not in text]
-    require(not missing, f"docs/v0.5-decision.md does not match generated summary: {missing}")
+        pattern = rf"(?i)`{re.escape(name)}` baseline average:\s*([0-9.]+)\."
+        matches = re.findall(pattern, raw_text)
+        require(
+            matches == [str(value)],
+            f"docs/v0.5-decision.md baseline average mismatch for {name}",
+        )
+    require("aggregate keep/kill average" in text, "docs/v0.5-decision.md omits aggregate average boundary")
     if "per-metric margin" in text:
         require(
             "does not claim a per-metric margin" in text,
@@ -1195,7 +1228,7 @@ def valid_plan_fixture(decision: str = "activate") -> dict[str, Any]:
                 "completion_check": "ledger has inputs",
                 "forbidden_actions": ["write files"],
             },
-            "consumer": "codex-agent",
+            "consumer": "codex-agent" if decision == "activate" else "human",
         },
     }
 
@@ -1271,6 +1304,20 @@ def self_test() -> None:
         pass
     else:
         raise EvaluationError("self-test failed: unsafe continue safe_default passed")
+    for unsafe_default in [
+        "ask before writing, preserve evidence, then write files",
+        "ask before shell use, stop for approval, then run the shell command",
+        "stop before writing and ask for approval, otherwise write files",
+        "do not write without approval; write files afterward",
+    ]:
+        bad_gate = json.loads(json.dumps(active))
+        bad_gate["risk_gates"][0]["safe_default"] = unsafe_default
+        try:
+            validate_plan(bad_gate, {"activation": "activate"})
+        except EvaluationError:
+            pass
+        else:
+            raise EvaluationError(f"self-test failed: unsafe safe_default passed: {unsafe_default}")
 
     valid_report = {
         "fixture_id": active["plan_id"],
@@ -1375,6 +1422,15 @@ def self_test() -> None:
     else:
         raise EvaluationError("self-test failed: consumer provenance source leak passed")
     bad_report = json.loads(json.dumps(valid_report))
+    bad_report["provenance"]["field_support"]["safe_defaults"] += "; docs / spec"
+    write_json(tmp_report, bad_report)
+    try:
+        validate_consumer_report(tmp_report, active, {"activation": "activate"})
+    except EvaluationError:
+        pass
+    else:
+        raise EvaluationError("self-test failed: spaced provenance source leak passed")
+    bad_report = json.loads(json.dumps(valid_report))
     bad_report["provenance"]["field_support"]["risk_gates"] = "risk_gates omitted"
     write_json(tmp_report, bad_report)
     try:
@@ -1476,6 +1532,14 @@ def self_test() -> None:
         pass
     else:
         raise EvaluationError("self-test failed: downgrade worker contract passed")
+    bad_downgrade = json.loads(json.dumps(downgrade))
+    bad_downgrade["execution_path"]["mode"] = "runtime"
+    try:
+        validate_plan(bad_downgrade, {"activation": "downgrade", "downgrade_target": "direct-codex"})
+    except EvaluationError:
+        pass
+    else:
+        raise EvaluationError("self-test failed: contradictory downgrade execution mode passed")
 
     source_text = (
         "Classify the task using references/router-map.md.\n"
@@ -1604,6 +1668,35 @@ def self_test() -> None:
         pass
     else:
         raise EvaluationError("self-test failed: duplicate manifest baselines passed")
+    good_summary = {
+        "decision": "keep",
+        "fixture_count": 12,
+        "candidate_keep_kill_average": 1.883,
+        "baseline_keep_kill_averages": {
+            "workflow-router-skill": 1.317,
+            "claude-agent-workflow-designer": 0.8,
+        },
+    }
+    validate_decision_doc(good_summary)
+    tmp_decision = ROOT / "out" / "v0.5-self-test-decision.md"
+    tmp_decision.write_text(
+        "# Decision\n\n"
+        "Decision: keep\n\n"
+        "Decision: kill-or-merge\n\n"
+        "- 12 fixtures evaluated.\n"
+        "- Candidate keep/kill average: 1.883.\n"
+        "- `workflow-router-skill` baseline average: 1.317.\n"
+        "- `claude-agent-workflow-designer` baseline average: 0.8.\n"
+        "The candidate aggregate keep/kill average beats each baseline aggregate. "
+        "V0.5 does not claim a per-metric margin.\n"
+    )
+    try:
+        validate_decision_doc(good_summary, tmp_decision)
+    except EvaluationError:
+        pass
+    else:
+        raise EvaluationError("self-test failed: contradictory decision doc passed")
+    tmp_decision.unlink(missing_ok=True)
     try:
         resolve_out_root("/tmp/v0.5-outside-repo")
     except EvaluationError:
