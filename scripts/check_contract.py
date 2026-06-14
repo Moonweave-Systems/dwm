@@ -3,6 +3,7 @@
 
 from pathlib import Path
 import argparse
+import json
 import re
 
 
@@ -38,6 +39,9 @@ V05_REQUIRED_TERMS = [
     "downstream consumer protocol",
     "borderline downgrade fixtures",
     "valid downgrade artifact",
+    "source-backed evidence excerpts",
+    "blinded sample-review provenance",
+    "repo-local",
 ]
 
 
@@ -46,6 +50,33 @@ def require_terms(path: str, terms: list[str]) -> None:
     missing = [term for term in terms if term not in text]
     if missing:
         raise SystemExit(f"{path} missing required terms: {missing}")
+
+
+def require_decision_summary_consistency() -> None:
+    summary_path = ROOT / "out" / "v0.5" / "summary.json"
+    if not summary_path.exists():
+        return
+    summary = json.loads(summary_path.read_text())
+    decision_text = (ROOT / "docs" / "v0.5-decision.md").read_text().lower()
+    normalized_decision_text = " ".join(decision_text.split())
+    required_snippets = [
+        f"decision: {summary['decision']}",
+        f"{summary['fixture_count']} fixtures",
+        f"candidate keep/kill average: {summary['candidate_keep_kill_average']}",
+        "aggregate keep/kill average",
+    ]
+    for name, value in summary["baseline_keep_kill_averages"].items():
+        required_snippets.append(f"`{name}` baseline average: {value}")
+    missing = [snippet for snippet in required_snippets if snippet not in normalized_decision_text]
+    if missing:
+        raise SystemExit(f"docs/v0.5-decision.md does not match out/v0.5/summary.json: {missing}")
+    forbidden_claims = [
+        "per-metric margin",
+        "across activation discipline, handoff clarity, verification strength, safety gating, and downstream consumer success.",
+    ]
+    for claim in forbidden_claims:
+        if claim in normalized_decision_text and "does not claim a per-metric margin" not in normalized_decision_text:
+            raise SystemExit(f"docs/v0.5-decision.md contains unsupported claim: {claim}")
 
 
 def canonical_patterns() -> set[str]:
@@ -341,10 +372,14 @@ def main() -> None:
             "samples/v0.5/consumer/",
             "source-hashed normalization failure",
             "does not claim runtime execution or live model generation",
+            "current skill hash",
+            "source-backed evidence excerpt",
+            "blinded sample-review provenance",
             "out/v0.5/summary.json",
         ],
     )
     require_fixture_smoke()
+    require_decision_summary_consistency()
     print("contract smoke: pass")
 
 

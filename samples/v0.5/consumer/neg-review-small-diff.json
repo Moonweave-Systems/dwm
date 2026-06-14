@@ -16,8 +16,18 @@
     "external messages"
   ],
   "inputs_needed": [
-    "user prompt"
+    "original prompt"
   ],
+  "provenance": {
+    "reviewer_note": "Blinded sample reviewer identified the first slice, required inputs, forbidden actions, gates, and safe defaults from the supplied packet only.",
+    "run_kind": "blinded-sample-review",
+    "supplied_inputs": [
+      "workflow.plan.json",
+      "blueprint.md",
+      "original prompt"
+    ],
+    "transcript_excerpt": "Consumer selected first slice: Use direct-codex instead of dynamic-workflow-designer for this request."
+  },
   "received_spec_or_expected_answer": false,
   "risk_gates_identified": [
     "scope expands into destructive, external, or multi-agent execution"

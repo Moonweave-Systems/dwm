@@ -25,8 +25,8 @@ workflow design the user can inspect or that the current environment can execute
 5. Write the workflow as phases with explicit worker prompts, inputs, outputs,
    verification gates, retry limits, and budget caps.
 6. Identify which parts can run in parallel and which barriers are truly needed.
-7. End with an execution path: direct Codex work, subagent plan, generated
-   workflow script, plugin scaffold, or runtime backlog.
+7. End with an execution path: direct Codex work, subagent plan, plugin
+   scaffold, runtime execution, or backlog.
 
 ## Design Contract
 

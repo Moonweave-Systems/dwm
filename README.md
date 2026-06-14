@@ -91,9 +91,12 @@ rg -n "T[O]DO|T[B]D|PLACE[H]OLDER|FIX[M]E" --glob '*.md' .; test $? -eq 1
 The contract check requires passing fixture records under
 [`docs/fixture-smoke/`](docs/fixture-smoke/).
 
-The V0.5 evaluator regenerates `out/v0.5/` from tracked fixtures and samples.
-That directory is verification evidence, not source of truth. The manifest run
-exits nonzero if the keep/kill decision is not `keep`.
+The V0.5 evaluator regenerates repo-local `out/v0.5/` from tracked fixtures and
+samples. That directory is verification evidence, not source of truth. Raw
+records are bound to the current `SKILL.md` hash, baseline observations require
+source-backed excerpts, and consumer reports require blinded sample-review
+provenance. The manifest run exits nonzero if the keep/kill decision is not
+`keep`.
 
 The V0.5 keep/kill decision is
 [`docs/v0.5-decision.md`](docs/v0.5-decision.md).

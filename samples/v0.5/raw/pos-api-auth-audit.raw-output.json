@@ -1,7 +1,9 @@
 {
   "fixture_id": "pos-api-auth-audit",
+  "producer": "dynamic-workflow-designer",
   "raw_kind": "workflow-output",
-  "rendered_blueprint": "# pos-api-auth-audit\n\nObjective: Find API routes that lack required authorization checks across packages and produce a verified evidence ledger.\nActivation: activate (The prompt needs a reusable artifact with downstream handoffs, verification, and gated execution.)\nPatterns: Pipeline, Parallel Fan-Out / Fan-In, Adversarial Verify, Human Gate, Resume And Cache\n\n## First Slice\n\nInventory route entry points, auth middleware, and package boundaries without editing files.\n\nCompletion check: inventory validates and every gap is either resolved or recorded\n\n## Risk Gates\n\n- write, shell, or destructive action: stop with a read-only report and ask for approval\n- dependency, paid external API, or network expansion: use local evidence or document the missing source\n- public API, production, database, secret, external message, runtime, or history rewrite action: preserve artifacts and ask before proceeding\n",
+  "rendered_blueprint": "# pos-api-auth-audit\n\nObjective: Find API routes that lack required authorization checks across packages and produce a verified evidence ledger.\nActivation: activate (The prompt needs a reusable artifact with downstream handoffs, verification, and gated execution.)\nPatterns: Pipeline, Parallel Fan-Out / Fan-In, Adversarial Verify, Human Gate, Resume And Cache\n\n## First Slice\n\nInventory route entry points, auth middleware, and package boundaries without editing files.\n\nCompletion check: inventory validates and every gap is either resolved or recorded\n\n## Risk Gates\n\n- write action: stop before writing and ask for approval\n- shell action: stop before shell use and ask for approval\n- network action: stop before network use and ask for approval\n- external message action: stop before sending external messages and ask for approval\n- secret access: stop before secret access and ask for approval\n",
+  "skill_sha256": "b3a20daf5e7e6c1d826f1167f39f64ab295836a83cce6f82d54ffa120842326a",
   "source_prompt": "Design a workflow to audit every API route for missing auth across a multi-package service.",
   "workflow_plan": {
     "activation": {
@@ -46,9 +48,10 @@
           "external messages"
         ],
         "inputs": [
+          "workflow.plan.json",
+          "blueprint.md",
           "original prompt",
-          "workflow-plan-schema.md",
-          "surface locators"
+          "repository path"
         ],
         "instruction": "Inventory route entry points, auth middleware, and package boundaries without editing files."
       },
@@ -161,18 +164,28 @@
     "risk_gates": [
       {
         "requires_user_approval": true,
-        "safe_default": "stop with a read-only report and ask for approval",
-        "trigger": "write, shell, or destructive action"
+        "safe_default": "stop before writing and ask for approval",
+        "trigger": "write action"
       },
       {
         "requires_user_approval": true,
-        "safe_default": "use local evidence or document the missing source",
-        "trigger": "dependency, paid external API, or network expansion"
+        "safe_default": "stop before shell use and ask for approval",
+        "trigger": "shell action"
       },
       {
         "requires_user_approval": true,
-        "safe_default": "preserve artifacts and ask before proceeding",
-        "trigger": "public API, production, database, secret, external message, runtime, or history rewrite action"
+        "safe_default": "stop before network use and ask for approval",
+        "trigger": "network action"
+      },
+      {
+        "requires_user_approval": true,
+        "safe_default": "stop before sending external messages and ask for approval",
+        "trigger": "external message action"
+      },
+      {
+        "requires_user_approval": true,
+        "safe_default": "stop before secret access and ask for approval",
+        "trigger": "secret access"
       }
     ],
     "schema_version": "0.5",

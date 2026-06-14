@@ -30,7 +30,7 @@
         "external messages"
       ],
       "inputs": [
-        "user prompt"
+        "original prompt"
       ],
       "instruction": "Use simple-plan instead of dynamic-workflow-designer for this request."
     },

@@ -2,7 +2,8 @@
   "blinded_inputs": [
     "workflow.plan.json",
     "blueprint.md",
-    "original prompt"
+    "original prompt",
+    "repository path"
   ],
   "completion_check": "inventory validates and every gap is either resolved or recorded",
   "consumer_verdict": "pass",
@@ -16,19 +17,35 @@
     "external messages"
   ],
   "inputs_needed": [
+    "workflow.plan.json",
+    "blueprint.md",
     "original prompt",
-    "workflow-plan-schema.md",
-    "surface locators"
+    "repository path"
   ],
+  "provenance": {
+    "reviewer_note": "Blinded sample reviewer identified the first slice, required inputs, forbidden actions, gates, and safe defaults from the supplied packet only.",
+    "run_kind": "blinded-sample-review",
+    "supplied_inputs": [
+      "workflow.plan.json",
+      "blueprint.md",
+      "original prompt",
+      "repository path"
+    ],
+    "transcript_excerpt": "Consumer selected first slice: Build the call-site inventory and classify migration batches before proposing edits."
+  },
   "received_spec_or_expected_answer": false,
   "risk_gates_identified": [
-    "write, shell, or destructive action",
-    "dependency, paid external API, or network expansion",
-    "public API, production, database, secret, external message, runtime, or history rewrite action"
+    "write action",
+    "shell action",
+    "network action",
+    "external message action",
+    "public API change"
   ],
   "safe_defaults_identified": {
-    "dependency, paid external API, or network expansion": "use local evidence or document the missing source",
-    "public API, production, database, secret, external message, runtime, or history rewrite action": "preserve artifacts and ask before proceeding",
-    "write, shell, or destructive action": "stop with a read-only report and ask for approval"
+    "external message action": "stop before sending external messages and ask for approval",
+    "network action": "stop before network use and ask for approval",
+    "public API change": "stop before public API changes and ask for approval",
+    "shell action": "stop before shell use and ask for approval",
+    "write action": "stop before writing and ask for approval"
   }
 }

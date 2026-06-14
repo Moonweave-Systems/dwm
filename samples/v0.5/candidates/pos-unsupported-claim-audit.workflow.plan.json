@@ -40,9 +40,10 @@
         "external messages"
       ],
       "inputs": [
+        "workflow.plan.json",
+        "blueprint.md",
         "original prompt",
-        "workflow-plan-schema.md",
-        "surface locators"
+        "repository path"
       ],
       "instruction": "Extract atomic claims and map each to required repository evidence before judging support."
     },
@@ -153,18 +154,23 @@
   "risk_gates": [
     {
       "requires_user_approval": true,
-      "safe_default": "stop with a read-only report and ask for approval",
-      "trigger": "write, shell, or destructive action"
+      "safe_default": "stop before writing and ask for approval",
+      "trigger": "write action"
     },
     {
       "requires_user_approval": true,
-      "safe_default": "use local evidence or document the missing source",
-      "trigger": "dependency, paid external API, or network expansion"
+      "safe_default": "stop before shell use and ask for approval",
+      "trigger": "shell action"
     },
     {
       "requires_user_approval": true,
-      "safe_default": "preserve artifacts and ask before proceeding",
-      "trigger": "public API, production, database, secret, external message, runtime, or history rewrite action"
+      "safe_default": "stop before network use and ask for approval",
+      "trigger": "network action"
+    },
+    {
+      "requires_user_approval": true,
+      "safe_default": "stop before sending external messages and ask for approval",
+      "trigger": "external message action"
     }
   ],
   "schema_version": "0.5",
