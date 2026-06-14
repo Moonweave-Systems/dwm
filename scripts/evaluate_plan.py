@@ -1260,7 +1260,11 @@ def validate_decision_doc(summary: dict[str, Any], decision_path: Path | None = 
     decision_path = ROOT / "docs" / "v0.5-decision.md" if decision_path is None else decision_path
     raw_text = decision_path.read_text()
     text = " ".join(raw_text.lower().split())
-    sentences = [" ".join(sentence.split()) for sentence in re.split(r"(?<=[.!?])\s+", raw_text.lower())]
+    clauses = [
+        " ".join(clause.split())
+        for sentence in re.split(r"(?<=[.!?])\s+", raw_text.lower())
+        for clause in re.split(r"\b(?:but|however|though|although|yet)\b|[,;:]", sentence)
+    ]
     negation_terms = ["does not", "do not", "did not", "not ", "never", "without"]
     forbidden_boundary_claims = [
         r"\bfresh baseline re-execution\b",
@@ -1284,12 +1288,13 @@ def validate_decision_doc(summary: dict[str, Any], decision_path: Path | None = 
         r"\bclaims runtime execution\b",
         r"\bclaims live model generation\b",
     ]
-    for sentence in sentences:
-        if any(term in sentence for term in negation_terms):
+    for clause in clauses:
+        clause_for_negation = clause.replace("not only", "")
+        if any(term in clause_for_negation for term in negation_terms):
             continue
         for pattern in forbidden_boundary_claims:
             require(
-                not re.search(pattern, sentence),
+                not re.search(pattern, clause),
                 "docs/v0.5-decision.md contains contradictory boundary claim",
             )
 
@@ -2760,6 +2765,9 @@ def self_test() -> None:
         "The keep gate uses runtime-backed evidence from sibling baselines.",
         "The decision cites a fresh rerun of peer baselines.",
         "It also compares against freshly rerun sibling baselines before deciding.",
+        "It does not use runtime-backed evidence, but it claims runtime execution from SKILL.md.",
+        "It does not claim fresh baseline execution, but compares sibling baselines live during evaluation.",
+        "The evaluator not only summarizes the data, it reran live sibling baselines for this gate.",
     ]:
         tmp_decision.write_text(
             "# Decision\n\n"
