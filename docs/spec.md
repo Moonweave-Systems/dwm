@@ -222,7 +222,7 @@ a fixture fails, update `SKILL.md`, `docs/spec.md`, or
 
 V0 is releasable when:
 
-- `quick_validate.py` passes on the skill folder.
+- `scripts/quick_validate_skill.py` passes on the skill folder.
 - `SKILL.md` has no placeholders.
 - `agents/openai.yaml` matches the skill name and purpose.
 - `docs/github-research.md` records prior-art decisions.
@@ -262,7 +262,8 @@ V0.5 is releasable when:
 Run from the repository root:
 
 ```bash
-uv run --with PyYAML python "$HOME/.codex/skills/.system/skill-creator/scripts/quick_validate.py" .
+python scripts/quick_validate_skill.py .
+python scripts/quick_validate_skill.py --self-test
 ```
 
 ```bash
@@ -287,7 +288,7 @@ python scripts/evaluate_plan.py --self-test
 python scripts/evaluate_plan.py --manifest fixtures/v0.5/manifest.json --out out/v0.5
 ```
 
-The V0.5 manifest depends on the local sibling baseline sources named in
+The V0.5 manifest depends only on tracked baseline source snapshots named in
 `fixtures/v0.5/manifest.json`. The manifest evaluator regenerates `out/v0.5/`
 and verifies that `docs/v0.5-decision.md` matches the freshly generated summary.
 

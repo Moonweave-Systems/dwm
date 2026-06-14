@@ -57,6 +57,7 @@ SURFACE_KINDS = {
     "document",
 }
 ACCESS_MODES = {"read-only", "write-proposed", "write-approved"}
+ESCALATION_TARGETS = {"write", "shell", "network", "external-message"}
 PARALLELISM_SHAPES = {
     "none",
     "pipeline",
@@ -93,6 +94,20 @@ FORBIDDEN_PROVENANCE_TERMS = {
     "docs/spec",
     "v0.5-plan",
     "fixture expectation",
+}
+CONTRADICTORY_SUPPORT_TERMS = {
+    "absent",
+    "contradictory",
+    "cannot",
+    "does not",
+    "fails",
+    "lack",
+    "lacks",
+    "missing",
+    "no ",
+    "not ",
+    "unavailable",
+    "without",
 }
 DOWNGRADE_EXECUTION_TARGETS = {
     "direct-codex": ("direct-codex", "human"),
@@ -152,6 +167,8 @@ def non_empty_list(value: Any) -> bool:
 def require_keys(data: dict[str, Any], keys: list[str], where: str) -> None:
     missing = [key for key in keys if key not in data]
     require(not missing, f"{where} missing keys: {missing}")
+    extra = sorted(set(data) - set(keys))
+    require(not extra, f"{where} contains unexpected keys: {extra}")
 
 
 def canonical_patterns() -> set[str]:
@@ -192,7 +209,7 @@ def safe_default_blocks_before_action(text: str) -> bool:
     normalized = " ".join(text.lower().split())
     if any(term in normalized for term in UNSAFE_DEFAULT_TERMS):
         return False
-    if re.search(r"\bor\b", normalized):
+    if "/" in normalized or re.search(r"\bor\b", normalized):
         return False
     allowed = [
         r"^stop before [a-z0-9 ,/.-]+ and ask for approval$",
@@ -203,11 +220,13 @@ def safe_default_blocks_before_action(text: str) -> bool:
 
 
 def normalized_provenance_text(text: str) -> str:
-    return " ".join(re.findall(r"[a-z0-9]+", text.lower()))
+    deobfuscated = text.lower().translate(str.maketrans({"0": "o", "1": "i", "3": "e", "4": "a", "5": "s", "7": "t"}))
+    return " ".join(re.findall(r"[a-z0-9]+", deobfuscated))
 
 
 def collapsed_provenance_text(text: str) -> str:
-    return "".join(re.findall(r"[a-z0-9]+", text.lower()))
+    deobfuscated = text.lower().translate(str.maketrans({"0": "o", "1": "i", "3": "e", "4": "a", "5": "s", "7": "t"}))
+    return "".join(re.findall(r"[a-z0-9]+", deobfuscated))
 
 
 def forbid_provenance_leaks(text: str, where: str) -> None:
@@ -252,6 +271,10 @@ def validate_activation(plan: dict[str, Any], expected: dict[str, Any] | None) -
         all(non_empty_string(item) for item in activation["matched_thresholds"]),
         "activation.matched_thresholds contains an empty value",
     )
+    require(
+        len(activation["matched_thresholds"]) == len(thresholds),
+        "activation.matched_thresholds contains duplicate values",
+    )
     allowed_thresholds = EXCLUSIVE_THRESHOLDS | SUPPORTING_THRESHOLDS
     unknown_thresholds = thresholds - allowed_thresholds
     require(
@@ -276,6 +299,10 @@ def validate_activation(plan: dict[str, Any], expected: dict[str, Any] | None) -
         require(
             activation["downgrade_target"] in DOWNGRADE_TARGETS,
             "downgrade plans need a valid downgrade_target",
+        )
+        require(
+            not (thresholds & EXCLUSIVE_THRESHOLDS and thresholds & SUPPORTING_THRESHOLDS),
+            "downgrade plans must not claim activation-grade thresholds",
         )
 
     if expected:
@@ -399,6 +426,11 @@ def validate_workers(plan: dict[str, Any], activated: bool) -> None:
         require(
             isinstance(permissions["requires_escalation_for"], list),
             "requires_escalation_for must be a list",
+        )
+        unknown_escalations = set(permissions["requires_escalation_for"]) - ESCALATION_TARGETS
+        require(
+            not unknown_escalations,
+            f"requires_escalation_for contains unknown values: {sorted(unknown_escalations)}",
         )
 
         budget = worker["context_budget"]
@@ -647,9 +679,10 @@ def validate_budget_resume_execution(plan: dict[str, Any], activated: bool) -> N
     require(non_empty_list(first_slice["forbidden_actions"]), "first_slice.forbidden_actions must be non-empty")
     if not activated:
         target = plan["activation"]["downgrade_target"]
+        expected_prefix = f"Use {target} instead of dynamic-workflow-designer"
         require(
-            target in first_slice["instruction"].lower(),
-            "downgrade first_slice.instruction must name the downgrade target",
+            first_slice["instruction"].startswith(expected_prefix),
+            "downgrade first_slice.instruction must route to the downgrade target",
         )
 
 
@@ -779,7 +812,11 @@ def score_baseline_failure(
     for key in BASELINE_OBSERVATION_KEYS:
         item = evidence[key]
         require(isinstance(item, dict), f"baseline evidence {key} must be an object")
-        require_keys(item, ["observation", "source_excerpt", "interpretation"], f"baseline evidence {key}")
+        require_keys(
+            item,
+            ["observation", "source_excerpt", "interpretation", "supports_observation"],
+            f"baseline evidence {key}",
+        )
         require(item["observation"] == key, f"baseline evidence {key} observation mismatch")
         excerpt = item["source_excerpt"]
         require(non_empty_string(excerpt), f"baseline evidence {key} excerpt is empty")
@@ -789,6 +826,26 @@ def score_baseline_failure(
         seen_excerpts.add(excerpt)
         require(excerpt in source_text, f"baseline evidence {key} excerpt not found in source")
         require(non_empty_string(item["interpretation"]), f"baseline evidence {key} interpretation is empty")
+        if key != "activation_decision":
+            require(
+                isinstance(item["supports_observation"], bool),
+                f"baseline evidence {key} supports_observation must be bool",
+            )
+            require(
+                item["supports_observation"] == observations[key],
+                f"baseline evidence {key} support contradicts observation value",
+            )
+            if item["supports_observation"]:
+                interpretation = f" {item['interpretation'].lower()} "
+                require(
+                    not any(term in interpretation for term in CONTRADICTORY_SUPPORT_TERMS),
+                    f"baseline evidence {key} interpretation contradicts positive support",
+                )
+        else:
+            require(
+                item["supports_observation"] == observations[key],
+                "baseline evidence activation_decision support contradicts observation value",
+            )
 
     observed_decision = observations["activation_decision"]
     require(observed_decision in {"activate", "downgrade", "ambiguous"}, "invalid baseline activation decision")
@@ -815,6 +872,7 @@ def load_baseline(
     prompt_text: str,
     expected: dict[str, Any],
 ) -> dict[str, Any]:
+    require_keys(entry, ["name", "source_path", "fixture_records"], "baseline manifest entry")
     name = entry["name"]
     source_path = ROOT / entry["source_path"]
     require(source_path.exists(), f"baseline source not found: {entry['source_path']}")
@@ -823,7 +881,9 @@ def load_baseline(
     require(isinstance(fixture_records, dict), f"baseline {name} must use fixture_records")
     require(fixture_id in fixture_records, f"baseline {name} missing fixture record for {fixture_id}")
     record = fixture_records[fixture_id]
+    require(isinstance(record, dict), f"baseline {name} fixture record must be an object")
     if record.get("normalized_plan"):
+        require_keys(record, ["normalized_plan"], f"baseline {name} fixture record {fixture_id}")
         plan_path = ROOT / record["normalized_plan"]
         plan = read_json(plan_path)
         validate_plan(plan, expected, require_dynamic_created_by=False)
@@ -836,6 +896,7 @@ def load_baseline(
             "scores": scores,
         }
     if record.get("normalization_failure"):
+        require_keys(record, ["normalization_failure"], f"baseline {name} fixture record {fixture_id}")
         failure_path = ROOT / record["normalization_failure"]
         failure = read_json(failure_path)
         require(failure.get("baseline") == name, f"{failure_path} baseline mismatch")
@@ -866,6 +927,11 @@ def validate_raw_output(
     plan_text = plan_path.read_text()
     require(raw_text != plan_text, f"{fixture_id} raw output duplicates parsed plan")
     raw = read_json(raw_path)
+    require_keys(
+        raw,
+        ["raw_kind", "fixture_id", "source_prompt", "producer", "skill_sha256", "rendered_blueprint", "workflow_plan"],
+        f"{fixture_id} raw output",
+    )
     require(raw.get("fixture_id") == fixture_id, f"{fixture_id} raw output fixture mismatch")
     require(raw.get("source_prompt") == prompt_text, f"{fixture_id} raw output prompt mismatch")
     require(raw.get("raw_kind") == "workflow-output", f"{fixture_id} raw output has wrong kind")
@@ -908,6 +974,8 @@ def validate_consumer_report(
     require(isinstance(blinded_inputs, list), f"{report_path} blinded_inputs must be a list")
     require(set(blinded_inputs) <= ALLOWED_BLINDED_INPUTS, f"{report_path} has forbidden blinded inputs")
     require({"workflow.plan.json", "blueprint.md", "original prompt"} <= set(blinded_inputs), f"{report_path} missing required blinded inputs")
+    if any(surface["kind"] == "repo" for surface in plan["surfaces"]):
+        require("repository path" in blinded_inputs, f"{report_path} missing repository path for repo-bound plan")
     first_slice = plan["execution_path"]["first_slice"]
     require(report.get("first_slice") == first_slice["instruction"], f"{report_path} first slice mismatch")
     require(same_items(report.get("inputs_needed"), first_slice["inputs"]), f"{report_path} inputs mismatch")
@@ -1130,11 +1198,35 @@ def evaluate_manifest(manifest_path: Path, out_root: Path) -> dict[str, Any]:
     require(len(raw_baseline_names) == len(EXPECTED_BASELINES), "manifest must contain exactly the expected baselines")
     require(baseline_names == EXPECTED_BASELINES, f"manifest baselines must be {sorted(EXPECTED_BASELINES)}")
     for baseline in manifest["baselines"]:
-        require("source_path" in baseline, f"baseline {baseline.get('name')} missing source_path")
+        require_keys(baseline, ["name", "source_path", "fixture_records"], "baseline manifest entry")
         fixture_records = baseline.get("fixture_records")
         require(isinstance(fixture_records, dict), f"baseline {baseline.get('name')} must use fixture_records")
         missing = [fixture_id for fixture_id in fixture_ids if fixture_id not in fixture_records]
         require(not missing, f"baseline {baseline.get('name')} missing fixture records: {missing}")
+        extra = sorted(set(fixture_records) - set(fixture_ids))
+        require(not extra, f"baseline {baseline.get('name')} has unknown fixture records: {extra}")
+    fixture_keys = [
+        "id",
+        "category",
+        "prompt_path",
+        "candidate_plan",
+        "raw_output",
+        "consumer_report",
+        "expected",
+    ]
+    expected_keys = [
+        "activation",
+        "downgrade_target",
+        "required_thresholds",
+        "required_patterns",
+        "forbidden_patterns",
+        "required_risk_gates",
+    ]
+    for fixture in manifest["fixtures"]:
+        require_keys(fixture, fixture_keys, "manifest fixture")
+        require(isinstance(fixture["expected"], dict), f"fixture {fixture['id']} expected must be an object")
+        extra_expected = sorted(set(fixture["expected"]) - set(expected_keys))
+        require(not extra_expected, f"fixture {fixture['id']} expected contains unexpected keys: {extra_expected}")
     out_root.mkdir(parents=True, exist_ok=True)
     skill_hash = hash_file(ROOT / "SKILL.md")
     scorecards = [
@@ -1281,7 +1373,7 @@ def valid_plan_fixture(decision: str = "activate") -> dict[str, Any]:
                 "instruction": (
                     "Inspect the prompt and list required inputs."
                     if decision == "activate"
-                    else "Use direct-codex instead and produce a bounded response."
+                    else "Use direct-codex instead of dynamic-workflow-designer for this request."
                 ),
                 "inputs": ["original prompt"],
                 "expected_output": "input ledger",
@@ -1298,6 +1390,22 @@ def self_test() -> None:
     validate_plan(active, {"activation": "activate", "required_thresholds": ["resumable-handoffs"]})
     downgrade = valid_plan_fixture("downgrade")
     validate_plan(downgrade, {"activation": "downgrade", "downgrade_target": "direct-codex"})
+    extra_top = json.loads(json.dumps(active))
+    extra_top["unexpected_top_level"] = {}
+    try:
+        validate_plan(extra_top, {"activation": "activate"})
+    except EvaluationError:
+        pass
+    else:
+        raise EvaluationError("self-test failed: unknown top-level field passed")
+    extra_nested = json.loads(json.dumps(active))
+    extra_nested["activation"]["unexpected"] = True
+    try:
+        validate_plan(extra_nested, {"activation": "activate"})
+    except EvaluationError:
+        pass
+    else:
+        raise EvaluationError("self-test failed: unknown nested field passed")
     bad_activation = json.loads(json.dumps(active))
     bad_activation["activation"]["matched_thresholds"].append("totally-made-up-threshold")
     try:
@@ -1306,6 +1414,22 @@ def self_test() -> None:
         pass
     else:
         raise EvaluationError("self-test failed: unknown activation threshold passed")
+    bad_activation = json.loads(json.dumps(active))
+    bad_activation["activation"]["matched_thresholds"].append("resumable-handoffs")
+    try:
+        validate_plan(bad_activation, {"activation": "activate"})
+    except EvaluationError:
+        pass
+    else:
+        raise EvaluationError("self-test failed: duplicate activation threshold passed")
+    bad_activation = json.loads(json.dumps(downgrade))
+    bad_activation["activation"]["matched_thresholds"] = ["resumable-handoffs", "adversarial-verification"]
+    try:
+        validate_plan(bad_activation, {"activation": "downgrade", "downgrade_target": "direct-codex"})
+    except EvaluationError:
+        pass
+    else:
+        raise EvaluationError("self-test failed: activation-grade downgrade thresholds passed")
 
     wrong_creator = json.loads(json.dumps(active))
     wrong_creator["created_by"] = "other-workflow-tool"
@@ -1333,6 +1457,21 @@ def self_test() -> None:
         pass
     else:
         raise EvaluationError("self-test failed: non-boolean tool permission passed")
+    bad_worker = json.loads(json.dumps(active))
+    bad_worker["workers"][0]["tool_permissions"]["requires_escalation_for"] = ["totally-made-up-capability"]
+    bad_worker["risk_gates"].append(
+        {
+            "trigger": "totally made up capability",
+            "safe_default": "stop before made up capability and ask for approval",
+            "requires_user_approval": True,
+        }
+    )
+    try:
+        validate_plan(bad_worker, {"activation": "activate"})
+    except EvaluationError:
+        pass
+    else:
+        raise EvaluationError("self-test failed: unknown escalation target passed")
 
     bad_gate = json.loads(json.dumps(active))
     bad_gate["risk_gates"] = []
@@ -1380,6 +1519,7 @@ def self_test() -> None:
         "preserve evidence and ask before writing, then delete files",
         "preserve context and ask before network use, then send the request",
         "preserve logs and ask before editing files or running shell commands",
+        "stop before editing files / running shell commands and ask for approval",
     ]:
         bad_gate = json.loads(json.dumps(active))
         bad_gate["risk_gates"][0]["safe_default"] = unsafe_default
@@ -1394,7 +1534,7 @@ def self_test() -> None:
         "fixture_id": active["plan_id"],
         "consumer_verdict": "pass",
         "received_spec_or_expected_answer": False,
-        "blinded_inputs": ["workflow.plan.json", "blueprint.md", "original prompt"],
+        "blinded_inputs": ["workflow.plan.json", "blueprint.md", "original prompt", "repository path"],
         "first_slice": active["execution_path"]["first_slice"]["instruction"],
         "inputs_needed": ["original prompt"],
         "expected_output": active["execution_path"]["first_slice"]["expected_output"],
@@ -1408,7 +1548,7 @@ def self_test() -> None:
         },
         "provenance": {
             "run_kind": "blinded-sample-review",
-            "supplied_inputs": ["workflow.plan.json", "blueprint.md", "original prompt"],
+            "supplied_inputs": ["workflow.plan.json", "blueprint.md", "original prompt", "repository path"],
             "transcript_excerpt": "Consumer selected first slice: Inspect the prompt and list required inputs.",
             "reviewer_note": "Inputs and gates were identified from the blinded packet.",
             "field_support": {
@@ -1520,6 +1660,26 @@ def self_test() -> None:
     else:
         raise EvaluationError("self-test failed: slashed provenance source leak passed")
     bad_report = json.loads(json.dumps(valid_report))
+    bad_report["provenance"]["field_support"]["safe_defaults"] += "; sc0recard"
+    write_json(tmp_report, bad_report)
+    try:
+        validate_consumer_report(tmp_report, active, {"activation": "activate"})
+    except EvaluationError:
+        pass
+    else:
+        raise EvaluationError("self-test failed: obfuscated provenance source leak passed")
+    repo_report = json.loads(json.dumps(valid_report))
+    repo_report["blinded_inputs"] = ["workflow.plan.json", "blueprint.md", "original prompt"]
+    repo_report["provenance"]["supplied_inputs"] = ["workflow.plan.json", "blueprint.md", "original prompt"]
+    repo_plan = json.loads(json.dumps(active))
+    write_json(tmp_report, repo_report)
+    try:
+        validate_consumer_report(tmp_report, repo_plan, {"activation": "activate"})
+    except EvaluationError:
+        pass
+    else:
+        raise EvaluationError("self-test failed: repo-bound consumer without repository path passed")
+    bad_report = json.loads(json.dumps(valid_report))
     bad_report["provenance"]["field_support"]["risk_gates"] = "risk_gates omitted"
     write_json(tmp_report, bad_report)
     try:
@@ -1571,6 +1731,15 @@ def self_test() -> None:
         },
     )
     validate_raw_output(tmp_raw, tmp_plan, active, active["plan_id"], active["source_prompt"], "self-test-hash")
+    raw_with_extra = json.loads(tmp_raw.read_text())
+    raw_with_extra["unexpected_raw_field"] = True
+    write_json(tmp_raw, raw_with_extra)
+    try:
+        validate_raw_output(tmp_raw, tmp_plan, active, active["plan_id"], active["source_prompt"], "self-test-hash")
+    except EvaluationError:
+        pass
+    else:
+        raise EvaluationError("self-test failed: raw output extra field passed")
     bad_phase = json.loads(json.dumps(active))
     bad_phase["phases"][0]["depends_on"] = ["missing-phase"]
     try:
@@ -1668,35 +1837,51 @@ def self_test() -> None:
                 "observation": "activation_decision",
                 "source_excerpt": "Classify the task using references/router-map.md.",
                 "interpretation": "Routes requests but does not decide this fixture's schema activation.",
+                "supports_observation": "ambiguous",
             },
             "handoff_guidance": {
                 "observation": "handoff_guidance",
                 "source_excerpt": "then summarize changed files and verification.",
-                "interpretation": "Provides limited workflow routing guidance.",
+                "interpretation": "Provides handoff or summary guidance for downstream continuation.",
+                "supports_observation": True,
             },
             "verification_guidance": {
                 "observation": "verification_guidance",
                 "source_excerpt": "Verify with the smallest meaningful command.",
                 "interpretation": "Mentions verification.",
+                "supports_observation": True,
             },
             "safety_gates": {
                 "observation": "safety_gates",
                 "source_excerpt": "Pause for explicit confirmation before destructive work.",
                 "interpretation": "Mentions approval before destructive work.",
+                "supports_observation": True,
             },
             "resume_guidance": {
                 "observation": "resume_guidance",
                 "source_excerpt": "Preserve the strongest evidence gathered before reporting a blocker.",
-                "interpretation": "Evidence preservation is not a resumable handoff contract.",
+                "interpretation": "Does not support restartable outputs.",
+                "supports_observation": False,
             },
             "consumer_can_route": {
                 "observation": "consumer_can_route",
                 "source_excerpt": "choose the route that provides the earliest verifiable evidence.",
-                "interpretation": "A consumer can route the prompt, but not consume a schema artifact.",
+                "interpretation": "Provides route choice guidance.",
+                "supports_observation": True,
             },
         },
     }
     score_baseline_failure(baseline_failure, {"activation": "activate"}, source_text)
+    bad_baseline_failure = json.loads(json.dumps(baseline_failure))
+    bad_baseline_failure["observation_evidence"]["handoff_guidance"]["interpretation"] = (
+        "The handoff guidance capability is absent."
+    )
+    try:
+        score_baseline_failure(bad_baseline_failure, {"activation": "activate"}, source_text)
+    except EvaluationError:
+        pass
+    else:
+        raise EvaluationError("self-test failed: contradictory baseline support passed")
     baseline_failure["scores"] = {"activation_discipline": 2}
     try:
         score_baseline_failure(baseline_failure, {"activation": "activate"}, source_text)

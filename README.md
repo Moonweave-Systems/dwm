@@ -79,7 +79,8 @@ what not to vendor.
 Run from the repository root:
 
 ```bash
-uv run --with PyYAML python "$HOME/.codex/skills/.system/skill-creator/scripts/quick_validate.py" .
+python scripts/quick_validate_skill.py .
+python scripts/quick_validate_skill.py --self-test
 python scripts/check_contract.py
 python scripts/check_contract.py --self-test
 python scripts/evaluate_plan.py --self-test
@@ -92,10 +93,9 @@ rg -n "T[O]DO|T[B]D|PLACE[H]OLDER|FIX[M]E" --glob '*.md' .; test $? -eq 1
 The contract check requires passing fixture records under
 [`docs/fixture-smoke/`](docs/fixture-smoke/).
 
-The V0.5 manifest expects the local sibling baseline sources referenced in
-[`fixtures/v0.5/manifest.json`](fixtures/v0.5/manifest.json):
-`../workflow-router-skill/SKILL.md` and
-`../../claude-skills/engineering/agent-workflow-designer/SKILL.md`.
+The V0.5 manifest uses tracked baseline source snapshots under
+[`samples/v0.5/baseline-sources/`](samples/v0.5/baseline-sources/) so the
+manifest gate is reproducible from this repository.
 
 The V0.5 evaluator regenerates repo-local `out/v0.5/` from tracked fixtures and
 samples. That directory is verification evidence, not source of truth. Raw

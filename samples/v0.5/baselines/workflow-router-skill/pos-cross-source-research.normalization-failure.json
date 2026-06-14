@@ -8,32 +8,38 @@
     "activation_decision": {
       "interpretation": "Routes requests, but does not emit a fixture-specific schema activation artifact.",
       "observation": "activation_decision",
-      "source_excerpt": "Classify the task using `references/router-map.md`."
+      "source_excerpt": "Classify the task using `references/router-map.md`.",
+      "supports_observation": "ambiguous"
     },
     "consumer_can_route": {
-      "interpretation": "A consumer can route the prompt, but not consume a workflow.plan.json artifact.",
+      "interpretation": "Provides routing or workflow guidance a consumer can follow.",
       "observation": "consumer_can_route",
-      "source_excerpt": "choose the route that provides the earliest verifiable evidence"
+      "source_excerpt": "choose the route that provides the earliest verifiable evidence",
+      "supports_observation": true
     },
     "handoff_guidance": {
-      "interpretation": "Provides lightweight handoff summary guidance, not artifact schemas.",
+      "interpretation": "Provides handoff or summary guidance for downstream continuation.",
       "observation": "handoff_guidance",
-      "source_excerpt": "then summarize changed files and verification."
+      "source_excerpt": "then summarize changed files and verification.",
+      "supports_observation": true
     },
     "resume_guidance": {
       "interpretation": "Preserves evidence, but does not define restartable phase outputs.",
       "observation": "resume_guidance",
-      "source_excerpt": "Preserve the strongest evidence gathered before reporting a blocker."
+      "source_excerpt": "Preserve the strongest evidence gathered before reporting a blocker.",
+      "supports_observation": false
     },
     "safety_gates": {
-      "interpretation": "Defines approval gates for risky work.",
+      "interpretation": "Mentions safety gates or approval boundaries.",
       "observation": "safety_gates",
-      "source_excerpt": "Pause for explicit confirmation before destructive or externally visible work:"
+      "source_excerpt": "Pause for explicit confirmation before destructive or externally visible work:",
+      "supports_observation": true
     },
     "verification_guidance": {
       "interpretation": "Provides concrete verification guidance.",
       "observation": "verification_guidance",
-      "source_excerpt": "Verify with the smallest meaningful command, UI check, artifact metric, or"
+      "source_excerpt": "Verify with the smallest meaningful command, UI check, artifact metric, or",
+      "supports_observation": true
     }
   },
   "observations": {

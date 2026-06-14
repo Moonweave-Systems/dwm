@@ -8,32 +8,38 @@
     "activation_decision": {
       "interpretation": "Describes when workflow design may apply, but does not decide fixture activation in schema form.",
       "observation": "activation_decision",
-      "source_excerpt": "A single prompt is insufficient for task complexity"
+      "source_excerpt": "A single prompt is insufficient for task complexity",
+      "supports_observation": "ambiguous"
     },
     "consumer_can_route": {
-      "interpretation": "A consumer can use the guidance, but not as schema-valid JSON.",
+      "interpretation": "Provides routing or workflow guidance a consumer can follow.",
       "observation": "consumer_can_route",
-      "source_excerpt": "Design production-grade multi-agent workflows with clear pattern choice, handoff contracts, failure handling, and cost/context controls."
+      "source_excerpt": "Design production-grade multi-agent workflows with clear pattern choice, handoff contracts, failure handling, and cost/context controls.",
+      "supports_observation": true
     },
     "handoff_guidance": {
-      "interpretation": "Provides handoff guidance.",
+      "interpretation": "Provides handoff or summary guidance for downstream continuation.",
       "observation": "handoff_guidance",
-      "source_excerpt": "Define handoff contract fields for every edge."
+      "source_excerpt": "Define handoff contract fields for every edge.",
+      "supports_observation": true
     },
     "resume_guidance": {
-      "interpretation": "Provides recovery guidance.",
+      "interpretation": "Provides recovery or evidence-preservation guidance.",
       "observation": "resume_guidance",
-      "source_excerpt": "Error recovery and retry strategy scaffolding"
+      "source_excerpt": "Error recovery and retry strategy scaffolding",
+      "supports_observation": true
     },
     "safety_gates": {
       "interpretation": "Mentions safety gates, but lacks V0.5 safe-default approval gates.",
       "observation": "safety_gates",
-      "source_excerpt": "You need validation loops for quality or safety gates"
+      "source_excerpt": "You need validation loops for quality or safety gates",
+      "supports_observation": false
     },
     "verification_guidance": {
-      "interpretation": "Provides validation guidance.",
+      "interpretation": "Provides concrete verification guidance.",
       "observation": "verification_guidance",
-      "source_excerpt": "Validate intermediate outputs before fan-in synthesis."
+      "source_excerpt": "Validate intermediate outputs before fan-in synthesis.",
+      "supports_observation": true
     }
   },
   "observations": {
@@ -46,5 +52,5 @@
   },
   "prompt": "Plan an auth audit for one service where one agent can inspect all routes.",
   "reason": "The Claude agent-workflow-designer source provides prose workflow guidance but no deterministic schema-valid workflow.plan.json adapter output for this fixture.",
-  "source_sha256": "c0ce7ac1a79fac13ea1703c16361186f3d38032629d35056ed275634f6ddd630"
+  "source_sha256": "29f911341c70b3f493d84a8ac325a59329785a4d71c1f16f578f0765d3b06f3e"
 }

@@ -59,7 +59,7 @@ Supporting thresholds:
 - `human-gates`
 
 Downgrade artifacts must name a downgrade target, keep `parallelism.shape` as
-`"none"`, and avoid multi-agent worker prompts.
+`"none"`, and use an empty `workers` list.
 
 ## Surfaces
 
@@ -129,8 +129,10 @@ Each risk gate requires:
 - `safe_default`
 - `requires_user_approval`
 
-Risky write, shell, network, external-message, dependency, production, database,
-secret, and history-rewrite actions must appear as risk gates, not only prose.
+Risky write, shell, network, and external-message permissions must appear as
+risk gates, not only prose. Fixture-specific dependency, production, database,
+secret, and history-rewrite expectations are enforced when the manifest names
+them as required risk gates.
 
 ## First Slice
 

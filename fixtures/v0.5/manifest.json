@@ -40,7 +40,7 @@
         }
       },
       "name": "workflow-router-skill",
-      "source_path": "../workflow-router-skill/SKILL.md"
+      "source_path": "samples/v0.5/baseline-sources/workflow-router-skill/SKILL.md"
     },
     {
       "fixture_records": {
@@ -82,7 +82,7 @@
         }
       },
       "name": "claude-agent-workflow-designer",
-      "source_path": "../../claude-skills/engineering/agent-workflow-designer/SKILL.md"
+      "source_path": "samples/v0.5/baseline-sources/claude-agent-workflow-designer/SKILL.md"
     }
   ],
   "fixtures": [
