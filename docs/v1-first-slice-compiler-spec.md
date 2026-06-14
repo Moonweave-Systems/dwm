@@ -229,6 +229,10 @@ Hash preimages:
   `hash` field omitted. For `path` and `glob`, this includes
   `snapshot_entries`; for `literal` and `url`, this includes the single
   normalized-value entry.
+- `canonical_input_record`: canonical JSON of `{ "source_index",
+  "input_label", "input_kind", "normalized_value", "exists_at_compile_time",
+  "snapshot_entries" }`. It excludes `input_id` and `hash` to avoid
+  self-reference.
 - `handoff_schema_hash`: canonical JSON of the handoff schema file.
 - `approval_state_hash`: canonical JSON of `gates/approval-state.json`.
 - `gate_approval_hash`: canonical JSON of one gate record inside
@@ -746,7 +750,10 @@ Minimum fixture set:
 - risk: compatibility aliases match current V0.5 gate triggers without creating
   duplicate synthetic gates
 - risk: near-miss tokens and unrelated prose do not create false positive gates
+- risk: multiple synthetic gates sort by `risk_category`, `source_field`,
+  `source_id`, then `normalized_token`
 - drift: prompt/packet mismatch is rejected by self-test
+- input: duplicate labels produce stable, distinct `input_id` values
 - resume: untouched run remains `resumable` with empty `invalidators`
 - resume: modified plan hash invalidates run
 - resume: modified packet hash invalidates run
@@ -781,8 +788,10 @@ IDs must be unique. A skipped fixture is a failure. The manifest run writes
 - symlink escape rejection
 - one blocked gate case for each closed risk category
 - synthetic gate generation when no source gate matches
+- multiple synthetic gate ordering
 - compatibility alias matching for current V0.5 trigger wording
 - near-miss risk-token false-positive rejection
+- duplicate input labels produce stable, distinct `input_id` values
 - prompt/packet drift failure
 - clean resume returns `resumable`
 - stale plan hash resume failure
