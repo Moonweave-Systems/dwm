@@ -31,6 +31,7 @@ workflows.
 | Worker result review | approve or reject worker results before runtime advancement | first review slice implemented |
 | Runtime ingestion | consume reviewed worker results and emit the next frontier | first ingestion slice implemented |
 | Frontier dispatch | turn trusted runtime frontier packets into dispatch bundles | first loop-back slice implemented |
+| Frontier result adapter | produce controlled next-phase worker evidence | first controlled slice implemented |
 | Product surface | plugin, CLI, dashboard, and release packaging | last |
 
 Prior art such as `oh-my-codex` already covers a broad Codex runtime layer:
@@ -378,7 +379,34 @@ Full loop-back done means:
 - the runtime can repeat until no selected phases remain or a human gate stops
   the workflow.
 
-### V7: Product Packaging
+### V7: Controlled Frontier Result Adapter
+
+Status: first controlled frontier-result slice implemented.
+
+Purpose: execute one trusted V6.5 frontier dispatch through an allowlisted
+fixture worker and record next-phase evidence under owned `out/v7/`.
+
+First controlled slice done means:
+
+- `scripts/run_frontier_result.py` consumes one trusted V6.5 dispatch
+  directory.
+- V7 supports only `--fixture release-decision`.
+- V7 runs the fixture in `out/v7/<run_id>/work/`, not in the repository root.
+- V7 writes `result.json`, `stdout.txt`, `stderr.txt`, `hashes.json`,
+  `status.json`, and `resume.md`.
+- V7 produces `release-decision.md` for the `release_decision` dogfood packet.
+- V7 resume detects tampered produced outputs through hash mismatch.
+- V7 dogfood over `out/v6.5/v32-semantic-dogfood` produces
+  `status: executed`.
+
+Full frontier result adapter done means:
+
+- non-fixture next-phase workers remain behind explicit trust contracts,
+- V7 results can be routed into a generalized review layer,
+- reviewed results can return to runtime ingestion until workflow completion or
+  a human gate.
+
+### V8: Product Packaging
 
 Status: planned.
 

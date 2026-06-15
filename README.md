@@ -53,6 +53,7 @@ Use $dynamic-workflow-designer to plan a 500-file migration with verification ga
 ├── scripts/review_worker_result.py      # V5.5 worker-result review
 ├── scripts/ingest_worker_review.py      # V6 runtime ingestion
 ├── scripts/dispatch_frontier.py         # V6.5 frontier dispatch
+├── scripts/run_frontier_result.py       # V7 frontier worker-result adapter
 ├── references/workflow-patterns.md  # Pattern guide for workflow designs
 ├── references/workflow-plan-schema.md
 │                                      # workflow.plan.json contract
@@ -76,6 +77,8 @@ Use $dynamic-workflow-designer to plan a 500-file migration with verification ga
 ├── docs/v6-decision.md                # V6 keep/kill decision
 ├── docs/v6.5-frontier-dispatch-spec.md
 │                                      # V6.5 frontier-dispatch spec
+├── docs/v7-controlled-frontier-result-spec.md
+│                                      # V7 controlled-frontier-result spec
 ├── docs/github-research.md          # Prior-art survey and import decisions
 ├── docs/spec.md                     # Product spec and release criteria
 ├── agents/openai.yaml               # UI metadata
@@ -122,6 +125,7 @@ python scripts/run_worker_result.py --self-test
 python scripts/review_worker_result.py --self-test
 python scripts/ingest_worker_review.py --self-test
 python scripts/dispatch_frontier.py --self-test
+python scripts/run_frontier_result.py --self-test
 python scripts/check_whitespace.py .
 python scripts/check_release_text.py .
 python scripts/check_release_text.py --self-test
@@ -228,20 +232,23 @@ The V3 keep/kill decision is
 packets, orchestrate parallel workers, merge worktrees, or claim fully
 autonomous large-task completion.
 
-V4 through V6.5 extend the runtime bridge without opening unrestricted execution:
+V4 through V7 extend the runtime bridge without opening unrestricted execution:
 V4 schedules ready phase packets, V4.5 prepares dispatch bundles, V5 records
 fixture-only worker result evidence, V5.5 reviews that result, and V6 ingests
 approved reviewed results into the next frontier. V6.5 turns that trusted
-frontier back into an emit-only dispatch bundle. The current dogfood chain ends
-with `out/v6.5/v32-semantic-dogfood/status.json` reporting `status: prepared`
-for `release_decision`.
+frontier back into an emit-only dispatch bundle. V7 records controlled fixture
+evidence for that next phase. The current dogfood chain ends with
+`out/v7/v32-semantic-dogfood/status.json` reporting `status: executed` for
+`release_decision`.
 
 The V6 runtime-ingestion spec and decision are
 [`docs/v6-runtime-ingestion-spec.md`](docs/v6-runtime-ingestion-spec.md) and
 [`docs/v6-decision.md`](docs/v6-decision.md). V6.5 is described in
 [`docs/v6.5-frontier-dispatch-spec.md`](docs/v6.5-frontier-dispatch-spec.md).
-V6/V6.5 still do not execute the next packet, run arbitrary worker backends,
-merge worktrees, or claim fully autonomous large-task completion.
+V7 is described in
+[`docs/v7-controlled-frontier-result-spec.md`](docs/v7-controlled-frontier-result-spec.md).
+V7 still does not run arbitrary worker backends, merge worktrees, or claim fully
+autonomous large-task completion.
 
 ## License
 
