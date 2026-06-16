@@ -125,6 +125,8 @@ Use $dynamic-workflow-designer to plan a 500-file migration with verification ga
 ├── docs/v20-migration-rollback.md
 ├── docs/v20.5-reviewer-gate-spec.md
 ├── docs/v20.5-decision.md
+├── docs/v20.6-dogfood-replay-spec.md
+├── docs/v20.6-decision.md
 ├── docs/github-research.md          # Prior-art survey and import decisions
 ├── docs/dwm-branding.md             # Product naming and compatibility rules
 ├── assets/dwm-hero.svg              # README hero image
@@ -183,6 +185,8 @@ python scripts/dwm_release.py --self-test
 python scripts/dwm_release.py --manifest fixtures/v20/manifest.json --out out/release/v20-final
 python scripts/dwm_review_gate.py --self-test
 python scripts/dwm_review_gate.py --manifest fixtures/v20.5/manifest.json --out out/release-review/v20.5-final
+python scripts/dwm_dogfood_replay.py --self-test
+python scripts/dwm_dogfood_replay.py --manifest fixtures/v20.6/manifest.json --out out/dogfood-replay/v20.6-final
 python scripts/run_workflow.py --self-test
 python scripts/run_workflow.py --manifest fixtures/v3/manifest.json --out out/v3/final
 python scripts/orchestrate_workflow.py --self-test
@@ -236,6 +240,12 @@ For independent release-candidate review, use:
 
 ```bash
 python scripts/dwm_review_gate.py review --release out/release/<release_id> --out out/release-review/<review_id>
+```
+
+For deterministic dogfood replay evidence, use:
+
+```bash
+python scripts/dwm_dogfood_replay.py replay --out out/dogfood-replay/<replay_id>
 ```
 
 ```bash

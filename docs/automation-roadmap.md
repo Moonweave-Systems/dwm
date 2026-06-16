@@ -47,6 +47,7 @@ entrypoint remains `dynamic-workflow-designer`.
 | Adapter ecosystem | optional Codex, OMX, Claude, shell, and fixture adapters | planned V19, first registry slice implemented |
 | 1.0 hardening | compatibility, migration, security, and acceptance gates | planned V20, first release-candidate gate implemented |
 | Reviewer gate | independent release-candidate review artifact | planned V20.5, first reviewer gate implemented |
+| Dogfood replay | deterministic replay evidence for canonical dogfood chain | planned V20.6, replay gate implemented |
 
 Prior art such as `oh-my-codex` already covers a broad Codex runtime layer:
 launch UX, worktree/tmux operation, durable state, and team execution. This repo
@@ -603,7 +604,11 @@ The planned roadmap splits the remaining product into versioned specs:
 - V19 adapter ecosystem:
   `docs/v19-adapter-ecosystem-spec.md`,
 - V20 1.0 release hardening:
-  `docs/v20-1.0-release-hardening-spec.md`.
+  `docs/v20-1.0-release-hardening-spec.md`,
+- V20.5 release reviewer gate:
+  `docs/v20.5-reviewer-gate-spec.md`,
+- V20.6 dogfood replay gate:
+  `docs/v20.6-dogfood-replay-spec.md`.
 
 These specs define the intended path to an independent DWM product that can use
 Codex CLI directly through DWM Runner while keeping OMX optional rather than a

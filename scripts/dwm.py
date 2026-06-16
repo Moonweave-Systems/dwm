@@ -47,6 +47,8 @@ RELEASE_COMMANDS = [
     "python scripts/dwm_release.py --manifest fixtures/v20/manifest.json --out out/release/v20-final",
     "python scripts/dwm_review_gate.py --self-test",
     "python scripts/dwm_review_gate.py --manifest fixtures/v20.5/manifest.json --out out/release-review/v20.5-final",
+    "python scripts/dwm_dogfood_replay.py --self-test",
+    "python scripts/dwm_dogfood_replay.py --manifest fixtures/v20.6/manifest.json --out out/dogfood-replay/v20.6-final",
     "python scripts/run_workflow.py --self-test",
     "python scripts/run_workflow.py --manifest fixtures/v3/manifest.json --out out/v3/final",
     "python scripts/orchestrate_workflow.py --self-test",
@@ -103,6 +105,8 @@ BASE_REQUIRED_PATHS = [
     "docs/v20-migration-rollback.md",
     "docs/v20.5-decision.md",
     "docs/v20.5-reviewer-gate-spec.md",
+    "docs/v20.6-decision.md",
+    "docs/v20.6-dogfood-replay-spec.md",
     "packaging/dwm-adapters.json",
     "packaging/dwm-package.json",
     "scripts/dwm.py",
@@ -112,6 +116,7 @@ BASE_REQUIRED_PATHS = [
     "scripts/dwm_adapters.py",
     "scripts/dwm_release.py",
     "scripts/dwm_review_gate.py",
+    "scripts/dwm_dogfood_replay.py",
 ]
 
 

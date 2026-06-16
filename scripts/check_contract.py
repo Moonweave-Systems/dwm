@@ -929,6 +929,47 @@ def require_v205_decision_summary_consistency() -> None:
         raise SystemExit(f"V20.5 decision consistency failed: {exc}") from exc
 
 
+def require_v206_decision_summary_text(summary: dict[str, object], decision_text: str) -> None:
+    normalized_decision_text = " ".join(decision_text.lower().split())
+    required_snippets = [
+        f"decision: {summary['decision']}",
+        f"`suite_id`: `{summary['suite_id']}`",
+        f"`fixture_count`: {summary['fixture_count']}",
+        f"`required_fixture_count`: {summary['required_fixture_count']}",
+        f"`required_passed`: {summary['required_passed']}",
+        f"`passed`: {summary['passed']}",
+        f"`failed`: {summary['failed']}",
+        f"`skipped`: {summary['skipped']}",
+        f"`decision`: `{summary['decision']}`",
+        "python scripts/dwm_dogfood_replay.py --manifest fixtures/v20.6/manifest.json --out out/dogfood-replay/v20.6-final",
+        "repo status unchanged",
+        "workflow-complete",
+        "recommendation.action",
+        "does not claim live adapter execution",
+    ]
+    missing = [snippet for snippet in required_snippets if snippet not in normalized_decision_text]
+    if missing:
+        raise SystemExit(f"docs/v20.6-decision.md does not match V20.6 summary: {missing}")
+
+
+def require_v206_decision_summary_consistency() -> None:
+    try:
+        completed = run_contract_command(
+            [
+                sys.executable,
+                "scripts/dwm_dogfood_replay.py",
+                "--manifest",
+                "fixtures/v20.6/manifest.json",
+                "--out",
+                "out/dogfood-replay/v20.6-final",
+            ],
+        )
+        summary = json.loads(completed.stdout)
+        require_v206_decision_summary_text(summary, (ROOT / "docs" / "v20.6-decision.md").read_text())
+    except json.JSONDecodeError as exc:
+        raise SystemExit(f"V20.6 decision consistency failed: {exc}") from exc
+
+
 def require_release_commands_pass() -> None:
     commands = [
         [sys.executable, "scripts/quick_validate_skill.py", "."],
@@ -946,6 +987,7 @@ def require_release_commands_pass() -> None:
         [sys.executable, "scripts/dwm_adapters.py", "--self-test"],
         [sys.executable, "scripts/dwm_release.py", "--self-test"],
         [sys.executable, "scripts/dwm_review_gate.py", "--self-test"],
+        [sys.executable, "scripts/dwm_dogfood_replay.py", "--self-test"],
         [sys.executable, "scripts/run_workflow.py", "--self-test"],
         [sys.executable, "scripts/run_workflow.py", "--manifest", "fixtures/v3/manifest.json", "--out", "out/v3/final"],
         [sys.executable, "scripts/orchestrate_workflow.py", "--self-test"],
@@ -1893,6 +1935,38 @@ Overclaims execution: no
     else:
         raise SystemExit("self-test failed: stale V20.5 decision summary passed")
 
+    v206_summary = {
+        "suite_id": "v20.6-final",
+        "fixture_count": 4,
+        "required_fixture_count": 4,
+        "required_passed": 4,
+        "passed": 4,
+        "failed": 0,
+        "skipped": 0,
+        "decision": "keep",
+    }
+    good_v206_decision = (
+        "Decision: keep\n"
+        "python scripts/dwm_dogfood_replay.py --manifest fixtures/v20.6/manifest.json --out out/dogfood-replay/v20.6-final\n"
+        "- `suite_id`: `v20.6-final`\n"
+        "- `fixture_count`: 4\n"
+        "- `required_fixture_count`: 4\n"
+        "- `required_passed`: 4\n"
+        "- `passed`: 4\n"
+        "- `failed`: 0\n"
+        "- `skipped`: 0\n"
+        "- `decision`: `keep`\n"
+        "The accepted replay requires repo status unchanged, workflow-complete, and recommendation.action complete.\n"
+        "This decision does not claim live adapter execution.\n"
+    )
+    require_v206_decision_summary_text(v206_summary, good_v206_decision)
+    try:
+        require_v206_decision_summary_text(v206_summary, good_v206_decision.replace("`passed`: 4", "`passed`: 3", 1))
+    except SystemExit:
+        pass
+    else:
+        raise SystemExit("self-test failed: stale V20.6 decision summary passed")
+
     print("contract self-test: pass")
 
 
@@ -1973,6 +2047,9 @@ def main() -> None:
             "python scripts/dwm_review_gate.py --self-test",
             "python scripts/dwm_review_gate.py --manifest fixtures/v20.5/manifest.json --out out/release-review/v20.5-final",
             "python scripts/dwm_review_gate.py review --release out/release/<release_id> --out out/release-review/<review_id>",
+            "python scripts/dwm_dogfood_replay.py --self-test",
+            "python scripts/dwm_dogfood_replay.py --manifest fixtures/v20.6/manifest.json --out out/dogfood-replay/v20.6-final",
+            "python scripts/dwm_dogfood_replay.py replay --out out/dogfood-replay/<replay_id>",
             "docs/v10-product-packaging-spec.md",
             "docs/v10-decision.md",
             "docs/v11-operator-guidance-spec.md",
@@ -1981,6 +2058,7 @@ def main() -> None:
             "docs/v12-adapter-command-planner-spec.md",
             "docs/v13-dwm-runner-mvp-spec.md",
             "docs/v20-1.0-release-hardening-spec.md",
+            "docs/v20.6-dogfood-replay-spec.md",
             "planning documents, not implemented runtime claims",
             "docs/v2.5-review-repair-spec.md",
             "docs/v2.5-to-v3.workflow.plan.json",
@@ -2282,6 +2360,18 @@ def main() -> None:
         ],
     )
     require_terms(
+        "docs/v20.6-dogfood-replay-spec.md",
+        [
+            "status: implemented dogfood replay gate in `scripts/dwm_dogfood_replay.py`.",
+            "repo status unchanged",
+            "workflow-complete",
+            "recommendation.action",
+            "err_dogfood_command_failed",
+            "err_dogfood_repo_diff_changed",
+            "err_dogfood_final_status",
+        ],
+    )
+    require_terms(
         "docs/v7.5-decision.md",
         [
             "decision: keep",
@@ -2330,7 +2420,7 @@ def main() -> None:
             "python scripts/dwm.py commands --kind release --json",
             "`status`: `workflow-complete`",
             "`doctor_ok`: `true`",
-            "`release_command_count`: `45`",
+            "`release_command_count`: `47`",
             "does not claim workflow execution",
         ],
     )
@@ -2452,6 +2542,7 @@ def main() -> None:
     require_v19_decision_summary_consistency()
     require_v20_decision_summary_consistency()
     require_v205_decision_summary_consistency()
+    require_v206_decision_summary_consistency()
     print("contract smoke: pass")
 
 
