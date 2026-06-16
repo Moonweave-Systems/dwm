@@ -191,6 +191,8 @@ task itself needs dynamic orchestration.
 ├── docs/v33-decision.md
 ├── docs/v34-live-score-review-spec.md
 ├── docs/v34-decision.md
+├── docs/v35-live-report-spec.md
+├── docs/v35-decision.md
 ├── docs/github-research.md          # Prior-art survey and import decisions
 ├── docs/dwm-branding.md             # Product naming and compatibility rules
 ├── assets/dwm-hero.svg              # README hero image
@@ -280,6 +282,8 @@ python scripts/dwm_live_score_aggregate.py --self-test
 python scripts/dwm_live_score_aggregate.py --manifest fixtures/v33/manifest.json --out out/live-score-aggregates/v33-final
 python scripts/dwm_live_score_review.py --self-test
 python scripts/dwm_live_score_review.py --manifest fixtures/v34/manifest.json --out out/live-score-reviews/v34-final
+python scripts/dwm_live_report.py --self-test
+python scripts/dwm_live_report.py --manifest fixtures/v35/manifest.json --out out/live-reports/v35-final
 python scripts/run_workflow.py --self-test
 python scripts/run_workflow.py --manifest fixtures/v3/manifest.json --out out/v3/final
 python scripts/orchestrate_workflow.py --self-test
@@ -394,6 +398,15 @@ For V34 adversarial live score review, use:
 ```bash
 python scripts/dwm_live_score_review.py review --aggregate out/live-score-aggregates/<aggregate_id> --out out/live-score-reviews/<review_id>
 ```
+
+For V35 live benchmark reporting, use:
+
+```bash
+python scripts/dwm_live_report.py publish --review out/live-score-reviews/<review_id> --out out/live-reports/<report_id>
+```
+
+Future README benchmark graphs should read `out/live-reports/<report_id>/report.json`
+and use `graph_metrics` as the source of truth.
 
 For hash-bound HUD evidence approval, use:
 

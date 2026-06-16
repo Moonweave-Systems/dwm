@@ -15,6 +15,8 @@ Pattern: pipeline with adversarial verification and resumable cache keys.
    evidence exists.
 3. V34 adversarial review tries to refute aggregate score claims.
 4. V35 report emits a publishable benchmark report with evidence limits.
+5. Future README benchmark graphs read V35 `report.json.graph_metrics`; they do
+   not recompute scores from prose or logs.
 
 ## Workers
 
@@ -31,6 +33,7 @@ Pattern: pipeline with adversarial verification and resumable cache keys.
 - V32 `score.json` -> V33 `aggregate-score.json`
 - V33 `aggregate-score.json` -> V34 `reviewed-score.json`
 - V34 `reviewed-score.json` -> V35 report
+- V35 `report.json.graph_metrics` -> future README benchmark graph
 
 ## Risk Gates
 
@@ -42,3 +45,9 @@ Pattern: pipeline with adversarial verification and resumable cache keys.
 
 V32 implements the verifier bridge. It requires expected task id, adapter,
 returncode, stdout hash, and stderr hash before recording a score candidate.
+
+## Graph Plan
+
+Benchmark graphs belong after V35 report artifacts exist. The graph source of
+truth is `report.json.graph_metrics`, not generated markdown, terminal output,
+or manually copied scores.

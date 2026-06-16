@@ -1539,6 +1539,50 @@ def require_v34_live_score_review_decision_summary_consistency() -> None:
         raise SystemExit(f"V34 decision consistency failed: {exc}") from exc
 
 
+def require_v35_live_report_decision_summary_text(summary: dict[str, object], decision_text: str) -> None:
+    normalized_decision_text = " ".join(decision_text.lower().split())
+    required_snippets = [
+        f"decision: {summary['decision']}",
+        f"`suite_id`: `{summary['suite_id']}`",
+        f"`fixture_count`: {summary['fixture_count']}",
+        f"`required_fixture_count`: {summary['required_fixture_count']}",
+        f"`required_passed`: {summary['required_passed']}",
+        f"`passed`: {summary['passed']}",
+        f"`failed`: {summary['failed']}",
+        f"`skipped`: {summary['skipped']}",
+        f"`decision`: `{summary['decision']}`",
+        "python scripts/dwm_live_report.py --manifest fixtures/v35/manifest.json --out out/live-reports/v35-final",
+        "report.json",
+        "report.md",
+        "err_live_report_artifact_missing",
+        "err_live_report_stale_review",
+        "err_live_report_hash_mismatch",
+        "err_live_report_unsupported_claim",
+        "does not claim live model execution",
+    ]
+    missing = [snippet for snippet in required_snippets if snippet not in normalized_decision_text]
+    if missing:
+        raise SystemExit(f"docs/v35-decision.md does not match V35 summary: {missing}")
+
+
+def require_v35_live_report_decision_summary_consistency() -> None:
+    try:
+        completed = run_contract_command(
+            [
+                sys.executable,
+                "scripts/dwm_live_report.py",
+                "--manifest",
+                "fixtures/v35/manifest.json",
+                "--out",
+                "out/live-reports/v35-final",
+            ],
+        )
+        summary = json.loads(completed.stdout)
+        require_v35_live_report_decision_summary_text(summary, (ROOT / "docs" / "v35-decision.md").read_text())
+    except json.JSONDecodeError as exc:
+        raise SystemExit(f"V35 decision consistency failed: {exc}") from exc
+
+
 def require_release_commands_pass() -> None:
     commands = [
         [sys.executable, "scripts/quick_validate_skill.py", "."],
@@ -1586,6 +1630,8 @@ def require_release_commands_pass() -> None:
         [sys.executable, "scripts/dwm_live_score_aggregate.py", "--manifest", "fixtures/v33/manifest.json", "--out", "out/live-score-aggregates/v33-final"],
         [sys.executable, "scripts/dwm_live_score_review.py", "--self-test"],
         [sys.executable, "scripts/dwm_live_score_review.py", "--manifest", "fixtures/v34/manifest.json", "--out", "out/live-score-reviews/v34-final"],
+        [sys.executable, "scripts/dwm_live_report.py", "--self-test"],
+        [sys.executable, "scripts/dwm_live_report.py", "--manifest", "fixtures/v35/manifest.json", "--out", "out/live-reports/v35-final"],
         [sys.executable, "scripts/run_workflow.py", "--self-test"],
         [sys.executable, "scripts/run_workflow.py", "--manifest", "fixtures/v3/manifest.json", "--out", "out/v3/final"],
         [sys.executable, "scripts/orchestrate_workflow.py", "--self-test"],
@@ -2981,6 +3027,38 @@ Overclaims execution: no
     else:
         raise SystemExit("self-test failed: stale V34 decision summary passed")
 
+    v35_summary = {
+        "suite_id": "v35-final",
+        "fixture_count": 7,
+        "required_fixture_count": 7,
+        "required_passed": 7,
+        "passed": 7,
+        "failed": 0,
+        "skipped": 0,
+        "decision": "keep",
+    }
+    good_v35_decision = (
+        "Decision: keep\n"
+        "python scripts/dwm_live_report.py --manifest fixtures/v35/manifest.json --out out/live-reports/v35-final\n"
+        "- `suite_id`: `v35-final`\n"
+        "- `fixture_count`: 7\n"
+        "- `required_fixture_count`: 7\n"
+        "- `required_passed`: 7\n"
+        "- `passed`: 7\n"
+        "- `failed`: 0\n"
+        "- `skipped`: 0\n"
+        "- `decision`: `keep`\n"
+        "The accepted suite covers report.json, report.md, ERR_LIVE_REPORT_ARTIFACT_MISSING, ERR_LIVE_REPORT_STALE_REVIEW, ERR_LIVE_REPORT_HASH_MISMATCH, and ERR_LIVE_REPORT_UNSUPPORTED_CLAIM.\n"
+        "This decision does not claim live model execution.\n"
+    )
+    require_v35_live_report_decision_summary_text(v35_summary, good_v35_decision)
+    try:
+        require_v35_live_report_decision_summary_text(v35_summary, good_v35_decision.replace("`passed`: 7", "`passed`: 6", 1))
+    except SystemExit:
+        pass
+    else:
+        raise SystemExit("self-test failed: stale V35 decision summary passed")
+
     print("contract self-test: pass")
 
 
@@ -3583,6 +3661,7 @@ def main() -> None:
             "v33 aggregate scorer",
             "v34 adversarial review",
             "v35 report",
+            "report.json.graph_metrics",
         ],
     )
     require_terms(
@@ -3606,6 +3685,19 @@ def main() -> None:
             "err_live_score_review_stale_aggregate",
             "err_live_score_review_task_mismatch",
             "err_live_score_review_hash_mismatch",
+        ],
+    )
+    require_terms(
+        "docs/v35-live-report-spec.md",
+        [
+            "status: implemented first live benchmark report gate in",
+            "report.json",
+            "report.md",
+            "graph_metrics",
+            "err_live_report_artifact_missing",
+            "err_live_report_stale_review",
+            "err_live_report_hash_mismatch",
+            "err_live_report_unsupported_claim",
         ],
     )
     require_terms(
@@ -3657,7 +3749,7 @@ def main() -> None:
             "python scripts/dwm.py commands --kind release --json",
             "`status`: `workflow-complete`",
             "`doctor_ok`: `true`",
-            "`release_command_count`: `76`",
+            "`release_command_count`: `78`",
             "does not claim workflow execution",
         ],
     )
@@ -3793,6 +3885,7 @@ def main() -> None:
     require_v32_live_score_decision_summary_consistency()
     require_v33_live_score_aggregate_decision_summary_consistency()
     require_v34_live_score_review_decision_summary_consistency()
+    require_v35_live_report_decision_summary_consistency()
     print("contract smoke: pass")
 
 
