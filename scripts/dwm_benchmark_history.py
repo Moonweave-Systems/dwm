@@ -224,6 +224,37 @@ def history_entry(index: int, label: str, report_dir: Path, expected_hash: str |
     }
 
 
+def snapshot_history_entry(index: int, snapshot_dir: Path, expected_hash: str | None = None) -> dict[str, Any]:
+    snapshot_path = snapshot_dir / "snapshot.json"
+    status_path = snapshot_dir / "status.json"
+    if not snapshot_path.is_file() or snapshot_path.is_symlink() or not status_path.is_file() or status_path.is_symlink():
+        raise BenchmarkHistoryError("ERR_BENCHMARK_HISTORY_ARTIFACT_MISSING", "snapshot artifacts are missing", path=snapshot_dir)
+    snapshot = read_json(snapshot_path)
+    status = read_json(status_path)
+    if snapshot != status or snapshot.get("status") != "snapshot-recorded":
+        raise BenchmarkHistoryError("ERR_BENCHMARK_HISTORY_STALE_REPORT", "snapshot status and artifact do not match", path=snapshot_dir)
+    snapshot_hash = canonical_hash(snapshot)
+    if expected_hash is not None and expected_hash != snapshot_hash:
+        raise BenchmarkHistoryError("ERR_BENCHMARK_HISTORY_STALE_REPORT", "expected snapshot hash does not match current snapshot", path=snapshot_dir)
+    metrics = snapshot.get("graph_metrics")
+    if not isinstance(metrics, dict):
+        raise BenchmarkHistoryError("ERR_BENCHMARK_HISTORY_METRICS_INVALID", "snapshot graph_metrics are missing", path=snapshot_dir)
+    normalized = {key: metrics[key] for key in ["task_count", "pass_count", "failed_task_count", "refuted_count", "unverified_count", "claim_value"]}
+    release_id = str(snapshot.get("release_id") or snapshot_dir.name)
+    return {
+        "index": index,
+        "label": release_id,
+        "source_path": rel(snapshot_dir),
+        "source_kind": snapshot.get("source_kind"),
+        "snapshot_hash": snapshot_hash,
+        "report_hash": snapshot.get("source_hashes", {}).get("report"),
+        "score_bps": snapshot.get("score_bps"),
+        "benchmark_success_claimed": bool(snapshot.get("benchmark_success_claimed")),
+        "conclusion": snapshot.get("conclusion"),
+        "graph_metrics": normalized,
+    }
+
+
 def trend_metrics(entries: list[dict[str, Any]]) -> dict[str, int]:
     scores = [int(entry["score_bps"]) for entry in entries]
     return {
@@ -312,6 +343,42 @@ def build_history(
         "entries": entries,
         "trend_metrics": trend_metrics(entries),
         "source_hashes": {"reports": report_hashes},
+    }
+    write_json_atomic(out_dir / "history.json", history, root=out_dir)
+    write_json_atomic(out_dir / "status.json", history, root=out_dir)
+    (out_dir / "trend.svg").write_text(trend_svg(entries))
+    (out_dir / "README-snippet.md").write_text(f"![DWM benchmark history]({rel(out_dir / 'trend.svg')})\n")
+    return history
+
+
+def build_history_from_snapshots(
+    snapshot_dirs: list[Path],
+    out_dir: Path,
+    *,
+    history_id: str,
+    expected_snapshot_hashes: list[str] | None = None,
+) -> dict[str, Any]:
+    if not snapshot_dirs:
+        raise BenchmarkHistoryError("ERR_BENCHMARK_HISTORY_ARTIFACT_MISSING", "at least one snapshot is required")
+    expected_hashes = normalize_expected_hashes(snapshot_dirs, expected_snapshot_hashes)
+    entries = [
+        snapshot_history_entry(index, snapshot_dir, expected_hash)
+        for index, (snapshot_dir, expected_hash) in enumerate(zip(snapshot_dirs, expected_hashes, strict=True))
+    ]
+    report_hashes = [entry["report_hash"] for entry in entries]
+    if len(set(report_hashes)) != len(report_hashes):
+        raise BenchmarkHistoryError("ERR_BENCHMARK_HISTORY_DUPLICATE_REPORT", "history entries must not reuse the same report hash")
+    prepare_out_dir(out_dir, history_id, source=snapshot_dirs[0])
+    history = {
+        "status": "history-recorded",
+        "history_id": history_id,
+        "source": "benchmark release snapshots",
+        "entries": entries,
+        "trend_metrics": trend_metrics(entries),
+        "source_hashes": {
+            "reports": report_hashes,
+            "snapshots": [entry["snapshot_hash"] for entry in entries],
+        },
     }
     write_json_atomic(out_dir / "history.json", history, root=out_dir)
     write_json_atomic(out_dir / "status.json", history, root=out_dir)
@@ -455,6 +522,7 @@ def main() -> int:
     parser.add_argument("--out")
     parser.add_argument("--report", action="append")
     parser.add_argument("--self-test", action="store_true")
+    parser.add_argument("--snapshot", action="append")
     parser.add_argument("--source-kind", action="append")
     args = parser.parse_args()
     try:
@@ -466,16 +534,26 @@ def main() -> int:
             summary = evaluate_manifest(Path(args.manifest), Path(args.out))
             print(canonical_json_text({key: summary[key] for key in ["suite_id", "fixture_count", "required_fixture_count", "required_passed", "passed", "failed", "skipped", "decision"]}))
         elif args.command == "build":
-            if not args.out or not args.report:
-                raise BenchmarkHistoryError("ERR_BENCHMARK_HISTORY_PATH_UNSAFE", "build requires --report and --out")
-            status = build_history(
-                [Path(report) for report in args.report],
-                resolve_history_out(args.out),
-                history_id=Path(args.out).name,
-                labels=args.label,
-                expected_report_hashes=args.expected_report_hash,
-                source_kinds=args.source_kind,
-            )
+            if not args.out or (not args.report and not args.snapshot):
+                raise BenchmarkHistoryError("ERR_BENCHMARK_HISTORY_PATH_UNSAFE", "build requires --report or --snapshot and --out")
+            if args.report and args.snapshot:
+                raise BenchmarkHistoryError("ERR_BENCHMARK_HISTORY_PATH_UNSAFE", "build accepts either reports or snapshots, not both")
+            if args.snapshot:
+                status = build_history_from_snapshots(
+                    [Path(snapshot) for snapshot in args.snapshot],
+                    resolve_history_out(args.out),
+                    history_id=Path(args.out).name,
+                    expected_snapshot_hashes=args.expected_report_hash,
+                )
+            else:
+                status = build_history(
+                    [Path(report) for report in args.report],
+                    resolve_history_out(args.out),
+                    history_id=Path(args.out).name,
+                    labels=args.label,
+                    expected_report_hashes=args.expected_report_hash,
+                    source_kinds=args.source_kind,
+                )
             print(canonical_json_text(status))
         else:
             parser.error("expected --self-test, --manifest, or build")
