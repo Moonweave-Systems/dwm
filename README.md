@@ -190,6 +190,12 @@ python scripts/check_release_text.py --self-test
 
 For day-to-day product checks, use the DWM CLI surface:
 
+For hash-bound HUD evidence approval, use:
+
+```bash
+python scripts/dwm_hud.py approve --hud out/hud/<hud_id> --out out/hud/<approval_id> --approver <name>
+```
+
 ```bash
 python scripts/dwm.py status --run out/v9/v32-semantic-dogfood
 python scripts/dwm.py next --run out/v9/v32-semantic-dogfood

@@ -11,14 +11,14 @@ python scripts/dwm_hud.py --manifest fixtures/v17/manifest.json --out out/hud/v1
 Generated summary values:
 
 - `suite_id`: `v17-final`
-- `fixture_count`: 4
-- `required_fixture_count`: 4
-- `required_passed`: 4
-- `passed`: 4
+- `fixture_count`: 8
+- `required_fixture_count`: 8
+- `required_passed`: 8
+- `passed`: 8
 - `failed`: 0
 - `skipped`: 0
 - `decision`: `keep`
 
-This decision covers the read-only HUD summary only. It does not claim browser
-UI rendering, approval artifact writing, hosted dashboard service, or runtime
-execution authority.
+This decision covers the HUD summary and hash-bound approval artifact writer.
+It does not claim browser UI rendering, hosted dashboard service, approval of
+worker execution, or runtime execution authority.

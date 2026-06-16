@@ -736,7 +736,7 @@ def require_v17_decision_summary_text(summary: dict[str, object], decision_text:
         f"`decision`: `{summary['decision']}`",
         "python scripts/dwm_hud.py --manifest fixtures/v17/manifest.json --out out/hud/v17-final",
         "does not claim browser ui rendering",
-        "approval artifact writing",
+        "approval of worker execution",
         "hosted dashboard service",
         "runtime execution authority",
     ]
@@ -1570,10 +1570,10 @@ Overclaims execution: no
 
     v17_summary = {
         "suite_id": "v17-final",
-        "fixture_count": 4,
-        "required_fixture_count": 4,
-        "required_passed": 4,
-        "passed": 4,
+        "fixture_count": 8,
+        "required_fixture_count": 8,
+        "required_passed": 8,
+        "passed": 8,
         "failed": 0,
         "skipped": 0,
         "decision": "keep",
@@ -1582,18 +1582,18 @@ Overclaims execution: no
         "Decision: keep\n"
         "python scripts/dwm_hud.py --manifest fixtures/v17/manifest.json --out out/hud/v17-final\n"
         "- `suite_id`: `v17-final`\n"
-        "- `fixture_count`: 4\n"
-        "- `required_fixture_count`: 4\n"
-        "- `required_passed`: 4\n"
-        "- `passed`: 4\n"
+        "- `fixture_count`: 8\n"
+        "- `required_fixture_count`: 8\n"
+        "- `required_passed`: 8\n"
+        "- `passed`: 8\n"
         "- `failed`: 0\n"
         "- `skipped`: 0\n"
         "- `decision`: `keep`\n"
-        "This decision does not claim browser UI rendering, approval artifact writing, hosted dashboard service, or runtime execution authority.\n"
+        "This decision does not claim browser UI rendering, hosted dashboard service, approval of worker execution, or runtime execution authority.\n"
     )
     require_v17_decision_summary_text(v17_summary, good_v17_decision)
     try:
-        require_v17_decision_summary_text(v17_summary, good_v17_decision.replace("`passed`: 4", "`passed`: 3", 1))
+        require_v17_decision_summary_text(v17_summary, good_v17_decision.replace("`passed`: 8", "`passed`: 7", 1))
     except SystemExit:
         pass
     else:
@@ -1664,6 +1664,7 @@ def main() -> None:
             "python scripts/dwm.py commands --kind product",
             "python scripts/dwm_hud.py --self-test",
             "python scripts/dwm_hud.py --manifest fixtures/v17/manifest.json --out out/hud/v17-final",
+            "python scripts/dwm_hud.py approve --hud out/hud/<hud_id> --out out/hud/<approval_id> --approver <name>",
             "docs/v10-product-packaging-spec.md",
             "docs/v10-decision.md",
             "docs/v11-operator-guidance-spec.md",
@@ -1875,7 +1876,7 @@ def main() -> None:
     require_terms(
         "docs/v17-dashboard-hud-spec.md",
         [
-            "status: implemented read-only in `scripts/dwm_hud.py`.",
+            "status: implemented in `scripts/dwm_hud.py`.",
             "## research and prior art",
             "## product position and non-goals",
             "## workflow architecture",
@@ -1884,6 +1885,9 @@ def main() -> None:
             "## evaluation fixtures",
             "## release plan",
             "err_hud_stale_evidence",
+            "err_hud_approval_source_blocked",
+            "err_hud_approval_unsafe",
+            "no worker execution, merge, deployment, external message, secret access, or dependency installation is approved by this artifact",
         ],
     )
     for spec_path in [

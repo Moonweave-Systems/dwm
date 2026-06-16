@@ -44,6 +44,9 @@ SCHEMA_VERSION = "1.0"
 HUD_VERSION = "17.0.0"
 HUD_ROOT = ROOT / "out" / "hud"
 SENTINEL = ".dwm_hud-owned.json"
+SAFE_APPROVAL_ATTESTATION = "no worker execution, merge, deployment, external message, secret access, or dependency installation is approved by this artifact"
+APPROVAL_VERBS = ("approve", "approved", "allow", "allowed", "authorize", "authorized", "permit", "permitted", "grant", "granted")
+FORBIDDEN_APPROVAL_TERMS = ("worker execution", "merge", "deployment", "deploy", "external message", "secret access", "dependency installation")
 
 
 class HudError(ValueError):
@@ -169,6 +172,30 @@ def prepare_hud_out(out_dir: Path, hud_id: str, source_dir: Path) -> None:
     write_json_atomic(out_dir / SENTINEL, sentinel, root=out_dir)
 
 
+def prepare_approval_out(out_dir: Path, approval_id: str, hud_dir: Path) -> None:
+    if out_dir.exists():
+        if out_dir.is_symlink():
+            raise HudError("ERR_HUD_PATH_SYMLINK", "HUD approval output is a symlink", path=out_dir)
+        if not out_dir.is_dir():
+            raise HudError("ERR_HUD_PATH_UNSAFE", "HUD approval output is not a directory", path=out_dir)
+        sentinel = read_owned_sentinel(out_dir)
+        if sentinel is None or sentinel.get("hud_id") != approval_id:
+            raise HudError("ERR_HUD_PATH_UNSAFE", "existing HUD approval output is not HUD-owned", path=out_dir)
+        shutil.rmtree(out_dir)
+    HUD_ROOT.mkdir(parents=True, exist_ok=True)
+    out_dir.mkdir(parents=True)
+    sentinel = {
+        "tool": TOOL,
+        "schema_version": SCHEMA_VERSION,
+        "hud_version": HUD_VERSION,
+        "hud_id": approval_id,
+        "source_path": rel(hud_dir),
+        "mode": "approval",
+        "created_at": now_utc(),
+    }
+    write_json_atomic(out_dir / SENTINEL, sentinel, root=out_dir)
+
+
 def render_markdown(summary: dict[str, Any]) -> str:
     lines = [
         "# V17 DWM HUD",
@@ -190,6 +217,121 @@ def render_markdown(summary: dict[str, Any]) -> str:
     if summary["artifact_paths"]:
         lines.extend(["## Artifacts", "", *[f"- `{path}`" for path in summary["artifact_paths"]], ""])
     return "\n".join(lines)
+
+
+def verify_summary_source_hashes(summary: dict[str, Any]) -> None:
+    source = summary.get("source")
+    source_hashes = summary.get("source_hashes")
+    if not isinstance(source, dict) or not isinstance(source_hashes, dict):
+        raise HudError("ERR_HUD_STALE_EVIDENCE", "HUD summary source metadata is malformed")
+    if source.get("kind") != "fanout":
+        raise HudError("ERR_HUD_STALE_EVIDENCE", "unsupported HUD source kind")
+    source_dir = resolve_fanout_out(str(source.get("path", "")))
+    source_files = {
+        "status.json": source_dir / "status.json",
+        "review-queue.json": source_dir / "review-queue.json",
+        "conflicts.json": source_dir / "conflicts.json",
+        "fanin-status.json": source_dir / "fanin-status.json",
+    }
+    for name, path in source_files.items():
+        data = read_json_obj(path, root=source_dir, label=name)
+        if source_hashes.get(name) != canonical_hash(data):
+            raise HudError("ERR_HUD_STALE_EVIDENCE", f"{name} hash changed", path=path)
+
+
+def approval_attestations_safe(attestations: Any) -> list[str]:
+    if not isinstance(attestations, list) or not attestations or not all(isinstance(item, str) and item.strip() for item in attestations):
+        raise HudError("ERR_HUD_APPROVAL_UNSAFE", "approval attestations must be non-empty strings")
+    normalized = [item.strip() for item in attestations]
+    if SAFE_APPROVAL_ATTESTATION not in normalized:
+        raise HudError("ERR_HUD_APPROVAL_UNSAFE", "approval is missing the required safety attestation")
+    for attestation in normalized:
+        if attestation == SAFE_APPROVAL_ATTESTATION:
+            continue
+        text = attestation.lower()
+        if any(verb in text for verb in APPROVAL_VERBS) and any(term in text for term in FORBIDDEN_APPROVAL_TERMS):
+            raise HudError("ERR_HUD_APPROVAL_UNSAFE", "approval attestation authorizes a forbidden action")
+    return normalized
+
+
+def render_approval_markdown(approval: dict[str, Any]) -> str:
+    return "\n".join(
+        [
+            "# V17 HUD Approval",
+            "",
+            f"Approval ID: `{approval['approval_id']}`",
+            f"Status: `{approval['status']}`",
+            f"Decision: `{approval['decision']}`",
+            f"Approver: `{approval['approver']}`",
+            f"HUD path: `{approval['hud_path']}`",
+            "",
+            "This approval records evidence review only. It does not authorize worker execution, merge, deployment, external messaging, secret access, dependency installation, or runtime execution.",
+            "",
+        ]
+    )
+
+
+def approve_hud(hud_dir: Path, out_dir: Path, request: dict[str, Any]) -> dict[str, Any]:
+    hud_dir = resolve_hud_out(hud_dir)
+    out_dir = resolve_hud_out(out_dir)
+    approval_id = safe_segment(out_dir.name, code="ERR_HUD_PATH_UNSAFE")
+    prepare_approval_out(out_dir, approval_id, hud_dir)
+    summary = read_json_obj(hud_dir / "hud-summary.json", root=hud_dir, label="hud-summary.json")
+    if not (hud_dir / "hud-summary.md").is_file() or (hud_dir / "hud-summary.md").is_symlink():
+        raise HudError("ERR_HUD_STALE_EVIDENCE", "hud-summary.md must exist before approval", path=hud_dir / "hud-summary.md")
+    verify_summary_source_hashes(summary)
+    if summary.get("decision") != "ready":
+        raise HudError("ERR_HUD_APPROVAL_SOURCE_BLOCKED", "only ready HUD summaries can be approved", path=hud_dir / "hud-summary.json")
+    decision = request.get("decision", "approve")
+    if decision != "approve":
+        raise HudError("ERR_HUD_APPROVAL_UNSAFE", "approval decision must be approve")
+    approver = request.get("approver")
+    if not isinstance(approver, str) or not approver.strip():
+        raise HudError("ERR_HUD_APPROVAL_UNSAFE", "approval approver is required")
+    allowed_outputs = request.get("allowed_outputs", ["hud-summary.md"])
+    if allowed_outputs != ["hud-summary.md"]:
+        raise HudError("ERR_HUD_APPROVAL_UNSAFE", "V17.5 approvals may approve only hud-summary.md")
+    attestations = approval_attestations_safe(request.get("attestations", [SAFE_APPROVAL_ATTESTATION]))
+    approval = {
+        "tool": TOOL,
+        "schema_version": SCHEMA_VERSION,
+        "approval_version": "17.5.0",
+        "approval_id": approval_id,
+        "created_at": now_utc(),
+        "status": "approved",
+        "decision": decision,
+        "approver": approver.strip(),
+        "hud_path": rel(hud_dir),
+        "source_kind": summary["source"]["kind"],
+        "source_path": summary["source"]["path"],
+        "source_hashes": summary["source_hashes"],
+        "approved_outputs": allowed_outputs,
+        "attestations": attestations,
+        "authorizes": {
+            "worker_execution": False,
+            "merge": False,
+            "deployment": False,
+            "external_message": False,
+            "secret_access": False,
+            "dependency_installation": False,
+            "runtime_execution": False,
+        },
+    }
+    write_json_atomic(out_dir / "approval.json", approval, root=out_dir)
+    write_text_atomic(out_dir / "approval.md", render_approval_markdown(approval), root=out_dir)
+    status = {
+        "tool": TOOL,
+        "schema_version": SCHEMA_VERSION,
+        "approval_id": approval_id,
+        "status": "approved",
+        "hud_path": rel(hud_dir),
+        "artifact_paths": {
+            "approval": "approval.json",
+            "markdown": "approval.md",
+        },
+    }
+    write_json_atomic(out_dir / "status.json", status, root=out_dir)
+    return status
 
 
 def summarize_fanout(fanout_dir: Path, out_dir: Path) -> dict[str, Any]:
@@ -245,7 +387,7 @@ def summarize_fanout(fanout_dir: Path, out_dir: Path) -> dict[str, Any]:
         "conflict_count": len(conflicts),
         "failed_workers": failed_workers,
         "command_preview": None,
-        "approval_writer_enabled": False,
+        "approval_writer_enabled": decision == "ready",
         "artifact_paths": [
             rel(fanout_dir / "status.json"),
             rel(fanout_dir / "review-queue.json"),
@@ -265,7 +407,7 @@ def summarize_fanout(fanout_dir: Path, out_dir: Path) -> dict[str, Any]:
 
 
 def fanout_workers(kind: str) -> list[dict[str, Any]]:
-    if kind == "fanout-conflict":
+    if kind in {"fanout-conflict", "approval-blocked-source"}:
         return [
             {"id": "inventory-a", "ownership": ["inventory/shared"]},
             {"id": "inventory-b", "ownership": ["inventory/shared"]},
@@ -308,6 +450,34 @@ def run_fixture(fixture: dict[str, Any], suite_dir: Path, temp_root: Path) -> di
                 "review_queue_count": None,
                 "conflict_count": None,
             }
+        if str(fixture["kind"]).startswith("approval-"):
+            if fixture["kind"] == "approval-stale-source":
+                fanout_status = read_json_obj(fanout_dir / "status.json", root=fanout_dir, label="status.json")
+                fanout_status["review_queue_count"] = 99
+                write_json_atomic(fanout_dir / "status.json", fanout_status, root=fanout_dir)
+            approval_request = {
+                "approver": "fixture-operator",
+                "decision": "approve",
+                "allowed_outputs": ["hud-summary.md"],
+                "attestations": [SAFE_APPROVAL_ATTESTATION],
+            }
+            if fixture["kind"] == "approval-unsafe-attestation":
+                approval_request["attestations"].append("I approve worker execution for this HUD.")
+            approval_dir = suite_dir / f"{fixture_id}-approval"
+            try:
+                approval_status = approve_hud(out_dir, approval_dir, approval_request)
+            except HudError as exc:
+                expected_error = fixture.get("expected_error")
+                if expected_error != exc.code:
+                    raise
+                approval_status = {"status": "blocked", "error": exc.to_record()}
+            expected_approval_status = fixture.get("expected_approval_status")
+            if expected_approval_status is not None and approval_status.get("status") != expected_approval_status:
+                raise HudError("ERR_HUD_FIXTURE_FAILED", f"expected approval status {expected_approval_status}, got {approval_status.get('status')}")
+            expected_error = fixture.get("expected_error")
+            actual_error = approval_status.get("error", {}).get("code") if isinstance(approval_status.get("error"), dict) else None
+            if expected_error is not None and actual_error != expected_error:
+                raise HudError("ERR_HUD_FIXTURE_FAILED", f"expected error {expected_error}, got {actual_error}")
         expected_decision = fixture.get("expected_decision")
         if expected_decision is not None and summary.get("decision") != expected_decision:
             raise HudError("ERR_HUD_FIXTURE_FAILED", f"expected decision {expected_decision}, got {summary.get('decision')}")
@@ -320,10 +490,11 @@ def run_fixture(fixture: dict[str, Any], suite_dir: Path, temp_root: Path) -> di
         expected_conflict_count = fixture.get("expected_conflict_count")
         if expected_conflict_count is not None and summary.get("conflict_count") != expected_conflict_count:
             raise HudError("ERR_HUD_FIXTURE_FAILED", f"expected conflict count {expected_conflict_count}, got {summary.get('conflict_count')}")
-        expected_error = fixture.get("expected_error")
-        actual_error = summary.get("error", {}).get("code") if isinstance(summary.get("error"), dict) else None
-        if expected_error is not None and actual_error != expected_error:
-            raise HudError("ERR_HUD_FIXTURE_FAILED", f"expected error {expected_error}, got {actual_error}")
+        if not str(fixture["kind"]).startswith("approval-"):
+            expected_error = fixture.get("expected_error")
+            actual_error = summary.get("error", {}).get("code") if isinstance(summary.get("error"), dict) else None
+            if expected_error is not None and actual_error != expected_error:
+                raise HudError("ERR_HUD_FIXTURE_FAILED", f"expected error {expected_error}, got {actual_error}")
         return {"id": fixture_id, "status": "pass", "required": fixture.get("required", True)}
     except (HudError, RunnerError, CompileError) as exc:
         if isinstance(exc, (HudError, RunnerError)):
@@ -394,9 +565,13 @@ def self_test() -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
+    parser.add_argument("command", nargs="?", choices=["approve"])
     parser.add_argument("--run")
+    parser.add_argument("--hud")
     parser.add_argument("--out")
     parser.add_argument("--manifest")
+    parser.add_argument("--approval-json")
+    parser.add_argument("--approver")
     parser.add_argument("--self-test", action="store_true")
     args = parser.parse_args()
     try:
@@ -407,6 +582,16 @@ def main() -> int:
                 raise HudError("ERR_HUD_PATH_UNSAFE", "--manifest requires --out")
             summary = evaluate_manifest(Path(args.manifest), Path(args.out))
             print(canonical_json_text({key: summary[key] for key in ["suite_id", "fixture_count", "required_fixture_count", "required_passed", "passed", "failed", "skipped", "decision"]}))
+        elif args.command == "approve":
+            if not args.hud or not args.out:
+                raise HudError("ERR_HUD_PATH_UNSAFE", "approve requires --hud and --out")
+            request = json.loads(args.approval_json) if args.approval_json else {}
+            if not isinstance(request, dict):
+                raise HudError("ERR_HUD_APPROVAL_UNSAFE", "--approval-json must be an object")
+            if args.approver:
+                request["approver"] = args.approver
+            status = approve_hud(Path(args.hud), Path(args.out), request)
+            print(canonical_json_text(status))
         elif args.run:
             if not args.out:
                 raise HudError("ERR_HUD_PATH_UNSAFE", "--run requires --out")

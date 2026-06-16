@@ -31,13 +31,44 @@
       "id": "hud-stale-fanout",
       "kind": "stale-fanout",
       "required": true
+    },
+    {
+      "expected_approval_status": "approved",
+      "id": "hud-approval-ready",
+      "kind": "approval-ready",
+      "required": true
+    },
+    {
+      "expected_approval_status": "blocked",
+      "expected_error": "ERR_HUD_APPROVAL_SOURCE_BLOCKED",
+      "id": "hud-approval-blocked-source",
+      "kind": "approval-blocked-source",
+      "required": true
+    },
+    {
+      "expected_approval_status": "blocked",
+      "expected_error": "ERR_HUD_STALE_EVIDENCE",
+      "id": "hud-approval-stale-source",
+      "kind": "approval-stale-source",
+      "required": true
+    },
+    {
+      "expected_approval_status": "blocked",
+      "expected_error": "ERR_HUD_APPROVAL_UNSAFE",
+      "id": "hud-approval-unsafe-attestation",
+      "kind": "approval-unsafe-attestation",
+      "required": true
     }
   ],
   "required_fixture_ids": [
     "hud-fanout-ready",
     "hud-fanout-conflict",
     "hud-failed-worker",
-    "hud-stale-fanout"
+    "hud-stale-fanout",
+    "hud-approval-ready",
+    "hud-approval-blocked-source",
+    "hud-approval-stale-source",
+    "hud-approval-unsafe-attestation"
   ],
   "suite_id": "v17-dashboard-hud"
 }
