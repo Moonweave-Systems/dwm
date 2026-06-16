@@ -194,7 +194,18 @@ def normalize_expected_hashes(reports: list[Path], expected_hashes: list[str] | 
     return expected_hashes
 
 
-def history_entry(index: int, label: str, report_dir: Path, expected_hash: str | None) -> dict[str, Any]:
+def normalize_source_kinds(reports: list[Path], source_kinds: list[str] | None) -> list[str]:
+    if source_kinds is None or not source_kinds:
+        return ["ad-hoc" for _ in reports]
+    if len(source_kinds) != len(reports):
+        raise BenchmarkHistoryError("ERR_BENCHMARK_HISTORY_SOURCE_KIND_MISMATCH", "source-kind count must match report count")
+    allowed = {"ad-hoc", "fixture", "release"}
+    if any(kind not in allowed for kind in source_kinds):
+        raise BenchmarkHistoryError("ERR_BENCHMARK_HISTORY_SOURCE_KIND_MISMATCH", f"source-kind must be one of {sorted(allowed)}")
+    return source_kinds
+
+
+def history_entry(index: int, label: str, report_dir: Path, expected_hash: str | None, source_kind: str) -> dict[str, Any]:
     report = load_report(report_dir)
     metrics = validate_metrics(report, report_dir=report_dir)
     report_hash = canonical_hash(report)
@@ -204,6 +215,7 @@ def history_entry(index: int, label: str, report_dir: Path, expected_hash: str |
         "index": index,
         "label": label,
         "source_path": rel(report_dir),
+        "source_kind": source_kind,
         "report_hash": report_hash,
         "score_bps": score_bps(metrics),
         "benchmark_success_claimed": bool(report.get("benchmark_success_claimed")),
@@ -276,14 +288,18 @@ def build_history(
     history_id: str,
     labels: list[str] | None = None,
     expected_report_hashes: list[str] | None = None,
+    source_kinds: list[str] | None = None,
 ) -> dict[str, Any]:
     if not report_dirs:
         raise BenchmarkHistoryError("ERR_BENCHMARK_HISTORY_ARTIFACT_MISSING", "at least one report is required")
     normalized_labels = normalize_labels(report_dirs, labels)
     expected_hashes = normalize_expected_hashes(report_dirs, expected_report_hashes)
+    normalized_source_kinds = normalize_source_kinds(report_dirs, source_kinds)
     entries = [
-        history_entry(index, label, report_dir, expected_hash)
-        for index, (label, report_dir, expected_hash) in enumerate(zip(normalized_labels, report_dirs, expected_hashes, strict=True))
+        history_entry(index, label, report_dir, expected_hash, source_kind)
+        for index, (label, report_dir, expected_hash, source_kind) in enumerate(
+            zip(normalized_labels, report_dirs, expected_hashes, normalized_source_kinds, strict=True)
+        )
     ]
     report_hashes = [entry["report_hash"] for entry in entries]
     if len(set(report_hashes)) != len(report_hashes):
@@ -359,11 +375,11 @@ def run_fixture(fixture: dict[str, Any], suite_dir: Path) -> dict[str, Any]:
         kind = fixture["kind"]
         if kind == "history-single-report":
             report_dir = make_report_dir(f"{suite_dir.name}-{fixture_id}", publish_claim=True)
-            status = build_history([report_dir], suite_dir / fixture_id, history_id=fixture_id, labels=["v35"])
+            status = build_history([report_dir], suite_dir / fixture_id, history_id=fixture_id, labels=["v35"], source_kinds=["fixture"])
         elif kind == "history-two-point-trend":
             first = make_report_dir(f"{suite_dir.name}-{fixture_id}-first", publish_claim=False, failed=True)
             second = make_report_dir(f"{suite_dir.name}-{fixture_id}-second", publish_claim=True)
-            status = build_history([first, second], suite_dir / fixture_id, history_id=fixture_id, labels=["baseline", "current"])
+            status = build_history([first, second], suite_dir / fixture_id, history_id=fixture_id, labels=["baseline", "current"], source_kinds=["fixture", "fixture"])
         elif kind in {"stale-report", "metrics-invalid", "duplicate-report", "missing-artifact"}:
             status = blocked_fixture_status(kind, fixture, suite_dir.name)
         else:
@@ -439,6 +455,7 @@ def main() -> int:
     parser.add_argument("--out")
     parser.add_argument("--report", action="append")
     parser.add_argument("--self-test", action="store_true")
+    parser.add_argument("--source-kind", action="append")
     args = parser.parse_args()
     try:
         if args.self_test:
@@ -457,6 +474,7 @@ def main() -> int:
                 history_id=Path(args.out).name,
                 labels=args.label,
                 expected_report_hashes=args.expected_report_hash,
+                source_kinds=args.source_kind,
             )
             print(canonical_json_text(status))
         else:

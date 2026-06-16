@@ -97,6 +97,8 @@ published snapshot of the V36 graph artifact and keeps its source hash in
 Trend graphs require a history ledger, not one-off evidence. V38 records
 distinct report snapshots into `history.json` and `trend.svg` so a later README
 growth chart can be promoted only when the data supports it.
+V39 adds the promotion gate: at least three release-kind snapshots, unique
+report hashes, a non-decreasing score sequence, and a minimum improvement.
 
 Generate graph artifacts with:
 
@@ -109,6 +111,10 @@ This writes:
 - `benchmark-graph.json`
 - `benchmark-graph.svg`
 - `README-snippet.md`
+
+The benchmark promotion gate writes `promotion.json`, `promoted-trend.svg`, and
+its own `README-snippet.md` only after the history clears the public-claim
+policy.
 
 ## Common Commands
 
@@ -131,6 +137,7 @@ python scripts/dwm_live_runner_preflight.py preflight --plan out/live-attempt-pl
 python scripts/dwm_live_receipt.py ingest --preflight out/live-runner-preflight/<preflight_id> --receipt receipt.json --out out/live-receipts/<receipt_id>
 python scripts/dwm_live_report.py publish --review out/live-score-reviews/<review_id> --out out/live-reports/<report_id>
 python scripts/dwm_benchmark_history.py build --report out/live-reports/<report_id> --out out/benchmark-history/<history_id>
+python scripts/dwm_benchmark_promotion.py promote --history out/benchmark-history/<history_id> --out out/benchmark-promotions/<promotion_id>
 ```
 
 Role, HUD, install, adapter, and release checks:
@@ -154,6 +161,7 @@ python scripts/dwm_release.py status --out out/release/<release_id>
 | `scripts/dwm_runner.py` | Runner, session/worktree, review/repair, and fanout surfaces. |
 | `scripts/dwm_live_*.py` | Live evidence, receipt, score, review, report, and graph gates. |
 | `scripts/dwm_benchmark_history.py` | Benchmark history ledger and trend graph builder. |
+| `scripts/dwm_benchmark_promotion.py` | Benchmark trend promotion gate for public graph claims. |
 | `docs/automation-roadmap.md` | Implementation roadmap and completed slices. |
 | `docs/v32-to-v35-live-scoring-workflow.md` | Live scoring workflow design. |
 | `docs/v36-readme-benchmark-graph-spec.md` | README benchmark graph artifact contract. |
@@ -171,6 +179,7 @@ python scripts/dwm_release.py status --out out/release/<release_id>
 - [`docs/v36-readme-benchmark-graph-spec.md`](docs/v36-readme-benchmark-graph-spec.md): README graph artifact generator.
 - [`docs/v37-readme-public-page-spec.md`](docs/v37-readme-public-page-spec.md): README public page and graph publish gate.
 - [`docs/v38-benchmark-history-spec.md`](docs/v38-benchmark-history-spec.md): benchmark history ledger and trend graph gate.
+- [`docs/v39-benchmark-promotion-spec.md`](docs/v39-benchmark-promotion-spec.md): public benchmark trend promotion gate.
 
 Generated `out/` directories are verification evidence, not source of truth.
 

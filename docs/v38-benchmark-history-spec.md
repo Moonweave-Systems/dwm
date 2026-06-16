@@ -36,14 +36,15 @@ writes:
 - `README-snippet.md`,
 - `summary.json` for manifest suites.
 
-Each entry records the report path, report hash, label, graph metrics,
-benchmark claim state, and `score_bps`.
+Each entry records the report path, report hash, label, `source_kind`, graph
+metrics, benchmark claim state, and `score_bps`.
 
 ## Execution Model
 
 ```bash
 python scripts/dwm_benchmark_history.py build --report out/live-reports/<report_id> --out out/benchmark-history/<history_id>
 python scripts/dwm_benchmark_history.py build --report out/live-reports/<old_id> --report out/live-reports/<new_id> --label baseline --label current --out out/benchmark-history/<history_id>
+python scripts/dwm_benchmark_history.py build --report out/live-reports/<report_id> --source-kind release --out out/benchmark-history/<history_id>
 python scripts/dwm_benchmark_history.py --manifest fixtures/v38/manifest.json --out out/benchmark-history/v38-final
 ```
 
