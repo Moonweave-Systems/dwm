@@ -114,6 +114,7 @@ Use $dynamic-workflow-designer to plan a 500-file migration with verification ga
 ├── docs/v16-multi-worker-fanout-spec.md
 ├── docs/v16-decision.md
 ├── docs/v17-dashboard-hud-spec.md
+├── docs/v17-decision.md
 ├── docs/v18-plugin-install-packaging-spec.md
 ├── docs/v19-adapter-ecosystem-spec.md
 ├── docs/v20-1.0-release-hardening-spec.md
@@ -157,6 +158,16 @@ python scripts/compile_workflow.py --manifest fixtures/v1/manifest.json --out ou
 python scripts/execute_packet.py --self-test
 python scripts/execute_packet.py --manifest fixtures/v2/manifest.json --out out/v2/final
 python scripts/execute_packet.py --manifest fixtures/v2.5/manifest.json --out out/v2.5/final
+python scripts/dwm_runner.py --self-test
+python scripts/dwm_runner.py --manifest fixtures/v13/manifest.json --out out/v13/final
+python scripts/dwm_runner.py session --self-test
+python scripts/dwm_runner.py --manifest fixtures/v14/manifest.json --out out/v13/v14-final
+python scripts/dwm_runner.py review --self-test
+python scripts/dwm_runner.py --manifest fixtures/v15/manifest.json --out out/v13/v15-final
+python scripts/dwm_runner.py fanout --self-test
+python scripts/dwm_runner.py --manifest fixtures/v16/manifest.json --out out/v13/v16-final
+python scripts/dwm_hud.py --self-test
+python scripts/dwm_hud.py --manifest fixtures/v17/manifest.json --out out/hud/v17-final
 python scripts/run_workflow.py --self-test
 python scripts/run_workflow.py --manifest fixtures/v3/manifest.json --out out/v3/final
 python scripts/orchestrate_workflow.py --self-test

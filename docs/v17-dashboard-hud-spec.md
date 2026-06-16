@@ -1,6 +1,6 @@
 # V17 Dashboard And Approval UI Spec
 
-Status: planned; not implemented.
+Status: implemented read-only in `scripts/dwm_hud.py`.
 
 ## Research And Prior Art
 
@@ -10,7 +10,8 @@ next actions without weakening the artifact contract.
 
 ## Product Position And Non-Goals
 
-V17 adds a local dashboard/HUD and approval queue.
+V17 adds a local read-only dashboard/HUD summary over DWM artifacts. Approval
+artifact writing remains a later slice.
 
 Non-goals:
 
@@ -28,13 +29,15 @@ The dashboard reads DWM artifacts and exposes:
 - trust checks,
 - evidence browser,
 - review queue,
-- human gate approval form,
+- human gate approval form, planned after read-only HUD proof,
 - command preview.
 
 ## Execution Model
 
-The UI is local-first. It may write approval artifacts only through an explicit
-tracked approval schema and only after rendering the evidence being approved.
+The first V17 slice is local-first and read-only. It writes only derived
+`hud-summary.json` and `hud-summary.md` files under `out/hud/`. A later approval
+slice may write approval artifacts only through an explicit tracked approval
+schema and only after rendering the evidence being approved.
 
 ## Safety And Verification Gates
 
@@ -45,14 +48,16 @@ unless the matching risk gate explicitly allows it.
 
 ## Evaluation Fixtures
 
-- positive: render V9 dogfood complete state,
-- positive: render V8 human gate approval queue,
-- negative: mismatched approval refused,
-- negative: stale evidence warning visible.
+- positive: fanout-ready artifacts render as `ready` with worker review as the
+  next action,
+- positive: ownership conflicts render as `needs_review`,
+- negative: failed workers render as `blocked`,
+- negative: stale fanout evidence blocks with `ERR_HUD_STALE_EVIDENCE`.
 
 ## Release Plan
 
-1. Add static/local dashboard prototype.
-2. Add rendered screenshot or DOM contract tests.
-3. Add approval artifact writer only after read-only UI is proven.
-4. Keep CLI as the authoritative fallback.
+1. Add read-only local HUD summary.
+2. Add fixture-backed HUD contract tests.
+3. Add rendered screenshot or DOM contract tests.
+4. Add approval artifact writer only after read-only UI is proven.
+5. Keep CLI as the authoritative fallback.
