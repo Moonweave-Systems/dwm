@@ -640,6 +640,8 @@ The planned roadmap splits the remaining product into versioned specs:
   `docs/v32-to-v35-live-scoring-workflow.md`.
 - V33 live score aggregate:
   `docs/v33-live-score-aggregate-spec.md`.
+- V34 live score review:
+  `docs/v34-live-score-review-spec.md`.
 
 These specs define the intended path to an independent DWM product that can use
 Codex CLI directly through DWM Runner while keeping OMX optional rather than a
