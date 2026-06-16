@@ -1452,6 +1452,50 @@ def require_v32_live_score_decision_summary_consistency() -> None:
         raise SystemExit(f"V32 decision consistency failed: {exc}") from exc
 
 
+def require_v33_live_score_aggregate_decision_summary_text(summary: dict[str, object], decision_text: str) -> None:
+    normalized_decision_text = " ".join(decision_text.lower().split())
+    required_snippets = [
+        f"decision: {summary['decision']}",
+        f"`suite_id`: `{summary['suite_id']}`",
+        f"`fixture_count`: {summary['fixture_count']}",
+        f"`required_fixture_count`: {summary['required_fixture_count']}",
+        f"`required_passed`: {summary['required_passed']}",
+        f"`passed`: {summary['passed']}",
+        f"`failed`: {summary['failed']}",
+        f"`skipped`: {summary['skipped']}",
+        f"`decision`: `{summary['decision']}`",
+        "python scripts/dwm_live_score_aggregate.py --manifest fixtures/v33/manifest.json --out out/live-score-aggregates/v33-final",
+        "aggregate-score.json",
+        "err_live_score_aggregate_artifact_missing",
+        "err_live_score_aggregate_stale_score",
+        "err_live_score_aggregate_task_missing",
+        "err_live_score_aggregate_task_duplicate",
+        "err_live_score_aggregate_unsupported_claim",
+        "does not claim live model execution",
+    ]
+    missing = [snippet for snippet in required_snippets if snippet not in normalized_decision_text]
+    if missing:
+        raise SystemExit(f"docs/v33-decision.md does not match V33 summary: {missing}")
+
+
+def require_v33_live_score_aggregate_decision_summary_consistency() -> None:
+    try:
+        completed = run_contract_command(
+            [
+                sys.executable,
+                "scripts/dwm_live_score_aggregate.py",
+                "--manifest",
+                "fixtures/v33/manifest.json",
+                "--out",
+                "out/live-score-aggregates/v33-final",
+            ],
+        )
+        summary = json.loads(completed.stdout)
+        require_v33_live_score_aggregate_decision_summary_text(summary, (ROOT / "docs" / "v33-decision.md").read_text())
+    except json.JSONDecodeError as exc:
+        raise SystemExit(f"V33 decision consistency failed: {exc}") from exc
+
+
 def require_release_commands_pass() -> None:
     commands = [
         [sys.executable, "scripts/quick_validate_skill.py", "."],
@@ -1495,6 +1539,8 @@ def require_release_commands_pass() -> None:
         [sys.executable, "scripts/dwm_live_receipt_judge.py", "--manifest", "fixtures/v31/manifest.json", "--out", "out/live-receipt-judgments/v31-final"],
         [sys.executable, "scripts/dwm_live_score.py", "--self-test"],
         [sys.executable, "scripts/dwm_live_score.py", "--manifest", "fixtures/v32/manifest.json", "--out", "out/live-scores/v32-final"],
+        [sys.executable, "scripts/dwm_live_score_aggregate.py", "--self-test"],
+        [sys.executable, "scripts/dwm_live_score_aggregate.py", "--manifest", "fixtures/v33/manifest.json", "--out", "out/live-score-aggregates/v33-final"],
         [sys.executable, "scripts/run_workflow.py", "--self-test"],
         [sys.executable, "scripts/run_workflow.py", "--manifest", "fixtures/v3/manifest.json", "--out", "out/v3/final"],
         [sys.executable, "scripts/orchestrate_workflow.py", "--self-test"],
@@ -2826,6 +2872,38 @@ Overclaims execution: no
     else:
         raise SystemExit("self-test failed: stale V32 decision summary passed")
 
+    v33_summary = {
+        "suite_id": "v33-final",
+        "fixture_count": 7,
+        "required_fixture_count": 7,
+        "required_passed": 7,
+        "passed": 7,
+        "failed": 0,
+        "skipped": 0,
+        "decision": "keep",
+    }
+    good_v33_decision = (
+        "Decision: keep\n"
+        "python scripts/dwm_live_score_aggregate.py --manifest fixtures/v33/manifest.json --out out/live-score-aggregates/v33-final\n"
+        "- `suite_id`: `v33-final`\n"
+        "- `fixture_count`: 7\n"
+        "- `required_fixture_count`: 7\n"
+        "- `required_passed`: 7\n"
+        "- `passed`: 7\n"
+        "- `failed`: 0\n"
+        "- `skipped`: 0\n"
+        "- `decision`: `keep`\n"
+        "The accepted suite covers aggregate-score.json, ERR_LIVE_SCORE_AGGREGATE_ARTIFACT_MISSING, ERR_LIVE_SCORE_AGGREGATE_STALE_SCORE, ERR_LIVE_SCORE_AGGREGATE_TASK_MISSING, ERR_LIVE_SCORE_AGGREGATE_TASK_DUPLICATE, and ERR_LIVE_SCORE_AGGREGATE_UNSUPPORTED_CLAIM.\n"
+        "This decision does not claim live model execution.\n"
+    )
+    require_v33_live_score_aggregate_decision_summary_text(v33_summary, good_v33_decision)
+    try:
+        require_v33_live_score_aggregate_decision_summary_text(v33_summary, good_v33_decision.replace("`passed`: 7", "`passed`: 6", 1))
+    except SystemExit:
+        pass
+    else:
+        raise SystemExit("self-test failed: stale V33 decision summary passed")
+
     print("contract self-test: pass")
 
 
@@ -3431,6 +3509,18 @@ def main() -> None:
         ],
     )
     require_terms(
+        "docs/v33-live-score-aggregate-spec.md",
+        [
+            "status: implemented first live score aggregate gate in",
+            "aggregate-score.json",
+            "err_live_score_aggregate_artifact_missing",
+            "err_live_score_aggregate_stale_score",
+            "err_live_score_aggregate_task_missing",
+            "err_live_score_aggregate_task_duplicate",
+            "err_live_score_aggregate_unsupported_claim",
+        ],
+    )
+    require_terms(
         "docs/v7.5-decision.md",
         [
             "decision: keep",
@@ -3479,7 +3569,7 @@ def main() -> None:
             "python scripts/dwm.py commands --kind release --json",
             "`status`: `workflow-complete`",
             "`doctor_ok`: `true`",
-            "`release_command_count`: `72`",
+            "`release_command_count`: `74`",
             "does not claim workflow execution",
         ],
     )
@@ -3613,6 +3703,7 @@ def main() -> None:
     require_v30_receipt_decision_summary_consistency()
     require_v31_receipt_judge_decision_summary_consistency()
     require_v32_live_score_decision_summary_consistency()
+    require_v33_live_score_aggregate_decision_summary_consistency()
     print("contract smoke: pass")
 
 

@@ -187,6 +187,8 @@ task itself needs dynamic orchestration.
 ├── docs/v32-decision.md
 ├── docs/v32-to-v35-live-scoring-workflow.md
 ├── docs/v32-to-v35-live-scoring-workflow.plan.json
+├── docs/v33-live-score-aggregate-spec.md
+├── docs/v33-decision.md
 ├── docs/github-research.md          # Prior-art survey and import decisions
 ├── docs/dwm-branding.md             # Product naming and compatibility rules
 ├── assets/dwm-hero.svg              # README hero image
@@ -272,6 +274,8 @@ python scripts/dwm_live_receipt_judge.py --self-test
 python scripts/dwm_live_receipt_judge.py --manifest fixtures/v31/manifest.json --out out/live-receipt-judgments/v31-final
 python scripts/dwm_live_score.py --self-test
 python scripts/dwm_live_score.py --manifest fixtures/v32/manifest.json --out out/live-scores/v32-final
+python scripts/dwm_live_score_aggregate.py --self-test
+python scripts/dwm_live_score_aggregate.py --manifest fixtures/v33/manifest.json --out out/live-score-aggregates/v33-final
 python scripts/run_workflow.py --self-test
 python scripts/run_workflow.py --manifest fixtures/v3/manifest.json --out out/v3/final
 python scripts/orchestrate_workflow.py --self-test
@@ -373,6 +377,12 @@ For V32 live score verification, use:
 
 ```bash
 python scripts/dwm_live_score.py score --judgment-dir out/live-receipt-judgments/<judgment_id> --receipt-dir out/live-receipts/<receipt_id> --verification verification.json --out out/live-scores/<score_id>
+```
+
+For V33 live score aggregation, use repeated `--score-dir` arguments:
+
+```bash
+python scripts/dwm_live_score_aggregate.py aggregate --score-dir out/live-scores/<score_id> --out out/live-score-aggregates/<aggregate_id>
 ```
 
 For hash-bound HUD evidence approval, use:

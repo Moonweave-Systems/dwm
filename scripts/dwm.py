@@ -77,6 +77,8 @@ RELEASE_COMMANDS = [
     "python scripts/dwm_live_receipt_judge.py --manifest fixtures/v31/manifest.json --out out/live-receipt-judgments/v31-final",
     "python scripts/dwm_live_score.py --self-test",
     "python scripts/dwm_live_score.py --manifest fixtures/v32/manifest.json --out out/live-scores/v32-final",
+    "python scripts/dwm_live_score_aggregate.py --self-test",
+    "python scripts/dwm_live_score_aggregate.py --manifest fixtures/v33/manifest.json --out out/live-score-aggregates/v33-final",
     "python scripts/run_workflow.py --self-test",
     "python scripts/run_workflow.py --manifest fixtures/v3/manifest.json --out out/v3/final",
     "python scripts/orchestrate_workflow.py --self-test",
@@ -164,6 +166,8 @@ BASE_REQUIRED_PATHS = [
     "docs/v32-live-score-verifier-spec.md",
     "docs/v32-to-v35-live-scoring-workflow.md",
     "docs/v32-to-v35-live-scoring-workflow.plan.json",
+    "docs/v33-decision.md",
+    "docs/v33-live-score-aggregate-spec.md",
     "packaging/dwm-benchmark-attempts.json",
     "packaging/dwm-adapters.json",
     "packaging/dwm-benchmarks.json",
@@ -189,6 +193,7 @@ BASE_REQUIRED_PATHS = [
     "scripts/dwm_live_receipt.py",
     "scripts/dwm_live_receipt_judge.py",
     "scripts/dwm_live_score.py",
+    "scripts/dwm_live_score_aggregate.py",
 ]
 
 
