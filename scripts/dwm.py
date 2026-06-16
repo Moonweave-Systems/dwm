@@ -55,6 +55,8 @@ RELEASE_COMMANDS = [
     "python scripts/dwm.py plan \"V21 shell smoke\" --out out/v21/release-plan-smoke --json",
     "python scripts/dwm.py run \"V21 shell smoke\" --out out/v21/release-run-smoke --json",
     "python scripts/dwm.py resume --run out/v21/release-run-smoke --json",
+    "python scripts/dwm_roles.py --self-test",
+    "python scripts/dwm_roles.py --manifest fixtures/v22/manifest.json --out out/roles/v22-final",
     "python scripts/run_workflow.py --self-test",
     "python scripts/run_workflow.py --manifest fixtures/v3/manifest.json --out out/v3/final",
     "python scripts/orchestrate_workflow.py --self-test",
@@ -118,8 +120,11 @@ BASE_REQUIRED_PATHS = [
     "docs/v20.6-dogfood-replay-spec.md",
     "docs/v21-decision.md",
     "docs/v21-product-shell-spec.md",
+    "docs/v22-decision.md",
+    "docs/v22-role-pack-spec.md",
     "packaging/dwm-adapters.json",
     "packaging/dwm-package.json",
+    "packaging/dwm-roles.json",
     "scripts/dwm.py",
     "scripts/dwm_runner.py",
     "scripts/dwm_hud.py",
@@ -128,6 +133,7 @@ BASE_REQUIRED_PATHS = [
     "scripts/dwm_release.py",
     "scripts/dwm_review_gate.py",
     "scripts/dwm_dogfood_replay.py",
+    "scripts/dwm_roles.py",
 ]
 
 

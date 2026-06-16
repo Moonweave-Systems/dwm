@@ -1,0 +1,102 @@
+{
+  "roles": [
+    {
+      "allowed_tools": [
+        "read",
+        "search"
+      ],
+      "evidence_obligations": [
+        "phase_plan",
+        "risk_gate_map",
+        "verification_plan"
+      ],
+      "id": "planner",
+      "output_schema": "workflow-plan-v1",
+      "purpose": "turn objectives into packets, gates, budgets, and ownership",
+      "trust_boundary": "cannot mark execution complete"
+    },
+    {
+      "allowed_tools": [
+        "read",
+        "search",
+        "inspect"
+      ],
+      "evidence_obligations": [
+        "source_map",
+        "impact_notes",
+        "open_questions"
+      ],
+      "id": "explorer",
+      "output_schema": "evidence-map-v1",
+      "purpose": "inspect repo, docs, and runtime state",
+      "trust_boundary": "read-only unless explicitly upgraded"
+    },
+    {
+      "allowed_tools": [
+        "read",
+        "search",
+        "edit",
+        "test"
+      ],
+      "evidence_obligations": [
+        "files_touched",
+        "commands_run",
+        "verification_output"
+      ],
+      "id": "worker",
+      "output_schema": "worker-result-v1",
+      "purpose": "perform one bounded packet",
+      "trust_boundary": "result is untrusted until reviewed and verified"
+    },
+    {
+      "allowed_tools": [
+        "read",
+        "search",
+        "test"
+      ],
+      "evidence_obligations": [
+        "findings",
+        "regression_risks",
+        "missing_tests"
+      ],
+      "id": "reviewer",
+      "output_schema": "review-findings-v1",
+      "purpose": "find bugs, regressions, missing tests, and contract drift",
+      "trust_boundary": "cannot repair its own findings without a repair packet"
+    },
+    {
+      "allowed_tools": [
+        "read",
+        "test",
+        "render",
+        "smoke"
+      ],
+      "evidence_obligations": [
+        "commands_run",
+        "artifacts_checked",
+        "falsification_result"
+      ],
+      "id": "verifier",
+      "output_schema": "verification-report-v1",
+      "purpose": "run tests, renders, browser checks, or command smokes",
+      "trust_boundary": "reports evidence, not product success"
+    },
+    {
+      "allowed_tools": [
+        "read",
+        "status",
+        "summarize"
+      ],
+      "evidence_obligations": [
+        "status_summary",
+        "next_action",
+        "blocked_by"
+      ],
+      "id": "operator",
+      "output_schema": "operator-status-v1",
+      "purpose": "summarize status and next safe action",
+      "trust_boundary": "cannot bypass gates"
+    }
+  ],
+  "schema_version": "1.0"
+}

@@ -970,6 +970,50 @@ def require_v206_decision_summary_consistency() -> None:
         raise SystemExit(f"V20.6 decision consistency failed: {exc}") from exc
 
 
+def require_v22_decision_summary_text(summary: dict[str, object], decision_text: str) -> None:
+    normalized_decision_text = " ".join(decision_text.lower().split())
+    required_snippets = [
+        f"decision: {summary['decision']}",
+        f"`suite_id`: `{summary['suite_id']}`",
+        f"`fixture_count`: {summary['fixture_count']}",
+        f"`required_fixture_count`: {summary['required_fixture_count']}",
+        f"`required_passed`: {summary['required_passed']}",
+        f"`passed`: {summary['passed']}",
+        f"`failed`: {summary['failed']}",
+        f"`skipped`: {summary['skipped']}",
+        f"`decision`: `{summary['decision']}`",
+        "python scripts/dwm_roles.py --manifest fixtures/v22/manifest.json --out out/roles/v22-final",
+        "planner",
+        "explorer",
+        "worker",
+        "reviewer",
+        "verifier",
+        "operator",
+        "does not claim role execution",
+    ]
+    missing = [snippet for snippet in required_snippets if snippet not in normalized_decision_text]
+    if missing:
+        raise SystemExit(f"docs/v22-decision.md does not match V22 summary: {missing}")
+
+
+def require_v22_decision_summary_consistency() -> None:
+    try:
+        completed = run_contract_command(
+            [
+                sys.executable,
+                "scripts/dwm_roles.py",
+                "--manifest",
+                "fixtures/v22/manifest.json",
+                "--out",
+                "out/roles/v22-final",
+            ],
+        )
+        summary = json.loads(completed.stdout)
+        require_v22_decision_summary_text(summary, (ROOT / "docs" / "v22-decision.md").read_text())
+    except json.JSONDecodeError as exc:
+        raise SystemExit(f"V22 decision consistency failed: {exc}") from exc
+
+
 def require_release_commands_pass() -> None:
     commands = [
         [sys.executable, "scripts/quick_validate_skill.py", "."],
@@ -991,6 +1035,8 @@ def require_release_commands_pass() -> None:
         [sys.executable, "scripts/dwm.py", "plan", "V21 shell smoke", "--out", "out/v21/release-plan-smoke", "--json"],
         [sys.executable, "scripts/dwm.py", "run", "V21 shell smoke", "--out", "out/v21/release-run-smoke", "--json"],
         [sys.executable, "scripts/dwm.py", "resume", "--run", "out/v21/release-run-smoke", "--json"],
+        [sys.executable, "scripts/dwm_roles.py", "--self-test"],
+        [sys.executable, "scripts/dwm_roles.py", "--manifest", "fixtures/v22/manifest.json", "--out", "out/roles/v22-final"],
         [sys.executable, "scripts/run_workflow.py", "--self-test"],
         [sys.executable, "scripts/run_workflow.py", "--manifest", "fixtures/v3/manifest.json", "--out", "out/v3/final"],
         [sys.executable, "scripts/orchestrate_workflow.py", "--self-test"],
@@ -1970,6 +2016,38 @@ Overclaims execution: no
     else:
         raise SystemExit("self-test failed: stale V20.6 decision summary passed")
 
+    v22_summary = {
+        "suite_id": "v22-final",
+        "fixture_count": 5,
+        "required_fixture_count": 5,
+        "required_passed": 5,
+        "passed": 5,
+        "failed": 0,
+        "skipped": 0,
+        "decision": "keep",
+    }
+    good_v22_decision = (
+        "Decision: keep\n"
+        "python scripts/dwm_roles.py --manifest fixtures/v22/manifest.json --out out/roles/v22-final\n"
+        "- `suite_id`: `v22-final`\n"
+        "- `fixture_count`: 5\n"
+        "- `required_fixture_count`: 5\n"
+        "- `required_passed`: 5\n"
+        "- `passed`: 5\n"
+        "- `failed`: 0\n"
+        "- `skipped`: 0\n"
+        "- `decision`: `keep`\n"
+        "The accepted registry covers planner, explorer, worker, reviewer, verifier, and operator.\n"
+        "This decision does not claim role execution.\n"
+    )
+    require_v22_decision_summary_text(v22_summary, good_v22_decision)
+    try:
+        require_v22_decision_summary_text(v22_summary, good_v22_decision.replace("`passed`: 5", "`passed`: 4", 1))
+    except SystemExit:
+        pass
+    else:
+        raise SystemExit("self-test failed: stale V22 decision summary passed")
+
     print("contract self-test: pass")
 
 
@@ -2036,6 +2114,9 @@ def main() -> None:
             "python scripts/dwm.py plan \"<objective>\" --out out/v21/<run_id>",
             "python scripts/dwm.py run \"<objective>\" --out out/v21/<run_id>",
             "python scripts/dwm.py resume --run out/v21/<run_id>",
+            "python scripts/dwm_roles.py --self-test",
+            "python scripts/dwm_roles.py --manifest fixtures/v22/manifest.json --out out/roles/v22-final",
+            "python scripts/dwm_roles.py registry",
             "python scripts/dwm_hud.py --self-test",
             "python scripts/dwm_hud.py --manifest fixtures/v17/manifest.json --out out/hud/v17-final",
             "python scripts/dwm_hud.py approve --hud out/hud/<hud_id> --out out/hud/<approval_id> --approver <name>",
@@ -2066,6 +2147,7 @@ def main() -> None:
             "docs/v20-1.0-release-hardening-spec.md",
             "docs/v20.6-dogfood-replay-spec.md",
             "docs/v21-product-shell-spec.md",
+            "docs/v22-role-pack-spec.md",
             "planning documents, not implemented runtime claims",
             "docs/v2.5-review-repair-spec.md",
             "docs/v2.5-to-v3.workflow.plan.json",
@@ -2405,6 +2487,21 @@ def main() -> None:
         ],
     )
     require_terms(
+        "docs/v22-role-pack-spec.md",
+        [
+            "status: implemented first role pack contract in `scripts/dwm_roles.py`.",
+            "planner",
+            "explorer",
+            "worker",
+            "reviewer",
+            "verifier",
+            "operator",
+            "err_role_permission_escalation",
+            "err_role_output_schema_missing",
+            "err_role_reviewer_self_repair",
+        ],
+    )
+    require_terms(
         "docs/v7.5-decision.md",
         [
             "decision: keep",
@@ -2453,7 +2550,7 @@ def main() -> None:
             "python scripts/dwm.py commands --kind release --json",
             "`status`: `workflow-complete`",
             "`doctor_ok`: `true`",
-            "`release_command_count`: `50`",
+            "`release_command_count`: `52`",
             "does not claim workflow execution",
         ],
     )
@@ -2576,6 +2673,7 @@ def main() -> None:
     require_v20_decision_summary_consistency()
     require_v205_decision_summary_consistency()
     require_v206_decision_summary_consistency()
+    require_v22_decision_summary_consistency()
     print("contract smoke: pass")
 
 
