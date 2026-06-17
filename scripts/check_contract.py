@@ -1710,6 +1710,8 @@ def require_release_commands_pass() -> None:
         [sys.executable, "scripts/dwm_dogfood_chart_review.py", "--manifest", "fixtures/v60/manifest.json", "--out", "out/dogfood-chart-reviews/v60-final"],
         [sys.executable, "scripts/dwm_dogfood_acquire.py", "--self-test"],
         [sys.executable, "scripts/dwm_dogfood_acquire.py", "--manifest", "fixtures/v61/manifest.json", "--out", "out/dogfood-acquisitions/v61-final"],
+        [sys.executable, "scripts/dwm_dogfood_operator.py", "--self-test"],
+        [sys.executable, "scripts/dwm_dogfood_operator.py", "--manifest", "fixtures/v62/manifest.json", "--out", "out/dogfood-operator/v62-final"],
         [sys.executable, "scripts/run_workflow.py", "--self-test"],
         [sys.executable, "scripts/run_workflow.py", "--manifest", "fixtures/v3/manifest.json", "--out", "out/v3/final"],
         [sys.executable, "scripts/orchestrate_workflow.py", "--self-test"],
@@ -3242,6 +3244,7 @@ def main() -> None:
             "python scripts/dwm_dogfood_chart_candidate.py candidate --series out/dogfood-pair-series/<series_id> --out out/dogfood-chart-candidates/<chart_id>",
             "python scripts/dwm_dogfood_chart_review.py review --candidate out/dogfood-chart-candidates/<chart_id> --receipt review-receipt.json --out out/dogfood-chart-reviews/<review_id>",
             "python scripts/dwm_dogfood_acquire.py acquire --task-id <task_id> --out out/dogfood-acquisitions/<acquisition_id>",
+            "python scripts/dwm_dogfood_operator.py recommend --out out/dogfood-operator/<operator_id>",
             "python scripts/dwm_daily_operator.py today --corpus out/dogfood-corpus/<corpus_id> --out out/daily-operator/<operator_id>",
             "python scripts/dwm_benchmark_history.py build --report out/live-reports/<report_id> --out out/benchmark-history/<history_id>",
             "python scripts/dwm_benchmark_promotion.py promote --history out/benchmark-history/<history_id> --out out/benchmark-promotions/<promotion_id>",
@@ -3291,6 +3294,8 @@ def main() -> None:
             "acquisition.json",
             "acquisition.md",
             "direct-receipt-template.json",
+            "dogfood-operator.json",
+            "dogfood-operator.md",
             "operator-loop.json",
             "today.md",
             "adapter-parity.json",
@@ -3339,6 +3344,7 @@ def main() -> None:
             "docs/v59-dogfood-chart-candidate-spec.md",
             "docs/v60-dogfood-chart-review-spec.md",
             "docs/v61-dogfood-acquire-spec.md",
+            "docs/v62-dogfood-operator-spec.md",
             "generated `out/` directories are verification evidence, not source of truth",
             "deterministic control-plane above agent clis",
             "bounded adapter surfaces",
@@ -4307,6 +4313,31 @@ def main() -> None:
         ],
     )
     require_terms(
+        "docs/v62-dogfood-operator-spec.md",
+        [
+            "status: implemented first deterministic dogfood acquisition recommendation loop in",
+            "python scripts/dwm_dogfood_operator.py recommend --out out/dogfood-operator/<operator_id>",
+            "dogfood-operator.json",
+            "dogfood-operator.md",
+            "err_dogfood_operator_stale_pair",
+            "err_dogfood_operator_stale_acquisition",
+            "err_dogfood_operator_direct_receipt_required",
+            "do not run live codex",
+        ],
+    )
+    require_terms(
+        "docs/v62-decision.md",
+        [
+            "decision: keep",
+            "python scripts/dwm_dogfood_operator.py --manifest fixtures/v62/manifest.json --out out/dogfood-operator/v62-final",
+            "dogfood-operator.json",
+            "next acquisition command recommendation",
+            "waiting direct receipt blocking",
+            "stale pair blocking",
+            "does not claim live codex execution",
+        ],
+    )
+    require_terms(
         "docs/v7.5-decision.md",
         [
             "decision: keep",
@@ -4355,7 +4386,7 @@ def main() -> None:
             "python scripts/dwm.py commands --kind release --json",
             "`status`: `workflow-complete`",
             "`doctor_ok`: `true`",
-            "`release_command_count`: `122`",
+            "`release_command_count`: `124`",
             "does not claim workflow execution",
         ],
     )
