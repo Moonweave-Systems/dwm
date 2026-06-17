@@ -61,6 +61,7 @@ entrypoint remains `dynamic-workflow-designer`.
 | Candidate review | pre-publish candidate review and overclaim gate | planned V44, first review gate implemented |
 | README asset promotion | approved asset bundle and diff summary before tracked changes | planned V45, first promotion bundle implemented |
 | Long-run workflow queue | ordered packets, resume, next safe action, and blocked reasons | planned V46, first queue gate implemented |
+| Real dogfood corpus | local DWM maintenance tasks and comparison placeholders | planned V47, first corpus recorder implemented |
 
 Prior art such as `oh-my-codex` already covers a broad Codex runtime layer:
 launch UX, worktree/tmux operation, durable state, and team execution. This repo
@@ -677,6 +678,8 @@ The planned roadmap splits the remaining product into versioned specs:
   `docs/v45-readme-asset-promotion-spec.md`.
 - V46 long-run workflow queue:
   `docs/v46-long-run-workflow-queue-spec.md`.
+- V47 real dogfood corpus:
+  `docs/v47-real-dogfood-corpus-spec.md`.
 
 These specs define the intended path to an independent DWM product that can use
 Codex CLI directly through DWM Runner while keeping optional adapter targets
@@ -750,6 +753,24 @@ Done means:
 - terminal packets can produce a `complete` queue state;
 - missing evidence, unsafe actions, failed verification, human gates, and stale
   queue status are blocked.
+
+### V47: Real Dogfood Task Corpus
+
+Status: first corpus recorder implemented.
+
+Purpose: define real local DWM maintenance tasks with evidence requirements and
+comparison slots before running benchmark attempts.
+
+Spec: `docs/v47-real-dogfood-corpus-spec.md`.
+
+Done means:
+
+- `scripts/dwm_dogfood_corpus.py` writes `dogfood-corpus.json`;
+- tasks are local dogfood only, not external benchmark claims;
+- direct Codex and DWM-controlled comparison slots start as `not-run`;
+- unsafe tasks, public claims, missing required tasks, and missing evidence
+  requirements are blocked;
+- V46 queue packets are emitted for later measured attempts.
 
 ## Strategic Decisions
 
