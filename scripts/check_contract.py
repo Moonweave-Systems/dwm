@@ -3241,6 +3241,7 @@ def main() -> None:
             "docs/v40-benchmark-snapshot-spec.md",
             "docs/v41-benchmark-series-spec.md",
             "docs/v42-benchmark-candidate-spec.md",
+            "docs/v43-direction-check-roadmap.md",
             "generated `out/` directories are verification evidence, not source of truth",
             "deterministic control-plane above agent clis",
             "bounded adapter surfaces",
@@ -3831,6 +3832,22 @@ def main() -> None:
             "err_benchmark_candidate_stale_series",
             "err_benchmark_candidate_promotion_not_upward",
             "err_benchmark_candidate_promotion_delta_too_small",
+        ],
+    )
+    require_terms(
+        "docs/v43-direction-check-roadmap.md",
+        [
+            "status: direction checkpoint written after v42 benchmark candidate workflow",
+            "dwm is still on a useful path",
+            "what this does not prove yet",
+            "v44: publish candidate review gate",
+            "v45: readme asset promotion",
+            "v46: long-run workflow queue",
+            "v47: real dogfood task corpus",
+            "v48: daily operator loop",
+            "v49: adapter parity matrix",
+            "v50: release candidate cut",
+            "it is drifting if",
         ],
     )
     require_terms(

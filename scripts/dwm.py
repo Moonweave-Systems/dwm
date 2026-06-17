@@ -202,6 +202,8 @@ BASE_REQUIRED_PATHS = [
     "docs/v41-benchmark-series-spec.md",
     "docs/v42-decision.md",
     "docs/v42-benchmark-candidate-spec.md",
+    "docs/v43-direction-check-roadmap.md",
+    "docs/v43-direction-check-roadmap.workflow.plan.json",
     "packaging/dwm-benchmark-attempts.json",
     "packaging/dwm-adapters.json",
     "packaging/dwm-benchmarks.json",

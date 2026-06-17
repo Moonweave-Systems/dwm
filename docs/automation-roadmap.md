@@ -57,6 +57,7 @@ entrypoint remains `dynamic-workflow-designer`.
 | Benchmark snapshot | release-bound benchmark snapshot recorder | planned V40, first snapshot slice implemented |
 | Benchmark series | ordered release snapshot collection and history generation | planned V41, first series slice implemented |
 | Benchmark candidate | promotion-ready pre-publish benchmark candidate | planned V42, first candidate slice implemented |
+| Direction checkpoint | evidence-backed direction check and V44-V50 roadmap | planned V43, direction checkpoint written |
 
 Prior art such as `oh-my-codex` already covers a broad Codex runtime layer:
 launch UX, worktree/tmux operation, durable state, and team execution. This repo
@@ -664,10 +665,31 @@ The planned roadmap splits the remaining product into versioned specs:
   `docs/v41-benchmark-series-spec.md`.
 - V42 benchmark candidate:
   `docs/v42-benchmark-candidate-spec.md`.
+- V43 direction check:
+  `docs/v43-direction-check-roadmap.md`,
+  `docs/v43-direction-check-roadmap.workflow.plan.json`.
 
 These specs define the intended path to an independent DWM product that can use
 Codex CLI directly through DWM Runner while keeping optional adapter targets
 outside DWM Core.
+
+### V43: Direction Check And Forward Roadmap
+
+Status: direction checkpoint written.
+
+Purpose: judge whether DWM is still moving toward meaningful product value and
+define the next roadmap without turning benchmark graphs into decoration.
+
+Spec: `docs/v43-direction-check-roadmap.md`.
+
+Workflow plan: `docs/v43-direction-check-roadmap.workflow.plan.json`.
+
+Done means:
+
+- current direction is judged against implemented artifacts and remaining gaps;
+- V44-V50 are ordered by user value and benchmark integrity;
+- README and roadmap point to the checkpoint;
+- tracked benchmark assets remain unchanged until a later candidate review gate.
 
 ## Strategic Decisions
 

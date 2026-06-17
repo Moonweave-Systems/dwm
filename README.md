@@ -105,6 +105,8 @@ V41 collects release snapshots into a sorted `series.json` and generates the V38
 history ledger without manually selecting benchmark points.
 V42 turns a promotion-ready series into `candidate.json`, the final pre-publish
 artifact before any README asset changes.
+V43 records the direction checkpoint and next roadmap so graph publication stays
+tied to real evidence, review gates, and operator value.
 
 Generate graph artifacts with:
 
@@ -195,6 +197,7 @@ python scripts/dwm_release.py status --out out/release/<release_id>
 - [`docs/v40-benchmark-snapshot-spec.md`](docs/v40-benchmark-snapshot-spec.md): release benchmark snapshot recorder.
 - [`docs/v41-benchmark-series-spec.md`](docs/v41-benchmark-series-spec.md): release snapshot series builder.
 - [`docs/v42-benchmark-candidate-spec.md`](docs/v42-benchmark-candidate-spec.md): benchmark publish candidate workflow.
+- [`docs/v43-direction-check-roadmap.md`](docs/v43-direction-check-roadmap.md): direction check and V44-V50 roadmap.
 
 Generated `out/` directories are verification evidence, not source of truth.
 
