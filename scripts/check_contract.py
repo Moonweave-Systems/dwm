@@ -1718,6 +1718,8 @@ def require_release_commands_pass() -> None:
         [sys.executable, "scripts/dwm_dogfood_pair_select.py", "--manifest", "fixtures/v64/manifest.json", "--out", "out/dogfood-pair-selections/v64-final"],
         [sys.executable, "scripts/dwm_dogfood_chart_render.py", "--self-test"],
         [sys.executable, "scripts/dwm_dogfood_chart_render.py", "--manifest", "fixtures/v65/manifest.json", "--out", "out/dogfood-chart-renders/v65-final"],
+        [sys.executable, "scripts/dwm_dogfood_progress.py", "--self-test"],
+        [sys.executable, "scripts/dwm_dogfood_progress.py", "--manifest", "fixtures/v66/manifest.json", "--out", "out/dogfood-progress/v66-final"],
         [sys.executable, "scripts/run_workflow.py", "--self-test"],
         [sys.executable, "scripts/run_workflow.py", "--manifest", "fixtures/v3/manifest.json", "--out", "out/v3/final"],
         [sys.executable, "scripts/orchestrate_workflow.py", "--self-test"],
@@ -3253,6 +3255,7 @@ def main() -> None:
             "python scripts/dwm_dogfood_operator.py recommend --out out/dogfood-operator/<operator_id>",
             "python scripts/dwm_dogfood_pair_select.py select --pair-root out/dogfood-pairs --out out/dogfood-pair-selections/<selection_id>",
             "python scripts/dwm_dogfood_chart_render.py render --review out/dogfood-chart-reviews/<review_id> --out out/dogfood-chart-renders/<render_id>",
+            "python scripts/dwm_dogfood_progress.py build --out out/dogfood-progress/<progress_id>",
             "python scripts/dwm_daily_operator.py today --corpus out/dogfood-corpus/<corpus_id> --out out/daily-operator/<operator_id>",
             "python scripts/dwm_benchmark_history.py build --report out/live-reports/<report_id> --out out/benchmark-history/<history_id>",
             "python scripts/dwm_benchmark_promotion.py promote --history out/benchmark-history/<history_id> --out out/benchmark-promotions/<promotion_id>",
@@ -3309,6 +3312,9 @@ def main() -> None:
             "chart-render.json",
             "chart-render.svg",
             "chart-render.md",
+            "dogfood-progress.json",
+            "dogfood-progress.svg",
+            "dogfood-progress.md",
             "operator-loop.json",
             "today.md",
             "adapter-parity.json",
@@ -3361,6 +3367,7 @@ def main() -> None:
             "docs/v63-dogfood-operator-duplicate-root-spec.md",
             "docs/v64-dogfood-pair-select-spec.md",
             "docs/v65-dogfood-chart-render-spec.md",
+            "docs/v66-dogfood-progress-spec.md",
             "generated `out/` directories are verification evidence, not source of truth",
             "deterministic control-plane above agent clis",
             "bounded adapter surfaces",
@@ -4426,6 +4433,30 @@ def main() -> None:
         ],
     )
     require_terms(
+        "docs/v66-dogfood-progress-spec.md",
+        [
+            "status: implemented dogfood evidence process progress graph in",
+            "python scripts/dwm_dogfood_progress.py build --out out/dogfood-progress/<progress_id>",
+            "dogfood-progress.json",
+            "dogfood-progress.svg",
+            "err_dogfood_progress_stale_artifact",
+            "do not claim upward performance",
+            "process completion, not upward performance claim",
+        ],
+    )
+    require_terms(
+        "docs/v66-decision.md",
+        [
+            "decision: keep",
+            "python scripts/dwm_dogfood_progress.py --manifest fixtures/v66/manifest.json --out out/dogfood-progress/v66-final",
+            "dogfood-progress.json",
+            "partial progress rendering",
+            "full progress rendering",
+            "stale artifact blocking",
+            "does not claim upward performance",
+        ],
+    )
+    require_terms(
         "docs/v7.5-decision.md",
         [
             "decision: keep",
@@ -4474,7 +4505,7 @@ def main() -> None:
             "python scripts/dwm.py commands --kind release --json",
             "`status`: `workflow-complete`",
             "`doctor_ok`: `true`",
-            "`release_command_count`: `130`",
+            "`release_command_count`: `132`",
             "does not claim workflow execution",
         ],
     )
