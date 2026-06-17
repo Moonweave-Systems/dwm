@@ -206,6 +206,7 @@ def release_corpus_gate() -> dict[str, Any]:
         [sys.executable, "scripts/dwm_install.py", "--self-test"],
         [sys.executable, "scripts/dwm_hud.py", "--self-test"],
         [sys.executable, "scripts/dwm_release_candidate.py", "--self-test"],
+        [sys.executable, "scripts/dwm_demo.py", "--self-test"],
     ]
     outputs = []
     for command in commands:
@@ -220,6 +221,7 @@ def release_corpus_gate() -> dict[str, Any]:
         "docs/v20-1.0-release-hardening-spec.md",
         "docs/v49-adapter-parity-matrix-spec.md",
         "docs/v50-release-candidate-cut-spec.md",
+        "docs/v51-canonical-demo-spec.md",
         "packaging/dwm-package.json",
         "packaging/dwm-adapters.json",
     ]

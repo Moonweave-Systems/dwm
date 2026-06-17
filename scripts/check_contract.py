@@ -1646,6 +1646,8 @@ def require_release_commands_pass() -> None:
         [sys.executable, "scripts/dwm_release.py", "--self-test"],
         [sys.executable, "scripts/dwm_release_candidate.py", "--self-test"],
         [sys.executable, "scripts/dwm_release_candidate.py", "--manifest", "fixtures/v50/manifest.json", "--out", "out/release-candidates/v50-final"],
+        [sys.executable, "scripts/dwm_demo.py", "--self-test"],
+        [sys.executable, "scripts/dwm_demo.py", "--manifest", "fixtures/v51/manifest.json", "--out", "out/demo/v51-final"],
         [sys.executable, "scripts/dwm_review_gate.py", "--self-test"],
         [sys.executable, "scripts/dwm_dogfood_replay.py", "--self-test"],
         [sys.executable, "scripts/dwm.py", "plan", "V21 shell smoke", "--out", "out/v21/release-plan-smoke", "--json"],
@@ -3196,6 +3198,7 @@ def main() -> None:
             "python scripts/dwm.py commands --kind product",
             "python scripts/check_contract.py",
             "python scripts/dwm.py commands --kind release",
+            "python scripts/dwm_demo.py run --out out/demo/quickstart",
             "python scripts/dwm.py plan \"<objective>\" --out out/v21/<run_id>",
             "python scripts/dwm.py run \"<objective>\" --out out/v21/<run_id>",
             "python scripts/dwm.py resume --run out/v21/<run_id>",
@@ -3251,6 +3254,8 @@ def main() -> None:
             "release-candidate.json",
             "release-notes.md",
             "release-checklist.md",
+            "demo.json",
+            "out/demo/quickstart",
             "assets/dwm-hero.svg",
             "assets/dwm-live-benchmark.svg",
             "assets/dwm-live-benchmark.json",
@@ -3275,6 +3280,7 @@ def main() -> None:
             "docs/v48-daily-operator-loop-spec.md",
             "docs/v49-adapter-parity-matrix-spec.md",
             "docs/v50-release-candidate-cut-spec.md",
+            "docs/v51-canonical-demo-spec.md",
             "generated `out/` directories are verification evidence, not source of truth",
             "deterministic control-plane above agent clis",
             "bounded adapter surfaces",
@@ -3975,6 +3981,18 @@ def main() -> None:
         ],
     )
     require_terms(
+        "docs/v51-canonical-demo-spec.md",
+        [
+            "status: implemented first canonical demo in",
+            "demo.json",
+            "status.json",
+            "readme.md",
+            "err_demo_path_unsafe",
+            "err_demo_path_symlink",
+            "err_demo_command_failed",
+        ],
+    )
+    require_terms(
         "docs/v7.5-decision.md",
         [
             "decision: keep",
@@ -4023,7 +4041,7 @@ def main() -> None:
             "python scripts/dwm.py commands --kind release --json",
             "`status`: `workflow-complete`",
             "`doctor_ok`: `true`",
-            "`release_command_count`: `103`",
+            "`release_command_count`: `105`",
             "does not claim workflow execution",
         ],
     )

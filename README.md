@@ -19,6 +19,17 @@ artifacts, and release checks.
 
 ## Quickstart
 
+Run the local demo first:
+
+```bash
+python scripts/dwm_demo.py run --out out/demo/quickstart
+```
+
+This writes `demo.json`, `status.json`, and `README.md` under
+`out/demo/quickstart` while leaving source files untouched. It demonstrates the
+plan, compile, packet-review, adapter-parity, dogfood, daily-operator, and
+release-candidate surfaces without live adapter execution.
+
 Use the skill when a task is too large or risky for one normal agent turn:
 
 ```text
@@ -124,6 +135,8 @@ shell, and fixture support stays honest about supported, planned, and
 unsupported actions before any live adapter execution.
 V50 records `release-candidate.json`, `release-notes.md`, and
 `release-checklist.md` from coherent V48/V49 evidence before any public release.
+V51 records `demo.json`, `status.json`, and `README.md` for the canonical local
+demo so new users can see the full artifact loop first.
 
 Generate graph artifacts with:
 
@@ -192,6 +205,7 @@ python scripts/dwm_release.py status --out out/release/<release_id>
 | --- | --- |
 | `SKILL.md` | Codex skill entrypoint and workflow design contract. |
 | `scripts/dwm.py` | Product CLI for status, next actions, doctor, and command discovery. |
+| `scripts/dwm_demo.py` | Canonical local demo that records the product loop without live adapters. |
 | `scripts/check_contract.py` | Release contract smoke and documentation consistency check. |
 | `scripts/compile_workflow.py` | First-slice packet compiler. |
 | `scripts/dwm_runner.py` | Runner, session/worktree, review/repair, and fanout surfaces. |
@@ -237,6 +251,7 @@ python scripts/dwm_release.py status --out out/release/<release_id>
 - [`docs/v48-daily-operator-loop-spec.md`](docs/v48-daily-operator-loop-spec.md): daily operator loop.
 - [`docs/v49-adapter-parity-matrix-spec.md`](docs/v49-adapter-parity-matrix-spec.md): adapter parity matrix.
 - [`docs/v50-release-candidate-cut-spec.md`](docs/v50-release-candidate-cut-spec.md): release candidate cut.
+- [`docs/v51-canonical-demo-spec.md`](docs/v51-canonical-demo-spec.md): canonical local demo.
 
 Generated `out/` directories are verification evidence, not source of truth.
 

@@ -65,6 +65,7 @@ entrypoint remains `dynamic-workflow-designer`.
 | Daily operator loop | ready action, blocked gates, and evidence freshness view | planned V48, first operator loop implemented |
 | Adapter parity matrix | supported, planned, fixture-only, and unsupported adapter actions | planned V49, first parity matrix implemented |
 | Release candidate cut | release notes and checklist from coherent operator and parity evidence | planned V50, first candidate cut implemented |
+| Canonical demo | one local command showing the artifact loop without live adapters | planned V51, first demo implemented |
 
 Prior art such as `oh-my-codex` already covers a broad Codex runtime layer:
 launch UX, worktree/tmux operation, durable state, and team execution. This repo
@@ -829,6 +830,23 @@ First release candidate cut done means:
   written under owned output;
 - missing/stale evidence and unsupported overclaims block deterministically;
 - `fixtures/v50/manifest.json` passes with `decision: "keep"`.
+
+### V51: Canonical Demo
+
+Status: first canonical demo implemented.
+
+Purpose: give new users one command that demonstrates DWM's artifact loop before
+they need to understand every internal V-slice.
+
+Spec: `docs/v51-canonical-demo-spec.md`.
+
+First canonical demo done means:
+
+- `scripts/dwm_demo.py run` writes `demo.json`, `status.json`, and `README.md`;
+- the demo records plan, compile, packet-review, adapter-parity, dogfood,
+  daily-operator, and release-candidate artifacts;
+- unsafe and non-owned output paths are blocked;
+- `fixtures/v51/manifest.json` passes with `decision: "keep"`.
 
 ## Strategic Decisions
 

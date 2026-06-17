@@ -108,6 +108,8 @@ RELEASE_COMMANDS = [
     "python scripts/dwm_daily_operator.py --manifest fixtures/v48/manifest.json --out out/daily-operator/v48-final",
     "python scripts/dwm_release_candidate.py --self-test",
     "python scripts/dwm_release_candidate.py --manifest fixtures/v50/manifest.json --out out/release-candidates/v50-final",
+    "python scripts/dwm_demo.py --self-test",
+    "python scripts/dwm_demo.py --manifest fixtures/v51/manifest.json --out out/demo/v51-final",
     "python scripts/run_workflow.py --self-test",
     "python scripts/run_workflow.py --manifest fixtures/v3/manifest.json --out out/v3/final",
     "python scripts/orchestrate_workflow.py --self-test",
@@ -231,6 +233,8 @@ BASE_REQUIRED_PATHS = [
     "docs/v49-adapter-parity-matrix-spec.md",
     "docs/v50-decision.md",
     "docs/v50-release-candidate-cut-spec.md",
+    "docs/v51-decision.md",
+    "docs/v51-canonical-demo-spec.md",
     "packaging/dwm-benchmark-attempts.json",
     "packaging/dwm-adapters.json",
     "packaging/dwm-benchmarks.json",
@@ -273,6 +277,8 @@ BASE_REQUIRED_PATHS = [
     "fixtures/v49/manifest.json",
     "fixtures/v50/manifest.json",
     "scripts/dwm_release_candidate.py",
+    "fixtures/v51/manifest.json",
+    "scripts/dwm_demo.py",
 ]
 
 
