@@ -63,6 +63,7 @@ entrypoint remains `dynamic-workflow-designer`.
 | Long-run workflow queue | ordered packets, resume, next safe action, and blocked reasons | planned V46, first queue gate implemented |
 | Real dogfood corpus | local DWM maintenance tasks and comparison placeholders | planned V47, first corpus recorder implemented |
 | Daily operator loop | ready action, blocked gates, and evidence freshness view | planned V48, first operator loop implemented |
+| Adapter parity matrix | supported, planned, fixture-only, and unsupported adapter actions | planned V49, first parity matrix implemented |
 
 Prior art such as `oh-my-codex` already covers a broad Codex runtime layer:
 launch UX, worktree/tmux operation, durable state, and team execution. This repo
@@ -790,6 +791,25 @@ Done means:
 - ready queue actions are surfaced without executing them;
 - blocked queues surface explicit blocked reasons;
 - stale queue, missing corpus, and missing linked queue states are blocked.
+
+### V49: Adapter Parity Matrix
+
+Status: first parity matrix implemented.
+
+Purpose: keep Codex, Claude, shell, and fixture adapter support honest before
+the release-candidate cut.
+
+Spec: `docs/v49-adapter-parity-matrix-spec.md`.
+
+First adapter parity slice done means:
+
+- `packaging/dwm-adapters.json` records support level, auth assumption, and
+  isolation for each adapter;
+- `scripts/dwm_adapters.py parity` writes `adapter-parity.json` and
+  `adapter-parity.md`;
+- planned live adapter actions are blocked with deterministic reasons;
+- unsupported risk capabilities are blocked before execution;
+- `fixtures/v49/manifest.json` passes with `decision: "keep"`.
 
 ## Strategic Decisions
 

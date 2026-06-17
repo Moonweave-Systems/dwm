@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""V19 adapter registry and normalized evidence checks."""
+"""V19 adapter registry and V49 adapter parity checks."""
 
 from __future__ import annotations
 
@@ -23,9 +23,13 @@ from compile_workflow import canonical_hash, canonical_json_text, read_json, sha
 TOOL = "dwm_adapters.py"
 SCHEMA_VERSION = "1.0"
 ADAPTER_VERSION = "19.0.0"
+PARITY_VERSION = "49.0.0"
 ADAPTER_ROOT = ROOT / "out" / "adapters"
 REGISTRY_PATH = ROOT / "packaging" / "dwm-adapters.json"
 SENTINEL = ".dwm_adapters-owned.json"
+PARITY_ARTIFACT = "adapter-parity.json"
+PARITY_DOC = "adapter-parity.md"
+SUPPORTED_PARITY_LEVELS = {"supported", "planned", "fixture-only", "unsupported"}
 REQUIRED_CAPABILITY_KEYS = {
     "read",
     "write",
@@ -51,6 +55,7 @@ REQUIRED_EVIDENCE_KEYS = {
     "verification_outputs",
     "adapter_hash",
 }
+RISK_CAPABILITIES = sorted(REQUIRED_CAPABILITY_KEYS - {"read"})
 
 
 class AdapterError(ValueError):
@@ -194,6 +199,16 @@ def validate_capabilities(adapter: dict[str, Any]) -> None:
             raise AdapterError("ERR_ADAPTER_CAPABILITIES_MISSING", f"adapter {adapter_id} capability {key} must be boolean")
     if adapter.get("transcript") != "normalized":
         raise AdapterError("ERR_ADAPTER_OPAQUE_EVIDENCE", f"adapter {adapter_id} transcript is opaque")
+    support_level = adapter.get("support_level")
+    if support_level not in SUPPORTED_PARITY_LEVELS:
+        raise AdapterError("ERR_ADAPTER_PARITY_INCOMPLETE", f"adapter {adapter_id} support_level is missing or invalid")
+    for key in ["auth_assumption", "isolation", "evidence_schema", "mode"]:
+        value = adapter.get(key)
+        if not isinstance(value, str) or not value:
+            raise AdapterError("ERR_ADAPTER_PARITY_INCOMPLETE", f"adapter {adapter_id} {key} is required")
+    lifecycle = adapter.get("lifecycle")
+    if not isinstance(lifecycle, list) or not lifecycle or not all(isinstance(item, str) and item for item in lifecycle):
+        raise AdapterError("ERR_ADAPTER_PARITY_INCOMPLETE", f"adapter {adapter_id} lifecycle is required")
 
 
 def registry_summary() -> dict[str, Any]:
@@ -205,6 +220,136 @@ def registry_summary() -> dict[str, Any]:
         "adapter_count": len(adapters),
         "adapter_ids": [adapter["id"] for adapter in adapters],
         "registry_hash": canonical_hash(registry),
+    }
+
+
+def parity_row(adapter: dict[str, Any]) -> dict[str, Any]:
+    support_level = adapter["support_level"]
+    capabilities = adapter["capabilities"]
+    lifecycle = adapter["lifecycle"]
+    unsupported_actions = sorted([key for key, value in capabilities.items() if not value and key in RISK_CAPABILITIES])
+    if support_level == "fixture-only":
+        supported_actions = sorted(set(lifecycle + ["read"]))
+        planned_actions: list[str] = []
+        readiness = "fixture-only"
+    elif support_level == "supported":
+        supported_actions = sorted(set(lifecycle + [key for key, value in capabilities.items() if value]))
+        planned_actions = []
+        readiness = "supported"
+    elif support_level == "planned":
+        supported_actions = ["registry-record"]
+        planned_actions = sorted(set(lifecycle + [key for key, value in capabilities.items() if value]))
+        readiness = "blocked-before-live-contract"
+    else:
+        supported_actions = []
+        planned_actions = []
+        readiness = "unsupported"
+    return {
+        "id": adapter["id"],
+        "mode": adapter["mode"],
+        "support_level": support_level,
+        "execution_readiness": readiness,
+        "auth_assumption": adapter["auth_assumption"],
+        "isolation": adapter["isolation"],
+        "transcript": adapter["transcript"],
+        "evidence_schema": adapter["evidence_schema"],
+        "evidence_fields": sorted(REQUIRED_EVIDENCE_KEYS),
+        "supported_actions": supported_actions,
+        "planned_actions": planned_actions,
+        "unsupported_actions": unsupported_actions,
+        "adapter_hash": canonical_hash(adapter),
+    }
+
+
+def parity_matrix(registry: dict[str, Any] | None = None) -> dict[str, Any]:
+    registry = registry or load_registry()
+    rows = [parity_row(adapter) for adapter in registry["adapters"]]
+    overclaim_blocks = [
+        "planned adapters must not be described as supported live execution",
+        "fixture-only support must not be promoted as external adapter parity",
+        "risk capabilities require explicit DWM gates before execution",
+    ]
+    return {
+        "tool": TOOL,
+        "schema_version": SCHEMA_VERSION,
+        "adapter_version": ADAPTER_VERSION,
+        "parity_version": PARITY_VERSION,
+        "decision": "parity_recorded",
+        "registry_hash": canonical_hash(registry),
+        "adapter_count": len(rows),
+        "adapters": rows,
+        "overclaim_blocks": overclaim_blocks,
+    }
+
+
+def render_parity_doc(matrix: dict[str, Any]) -> str:
+    lines = [
+        "# V49 Adapter Parity Matrix",
+        "",
+        f"Decision: `{matrix['decision']}`",
+        f"Registry hash: `{matrix['registry_hash']}`",
+        "",
+        "This artifact records adapter parity. It does not execute live adapters or claim equivalent capability.",
+        "",
+        "| Adapter | Support | Readiness | Auth | Isolation |",
+        "| --- | --- | --- | --- | --- |",
+    ]
+    for adapter in matrix["adapters"]:
+        lines.append(
+            f"| `{adapter['id']}` | `{adapter['support_level']}` | `{adapter['execution_readiness']}` | "
+            f"{adapter['auth_assumption']} | {adapter['isolation']} |"
+        )
+    lines.extend(["", "## Overclaim Blocks", ""])
+    lines.extend(f"- {item}" for item in matrix["overclaim_blocks"])
+    lines.append("")
+    return "\n".join(lines)
+
+
+def write_parity_matrix(out_dir: Path) -> dict[str, Any]:
+    out_dir = resolve_adapter_out(out_dir)
+    prepare_out_dir(out_dir, out_dir.name, source=REGISTRY_PATH)
+    matrix = parity_matrix()
+    write_json_atomic(out_dir / PARITY_ARTIFACT, matrix, root=out_dir)
+    write_text_atomic(out_dir / PARITY_DOC, render_parity_doc(matrix), root=out_dir)
+    status = {
+        "tool": TOOL,
+        "schema_version": SCHEMA_VERSION,
+        "adapter_version": ADAPTER_VERSION,
+        "parity_version": PARITY_VERSION,
+        "adapter_run_id": out_dir.name,
+        "status": "verified",
+        "decision": matrix["decision"],
+        "adapter_count": matrix["adapter_count"],
+        "registry_hash": matrix["registry_hash"],
+        "parity_hash": canonical_hash(matrix),
+        "source_paths": {
+            "matrix": PARITY_ARTIFACT,
+            "doc": PARITY_DOC,
+        },
+    }
+    write_json_atomic(out_dir / "status.json", status, root=out_dir)
+    return status
+
+
+def check_adapter_action(adapter_id: str, action: str) -> dict[str, Any]:
+    registry = load_registry()
+    adapters = {adapter["id"]: adapter for adapter in registry["adapters"]}
+    adapter = adapters.get(adapter_id)
+    if adapter is None:
+        raise AdapterError("ERR_ADAPTER_PARITY_UNKNOWN_ADAPTER", f"unknown adapter: {adapter_id}")
+    row = parity_row(adapter)
+    if action in row["unsupported_actions"]:
+        raise AdapterError("ERR_ADAPTER_PARITY_UNSUPPORTED_ACTION", f"adapter {adapter_id} does not support {action}")
+    if action in row["planned_actions"]:
+        raise AdapterError("ERR_ADAPTER_PARITY_PLANNED_ONLY", f"adapter {adapter_id} action {action} is planned only")
+    if action not in row["supported_actions"]:
+        raise AdapterError("ERR_ADAPTER_PARITY_UNSUPPORTED_ACTION", f"adapter {adapter_id} does not support {action}")
+    return {
+        "status": "allowed",
+        "adapter": adapter_id,
+        "action": action,
+        "support_level": row["support_level"],
+        "execution_readiness": row["execution_readiness"],
     }
 
 
@@ -272,6 +417,35 @@ def run_fixture(fixture: dict[str, Any], suite_dir: Path) -> dict[str, Any]:
             status = registry_summary()
         elif kind == "fixture-run":
             status = run_fixture_adapter(suite_dir / fixture_id)
+        elif kind == "parity-matrix":
+            status = write_parity_matrix(suite_dir / fixture_id)
+        elif kind == "adapter-action":
+            try:
+                status = check_adapter_action(str(fixture["adapter"]), str(fixture["action"]))
+            except AdapterError as exc:
+                if fixture.get("expected_error") != exc.code:
+                    raise
+                status = {"status": "blocked", "error": exc.to_record()}
+        elif kind == "missing-parity":
+            broken = {
+                "id": "broken",
+                "mode": "optional-planned",
+                "transcript": "normalized",
+                "evidence_schema": "normalized-ledger-v1",
+                "auth_assumption": "none",
+                "isolation": "none",
+                "lifecycle": ["prepare"],
+                "capabilities": {key: False for key in REQUIRED_CAPABILITY_KEYS},
+            }
+            broken["capabilities"]["read"] = True
+            try:
+                validate_capabilities(broken)
+            except AdapterError as exc:
+                if fixture.get("expected_error") != exc.code:
+                    raise
+                status = {"status": "blocked", "error": exc.to_record()}
+            else:
+                raise AdapterError("ERR_ADAPTER_FIXTURE_FAILED", "missing parity metadata should block")
         elif kind == "missing-capabilities":
             broken = {"id": "omx", "transcript": "normalized", "capabilities": {"read": True}}
             try:
@@ -362,15 +536,19 @@ def evaluate_manifest(manifest_path: Path, out_dir: Path) -> dict[str, Any]:
 def self_test() -> None:
     ADAPTER_ROOT.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="dwm-adapter-self-test-", dir=ADAPTER_ROOT) as tmp:
-        summary = evaluate_manifest(ROOT / "fixtures" / "v19" / "manifest.json", Path(tmp) / "adapter-self-test")
-    if summary["decision"] != "keep":
+        root = Path(tmp)
+        v19_summary = evaluate_manifest(ROOT / "fixtures" / "v19" / "manifest.json", root / "adapter-self-test-v19")
+        v49_summary = evaluate_manifest(ROOT / "fixtures" / "v49" / "manifest.json", root / "adapter-self-test-v49")
+    if v19_summary["decision"] != "keep" or v49_summary["decision"] != "keep":
         raise AdapterError("ERR_ADAPTER_FIXTURE_FAILED", "adapter self-test manifest did not keep")
     print("dwm_adapters self-test: pass")
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("command", nargs="?", choices=["registry", "fixture-run"])
+    parser.add_argument("command", nargs="?", choices=["registry", "fixture-run", "parity", "action-check"])
+    parser.add_argument("--action")
+    parser.add_argument("--adapter", default="fixture")
     parser.add_argument("--out")
     parser.add_argument("--manifest")
     parser.add_argument("--self-test", action="store_true")
@@ -389,8 +567,16 @@ def main() -> int:
             if not args.out:
                 raise AdapterError("ERR_ADAPTER_PATH_UNSAFE", "fixture-run requires --out")
             print(canonical_json_text(run_fixture_adapter(Path(args.out))))
+        elif args.command == "parity":
+            if not args.out:
+                raise AdapterError("ERR_ADAPTER_PATH_UNSAFE", "parity requires --out")
+            print(canonical_json_text(write_parity_matrix(Path(args.out))))
+        elif args.command == "action-check":
+            if not args.action:
+                raise AdapterError("ERR_ADAPTER_FIXTURE_FAILED", "action-check requires --action")
+            print(canonical_json_text(check_adapter_action(args.adapter, args.action)))
         else:
-            parser.error("expected --self-test, --manifest, registry, or fixture-run")
+            parser.error("expected --self-test, --manifest, registry, fixture-run, parity, or action-check")
     except AdapterError as exc:
         print(canonical_json_text(exc.to_record()), file=sys.stderr)
         return 1

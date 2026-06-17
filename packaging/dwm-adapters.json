@@ -15,7 +15,9 @@
         "write": false
       },
       "evidence_schema": "normalized-ledger-v1",
+      "auth_assumption": "none",
       "id": "fixture",
+      "isolation": "owned out/adapters fixture output only",
       "lifecycle": [
         "prepare",
         "run",
@@ -23,6 +25,7 @@
         "verify"
       ],
       "mode": "first-party",
+      "support_level": "fixture-only",
       "transcript": "normalized"
     },
     {
@@ -40,7 +43,9 @@
         "write": false
       },
       "evidence_schema": "normalized-ledger-v1",
+      "auth_assumption": "installed Codex CLI auth, verified by separate smoke evidence before use",
       "id": "codex",
+      "isolation": "read-only or pre-isolated DWM-approved packet before any live attempt",
       "lifecycle": [
         "prepare",
         "run",
@@ -50,6 +55,7 @@
         "resume"
       ],
       "mode": "first-party-planned",
+      "support_level": "planned",
       "transcript": "normalized"
     },
     {
@@ -67,7 +73,9 @@
         "write": false
       },
       "evidence_schema": "normalized-ledger-v1",
+      "auth_assumption": "installed Claude-compatible CLI auth, optional and not required for release",
       "id": "claude",
+      "isolation": "read-only or pre-isolated packet only after adapter contract is implemented",
       "lifecycle": [
         "prepare",
         "run",
@@ -75,6 +83,7 @@
         "verify"
       ],
       "mode": "optional-planned",
+      "support_level": "planned",
       "transcript": "normalized"
     },
     {
@@ -92,7 +101,9 @@
         "write": false
       },
       "evidence_schema": "normalized-ledger-v1",
+      "auth_assumption": "none, but command surface must be allowlisted and fixture-scoped",
       "id": "shell",
+      "isolation": "manifest-scoped fixture command only until a stricter adapter contract exists",
       "lifecycle": [
         "prepare",
         "run",
@@ -100,6 +111,7 @@
         "verify"
       ],
       "mode": "optional-planned",
+      "support_level": "planned",
       "transcript": "normalized"
     }
   ],

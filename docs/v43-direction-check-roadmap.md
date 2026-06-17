@@ -171,6 +171,8 @@ Done means:
 
 ### V49: Adapter Parity Matrix
 
+Status: first parity matrix implemented in `scripts/dwm_adapters.py`.
+
 Purpose: keep Codex, Claude, shell, and fixture adapter support honest.
 
 Done means:

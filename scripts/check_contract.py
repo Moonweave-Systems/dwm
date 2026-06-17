@@ -1642,6 +1642,7 @@ def require_release_commands_pass() -> None:
         [sys.executable, "scripts/dwm_hud.py", "--self-test"],
         [sys.executable, "scripts/dwm_install.py", "--self-test"],
         [sys.executable, "scripts/dwm_adapters.py", "--self-test"],
+        [sys.executable, "scripts/dwm_adapters.py", "--manifest", "fixtures/v49/manifest.json", "--out", "out/adapters/v49-final"],
         [sys.executable, "scripts/dwm_release.py", "--self-test"],
         [sys.executable, "scripts/dwm_review_gate.py", "--self-test"],
         [sys.executable, "scripts/dwm_dogfood_replay.py", "--self-test"],
@@ -3219,6 +3220,7 @@ def main() -> None:
             "python scripts/dwm_hud.py approve --hud out/hud/<hud_id> --out out/hud/<approval_id> --approver <name>",
             "python scripts/dwm_install.py validate",
             "python scripts/dwm_adapters.py registry",
+            "python scripts/dwm_adapters.py parity --out out/adapters/<parity_id>",
             "python scripts/dwm_release.py status --out out/release/<release_id>",
             "report.json.graph_metrics",
             "benchmark-graph.json",
@@ -3241,6 +3243,8 @@ def main() -> None:
             "queue-packets.json",
             "operator-loop.json",
             "today.md",
+            "adapter-parity.json",
+            "adapter-parity.md",
             "assets/dwm-hero.svg",
             "assets/dwm-live-benchmark.svg",
             "assets/dwm-live-benchmark.json",
@@ -3263,6 +3267,7 @@ def main() -> None:
             "docs/v46-long-run-workflow-queue-spec.md",
             "docs/v47-real-dogfood-corpus-spec.md",
             "docs/v48-daily-operator-loop-spec.md",
+            "docs/v49-adapter-parity-matrix-spec.md",
             "generated `out/` directories are verification evidence, not source of truth",
             "deterministic control-plane above agent clis",
             "bounded adapter surfaces",
@@ -3867,6 +3872,7 @@ def main() -> None:
             "v47: real dogfood task corpus",
             "v48: daily operator loop",
             "v49: adapter parity matrix",
+            "status: first parity matrix implemented",
             "v50: release candidate cut",
             "it is drifting if",
         ],
@@ -3934,6 +3940,19 @@ def main() -> None:
         ],
     )
     require_terms(
+        "docs/v49-adapter-parity-matrix-spec.md",
+        [
+            "status: implemented first adapter parity matrix in",
+            "adapter-parity.json",
+            "adapter-parity.md",
+            "support_level",
+            "err_adapter_parity_incomplete",
+            "err_adapter_parity_unknown_adapter",
+            "err_adapter_parity_unsupported_action",
+            "err_adapter_parity_planned_only",
+        ],
+    )
+    require_terms(
         "docs/v7.5-decision.md",
         [
             "decision: keep",
@@ -3982,7 +4001,7 @@ def main() -> None:
             "python scripts/dwm.py commands --kind release --json",
             "`status`: `workflow-complete`",
             "`doctor_ok`: `true`",
-            "`release_command_count`: `100`",
+            "`release_command_count`: `101`",
             "does not claim workflow execution",
         ],
     )

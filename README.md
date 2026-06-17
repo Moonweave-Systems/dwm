@@ -119,6 +119,9 @@ V47 records a local dogfood corpus in `dogfood-corpus.json`, emits
 later measured attempts exist.
 V48 emits `operator-loop.json` and `today.md` so daily work can start from the
 next safe queue action or a precise blocked reason.
+V49 records `adapter-parity.json` and `adapter-parity.md` so Codex, Claude,
+shell, and fixture support stays honest about supported, planned, and
+unsupported actions before any live adapter execution.
 
 Generate graph artifacts with:
 
@@ -176,6 +179,7 @@ python scripts/dwm_roles.py registry
 python scripts/dwm_hud.py approve --hud out/hud/<hud_id> --out out/hud/<approval_id> --approver <name>
 python scripts/dwm_install.py validate
 python scripts/dwm_adapters.py registry
+python scripts/dwm_adapters.py parity --out out/adapters/<parity_id>
 python scripts/dwm_release.py status --out out/release/<release_id>
 ```
 
@@ -197,6 +201,7 @@ python scripts/dwm_release.py status --out out/release/<release_id>
 | `scripts/dwm_workflow_queue.py` | Long-run workflow queue and next safe action selector. |
 | `scripts/dwm_dogfood_corpus.py` | Local dogfood task corpus recorder with comparison placeholders. |
 | `scripts/dwm_daily_operator.py` | Daily operator loop for ready, blocked, and freshness state. |
+| `scripts/dwm_adapters.py` | Adapter registry, normalized evidence, and parity matrix checks. |
 | `scripts/dwm_benchmark_history.py` | Benchmark history ledger and trend graph builder. |
 | `scripts/dwm_benchmark_promotion.py` | Benchmark trend promotion gate for public graph claims. |
 | `docs/automation-roadmap.md` | Implementation roadmap and completed slices. |
@@ -226,6 +231,7 @@ python scripts/dwm_release.py status --out out/release/<release_id>
 - [`docs/v46-long-run-workflow-queue-spec.md`](docs/v46-long-run-workflow-queue-spec.md): long-run workflow queue.
 - [`docs/v47-real-dogfood-corpus-spec.md`](docs/v47-real-dogfood-corpus-spec.md): real local dogfood corpus.
 - [`docs/v48-daily-operator-loop-spec.md`](docs/v48-daily-operator-loop-spec.md): daily operator loop.
+- [`docs/v49-adapter-parity-matrix-spec.md`](docs/v49-adapter-parity-matrix-spec.md): adapter parity matrix.
 
 Generated `out/` directories are verification evidence, not source of truth.
 

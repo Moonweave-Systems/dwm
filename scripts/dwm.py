@@ -46,6 +46,7 @@ RELEASE_COMMANDS = [
     "python scripts/dwm_install.py --manifest fixtures/v18/manifest.json --out out/install/v18-final",
     "python scripts/dwm_adapters.py --self-test",
     "python scripts/dwm_adapters.py --manifest fixtures/v19/manifest.json --out out/adapters/v19-final",
+    "python scripts/dwm_adapters.py --manifest fixtures/v49/manifest.json --out out/adapters/v49-final",
     "python scripts/dwm_release.py --self-test",
     "python scripts/dwm_release.py --manifest fixtures/v20/manifest.json --out out/release/v20-final",
     "python scripts/dwm_review_gate.py --self-test",
@@ -224,6 +225,8 @@ BASE_REQUIRED_PATHS = [
     "docs/v47-real-dogfood-corpus-spec.md",
     "docs/v48-decision.md",
     "docs/v48-daily-operator-loop-spec.md",
+    "docs/v49-decision.md",
+    "docs/v49-adapter-parity-matrix-spec.md",
     "packaging/dwm-benchmark-attempts.json",
     "packaging/dwm-adapters.json",
     "packaging/dwm-benchmarks.json",
@@ -263,6 +266,7 @@ BASE_REQUIRED_PATHS = [
     "scripts/dwm_workflow_queue.py",
     "scripts/dwm_dogfood_corpus.py",
     "scripts/dwm_daily_operator.py",
+    "fixtures/v49/manifest.json",
 ]
 
 

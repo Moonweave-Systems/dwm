@@ -217,6 +217,7 @@ def release_corpus_gate() -> dict[str, Any]:
         "docs/v20-compatibility-matrix.md",
         "docs/v20-migration-rollback.md",
         "docs/v20-1.0-release-hardening-spec.md",
+        "docs/v49-adapter-parity-matrix-spec.md",
         "packaging/dwm-package.json",
         "packaging/dwm-adapters.json",
     ]
