@@ -181,6 +181,9 @@ execution or secret access.
 V56 records `measurement.json`, `attempts.json`, and linked dogfood ledgers for
 the first real DWM-controlled local measurement point without filling direct
 Codex comparison slots.
+V57 records `comparison-pair.json`, `comparison-pair.md`, and
+`pair-status.json` only when a direct Codex receipt has a human gate, matching
+task id, evidence, and no public superiority claim.
 
 Generate graph artifacts with:
 
@@ -228,6 +231,7 @@ python scripts/dwm_workflow_queue.py resume --queue out/workflow-queues/<queue_i
 python scripts/dwm_dogfood_corpus.py record --out out/dogfood-corpus/<corpus_id>
 python scripts/dwm_dogfood_attempts.py record --corpus out/dogfood-corpus/<corpus_id> --attempts attempts.json --out out/dogfood-attempts/<attempt_id>
 python scripts/dwm_dogfood_measure.py sample --out out/dogfood-measurements/<measurement_id>
+python scripts/dwm_dogfood_pair.py pair --dwm-measure out/dogfood-measurements/<measurement_id> --direct-receipt direct-receipt.json --out out/dogfood-pairs/<pair_id>
 python scripts/dwm_daily_operator.py today --corpus out/dogfood-corpus/<corpus_id> --out out/daily-operator/<operator_id>
 python scripts/dwm_benchmark_history.py build --report out/live-reports/<report_id> --out out/benchmark-history/<history_id>
 python scripts/dwm_benchmark_promotion.py promote --history out/benchmark-history/<history_id> --out out/benchmark-promotions/<promotion_id>
@@ -266,6 +270,7 @@ python scripts/dwm_release.py status --out out/release/<release_id>
 | `scripts/dwm_dogfood_corpus.py` | Local dogfood task corpus recorder with comparison placeholders. |
 | `scripts/dwm_dogfood_attempts.py` | Measured local dogfood comparison ledger. |
 | `scripts/dwm_dogfood_measure.py` | Measured local dogfood sample runner. |
+| `scripts/dwm_dogfood_pair.py` | Human-gated direct Codex versus DWM comparison pair. |
 | `scripts/dwm_daily_operator.py` | Daily operator loop for ready, blocked, and freshness state. |
 | `scripts/dwm_adapters.py` | Adapter registry, normalized evidence, and parity matrix checks. |
 | `scripts/dwm_adapter_live_matrix.py` | Local adapter command availability and auth-assumption matrix. |
@@ -307,6 +312,7 @@ python scripts/dwm_release.py status --out out/release/<release_id>
 - [`docs/v54-dogfood-attempts-spec.md`](docs/v54-dogfood-attempts-spec.md): measured dogfood comparison ledger.
 - [`docs/v55-adapter-live-matrix-spec.md`](docs/v55-adapter-live-matrix-spec.md): adapter live availability matrix.
 - [`docs/v56-dogfood-measure-spec.md`](docs/v56-dogfood-measure-spec.md): measured local dogfood sample runner.
+- [`docs/v57-dogfood-pair-spec.md`](docs/v57-dogfood-pair-spec.md): human-gated dogfood comparison pair.
 
 Generated `out/` directories are verification evidence, not source of truth.
 

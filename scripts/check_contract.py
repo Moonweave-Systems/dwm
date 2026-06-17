@@ -1700,6 +1700,8 @@ def require_release_commands_pass() -> None:
         [sys.executable, "scripts/dwm_dogfood_attempts.py", "--manifest", "fixtures/v54/manifest.json", "--out", "out/dogfood-attempts/v54-final"],
         [sys.executable, "scripts/dwm_dogfood_measure.py", "--self-test"],
         [sys.executable, "scripts/dwm_dogfood_measure.py", "--manifest", "fixtures/v56/manifest.json", "--out", "out/dogfood-measurements/v56-final"],
+        [sys.executable, "scripts/dwm_dogfood_pair.py", "--self-test"],
+        [sys.executable, "scripts/dwm_dogfood_pair.py", "--manifest", "fixtures/v57/manifest.json", "--out", "out/dogfood-pairs/v57-final"],
         [sys.executable, "scripts/run_workflow.py", "--self-test"],
         [sys.executable, "scripts/run_workflow.py", "--manifest", "fixtures/v3/manifest.json", "--out", "out/v3/final"],
         [sys.executable, "scripts/orchestrate_workflow.py", "--self-test"],
@@ -3227,6 +3229,7 @@ def main() -> None:
             "python scripts/dwm_dogfood_corpus.py record --out out/dogfood-corpus/<corpus_id>",
             "python scripts/dwm_dogfood_attempts.py record --corpus out/dogfood-corpus/<corpus_id> --attempts attempts.json --out out/dogfood-attempts/<attempt_id>",
             "python scripts/dwm_dogfood_measure.py sample --out out/dogfood-measurements/<measurement_id>",
+            "python scripts/dwm_dogfood_pair.py pair --dwm-measure out/dogfood-measurements/<measurement_id> --direct-receipt direct-receipt.json --out out/dogfood-pairs/<pair_id>",
             "python scripts/dwm_daily_operator.py today --corpus out/dogfood-corpus/<corpus_id> --out out/daily-operator/<operator_id>",
             "python scripts/dwm_benchmark_history.py build --report out/live-reports/<report_id> --out out/benchmark-history/<history_id>",
             "python scripts/dwm_benchmark_promotion.py promote --history out/benchmark-history/<history_id> --out out/benchmark-promotions/<promotion_id>",
@@ -3262,6 +3265,9 @@ def main() -> None:
             "comparison-ledger.json",
             "measurement.json",
             "attempts.json",
+            "comparison-pair.json",
+            "comparison-pair.md",
+            "pair-status.json",
             "operator-loop.json",
             "today.md",
             "adapter-parity.json",
@@ -3305,6 +3311,7 @@ def main() -> None:
             "docs/v54-dogfood-attempts-spec.md",
             "docs/v55-adapter-live-matrix-spec.md",
             "docs/v56-dogfood-measure-spec.md",
+            "docs/v57-dogfood-pair-spec.md",
             "generated `out/` directories are verification evidence, not source of truth",
             "deterministic control-plane above agent clis",
             "bounded adapter surfaces",
@@ -4145,6 +4152,33 @@ def main() -> None:
         ],
     )
     require_terms(
+        "docs/v57-dogfood-pair-spec.md",
+        [
+            "status: implemented first gated dogfood comparison pair in",
+            "python scripts/dwm_dogfood_pair.py pair --dwm-measure out/dogfood-measurements/<measurement_id> --direct-receipt direct-receipt.json --out out/dogfood-pairs/<pair_id>",
+            "comparison-pair.json",
+            "comparison-pair.md",
+            "pair-status.json",
+            "err_dogfood_pair_gate_missing",
+            "err_dogfood_pair_task_mismatch",
+            "err_dogfood_pair_evidence_missing",
+            "err_dogfood_pair_overclaim",
+            "do not run live codex",
+        ],
+    )
+    require_terms(
+        "docs/v57-decision.md",
+        [
+            "decision: keep",
+            "python scripts/dwm_dogfood_pair.py --manifest fixtures/v57/manifest.json --out out/dogfood-pairs/v57-final",
+            "comparison-pair.json",
+            "comparison-pair.md",
+            "missing direct codex gate blocking",
+            "task mismatch blocking",
+            "does not claim live codex execution",
+        ],
+    )
+    require_terms(
         "docs/v7.5-decision.md",
         [
             "decision: keep",
@@ -4193,7 +4227,7 @@ def main() -> None:
             "python scripts/dwm.py commands --kind release --json",
             "`status`: `workflow-complete`",
             "`doctor_ok`: `true`",
-            "`release_command_count`: `112`",
+            "`release_command_count`: `114`",
             "does not claim workflow execution",
         ],
     )
