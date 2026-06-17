@@ -64,6 +64,7 @@ entrypoint remains `dynamic-workflow-designer`.
 | Real dogfood corpus | local DWM maintenance tasks and comparison placeholders | planned V47, first corpus recorder implemented |
 | Daily operator loop | ready action, blocked gates, and evidence freshness view | planned V48, first operator loop implemented |
 | Adapter parity matrix | supported, planned, fixture-only, and unsupported adapter actions | planned V49, first parity matrix implemented |
+| Release candidate cut | release notes and checklist from coherent operator and parity evidence | planned V50, first candidate cut implemented |
 
 Prior art such as `oh-my-codex` already covers a broad Codex runtime layer:
 launch UX, worktree/tmux operation, durable state, and team execution. This repo
@@ -810,6 +811,24 @@ First adapter parity slice done means:
 - planned live adapter actions are blocked with deterministic reasons;
 - unsupported risk capabilities are blocked before execution;
 - `fixtures/v49/manifest.json` passes with `decision: "keep"`.
+
+### V50: Release Candidate Cut
+
+Status: first release candidate cut implemented.
+
+Purpose: prepare a public release candidate only from coherent operator and
+adapter parity evidence.
+
+Spec: `docs/v50-release-candidate-cut-spec.md`.
+
+First release candidate cut done means:
+
+- `scripts/dwm_release_candidate.py cut` consumes V48 operator and V49 parity
+  artifacts;
+- `release-candidate.json`, `release-notes.md`, and `release-checklist.md` are
+  written under owned output;
+- missing/stale evidence and unsupported overclaims block deterministically;
+- `fixtures/v50/manifest.json` passes with `decision: "keep"`.
 
 ## Strategic Decisions
 

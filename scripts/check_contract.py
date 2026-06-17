@@ -1644,6 +1644,8 @@ def require_release_commands_pass() -> None:
         [sys.executable, "scripts/dwm_adapters.py", "--self-test"],
         [sys.executable, "scripts/dwm_adapters.py", "--manifest", "fixtures/v49/manifest.json", "--out", "out/adapters/v49-final"],
         [sys.executable, "scripts/dwm_release.py", "--self-test"],
+        [sys.executable, "scripts/dwm_release_candidate.py", "--self-test"],
+        [sys.executable, "scripts/dwm_release_candidate.py", "--manifest", "fixtures/v50/manifest.json", "--out", "out/release-candidates/v50-final"],
         [sys.executable, "scripts/dwm_review_gate.py", "--self-test"],
         [sys.executable, "scripts/dwm_dogfood_replay.py", "--self-test"],
         [sys.executable, "scripts/dwm.py", "plan", "V21 shell smoke", "--out", "out/v21/release-plan-smoke", "--json"],
@@ -3221,6 +3223,7 @@ def main() -> None:
             "python scripts/dwm_install.py validate",
             "python scripts/dwm_adapters.py registry",
             "python scripts/dwm_adapters.py parity --out out/adapters/<parity_id>",
+            "python scripts/dwm_release_candidate.py cut --parity out/adapters/<parity_id> --operator out/daily-operator/<operator_id> --out out/release-candidates/<candidate_id>",
             "python scripts/dwm_release.py status --out out/release/<release_id>",
             "report.json.graph_metrics",
             "benchmark-graph.json",
@@ -3245,6 +3248,9 @@ def main() -> None:
             "today.md",
             "adapter-parity.json",
             "adapter-parity.md",
+            "release-candidate.json",
+            "release-notes.md",
+            "release-checklist.md",
             "assets/dwm-hero.svg",
             "assets/dwm-live-benchmark.svg",
             "assets/dwm-live-benchmark.json",
@@ -3268,6 +3274,7 @@ def main() -> None:
             "docs/v47-real-dogfood-corpus-spec.md",
             "docs/v48-daily-operator-loop-spec.md",
             "docs/v49-adapter-parity-matrix-spec.md",
+            "docs/v50-release-candidate-cut-spec.md",
             "generated `out/` directories are verification evidence, not source of truth",
             "deterministic control-plane above agent clis",
             "bounded adapter surfaces",
@@ -3874,6 +3881,7 @@ def main() -> None:
             "v49: adapter parity matrix",
             "status: first parity matrix implemented",
             "v50: release candidate cut",
+            "status: first release candidate cut implemented",
             "it is drifting if",
         ],
     )
@@ -3953,6 +3961,20 @@ def main() -> None:
         ],
     )
     require_terms(
+        "docs/v50-release-candidate-cut-spec.md",
+        [
+            "status: implemented first release candidate cut in",
+            "release-candidate.json",
+            "release-notes.md",
+            "release-checklist.md",
+            "err_release_candidate_parity_missing",
+            "err_release_candidate_parity_stale",
+            "err_release_candidate_operator_missing",
+            "err_release_candidate_operator_stale",
+            "err_release_candidate_overclaim",
+        ],
+    )
+    require_terms(
         "docs/v7.5-decision.md",
         [
             "decision: keep",
@@ -4001,7 +4023,7 @@ def main() -> None:
             "python scripts/dwm.py commands --kind release --json",
             "`status`: `workflow-complete`",
             "`doctor_ok`: `true`",
-            "`release_command_count`: `101`",
+            "`release_command_count`: `103`",
             "does not claim workflow execution",
         ],
     )

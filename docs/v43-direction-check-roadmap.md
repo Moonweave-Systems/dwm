@@ -184,6 +184,9 @@ Done means:
 
 ### V50: Release Candidate Cut
 
+Status: first release candidate cut implemented in
+`scripts/dwm_release_candidate.py`.
+
 Purpose: make the next public release based on actual operator value.
 
 Done means:
