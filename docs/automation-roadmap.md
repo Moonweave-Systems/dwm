@@ -56,6 +56,7 @@ entrypoint remains `dynamic-workflow-designer`.
 | Benchmark promotion | promotion gate for public upward trend claims | planned V39, first promotion gate implemented |
 | Benchmark snapshot | release-bound benchmark snapshot recorder | planned V40, first snapshot slice implemented |
 | Benchmark series | ordered release snapshot collection and history generation | planned V41, first series slice implemented |
+| Benchmark candidate | promotion-ready pre-publish benchmark candidate | planned V42, first candidate slice implemented |
 
 Prior art such as `oh-my-codex` already covers a broad Codex runtime layer:
 launch UX, worktree/tmux operation, durable state, and team execution. This repo
@@ -661,6 +662,8 @@ The planned roadmap splits the remaining product into versioned specs:
   `docs/v40-benchmark-snapshot-spec.md`.
 - V41 benchmark series:
   `docs/v41-benchmark-series-spec.md`.
+- V42 benchmark candidate:
+  `docs/v42-benchmark-candidate-spec.md`.
 
 These specs define the intended path to an independent DWM product that can use
 Codex CLI directly through DWM Runner while keeping optional adapter targets

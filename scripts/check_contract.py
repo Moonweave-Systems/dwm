@@ -1686,6 +1686,8 @@ def require_release_commands_pass() -> None:
         [sys.executable, "scripts/dwm_benchmark_snapshot.py", "--manifest", "fixtures/v40/manifest.json", "--out", "out/benchmark-snapshots/v40-final"],
         [sys.executable, "scripts/dwm_benchmark_series.py", "--self-test"],
         [sys.executable, "scripts/dwm_benchmark_series.py", "--manifest", "fixtures/v41/manifest.json", "--out", "out/benchmark-series/v41-final"],
+        [sys.executable, "scripts/dwm_benchmark_candidate.py", "--self-test"],
+        [sys.executable, "scripts/dwm_benchmark_candidate.py", "--manifest", "fixtures/v42/manifest.json", "--out", "out/benchmark-candidates/v42-final"],
         [sys.executable, "scripts/run_workflow.py", "--self-test"],
         [sys.executable, "scripts/run_workflow.py", "--manifest", "fixtures/v3/manifest.json", "--out", "out/v3/final"],
         [sys.executable, "scripts/orchestrate_workflow.py", "--self-test"],
@@ -3204,6 +3206,7 @@ def main() -> None:
             "python scripts/dwm_live_report.py publish --review out/live-score-reviews/<review_id> --out out/live-reports/<report_id>",
             "python scripts/dwm_benchmark_snapshot.py record --report out/live-reports/<report_id> --release-id <release_id> --out out/benchmark-snapshots/<snapshot_id>",
             "python scripts/dwm_benchmark_series.py build --snapshot-root out/benchmark-snapshots --out out/benchmark-series/<series_id>",
+            "python scripts/dwm_benchmark_candidate.py make --series out/benchmark-series/<series_id> --out out/benchmark-candidates/<candidate_id>",
             "python scripts/dwm_benchmark_history.py build --report out/live-reports/<report_id> --out out/benchmark-history/<history_id>",
             "python scripts/dwm_benchmark_promotion.py promote --history out/benchmark-history/<history_id> --out out/benchmark-promotions/<promotion_id>",
             "python scripts/dwm_readme_benchmark_graph.py generate --report out/live-reports/<report_id> --out out/readme-benchmark-graphs/<graph_id>",
@@ -3221,6 +3224,7 @@ def main() -> None:
             "promoted-trend.svg",
             "snapshot.json",
             "series.json",
+            "candidate.json",
             "assets/dwm-hero.svg",
             "assets/dwm-live-benchmark.svg",
             "assets/dwm-live-benchmark.json",
@@ -3236,6 +3240,7 @@ def main() -> None:
             "docs/v39-benchmark-promotion-spec.md",
             "docs/v40-benchmark-snapshot-spec.md",
             "docs/v41-benchmark-series-spec.md",
+            "docs/v42-benchmark-candidate-spec.md",
             "generated `out/` directories are verification evidence, not source of truth",
             "deterministic control-plane above agent clis",
             "bounded adapter surfaces",
@@ -3818,6 +3823,17 @@ def main() -> None:
         ],
     )
     require_terms(
+        "docs/v42-benchmark-candidate-spec.md",
+        [
+            "status: implemented first benchmark publish candidate workflow in",
+            "candidate.json",
+            "err_benchmark_candidate_artifact_missing",
+            "err_benchmark_candidate_stale_series",
+            "err_benchmark_candidate_promotion_not_upward",
+            "err_benchmark_candidate_promotion_delta_too_small",
+        ],
+    )
+    require_terms(
         "docs/v7.5-decision.md",
         [
             "decision: keep",
@@ -3866,7 +3882,7 @@ def main() -> None:
             "python scripts/dwm.py commands --kind release --json",
             "`status`: `workflow-complete`",
             "`doctor_ok`: `true`",
-            "`release_command_count`: `88`",
+            "`release_command_count`: `90`",
             "does not claim workflow execution",
         ],
     )
