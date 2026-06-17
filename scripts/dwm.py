@@ -97,6 +97,8 @@ RELEASE_COMMANDS = [
     "python scripts/dwm_benchmark_candidate.py --manifest fixtures/v42/manifest.json --out out/benchmark-candidates/v42-final",
     "python scripts/dwm_benchmark_candidate_review.py --self-test",
     "python scripts/dwm_benchmark_candidate_review.py --manifest fixtures/v44/manifest.json --out out/benchmark-candidate-reviews/v44-final",
+    "python scripts/dwm_readme_asset_promotion.py --self-test",
+    "python scripts/dwm_readme_asset_promotion.py --manifest fixtures/v45/manifest.json --out out/readme-asset-promotions/v45-final",
     "python scripts/run_workflow.py --self-test",
     "python scripts/run_workflow.py --manifest fixtures/v3/manifest.json --out out/v3/final",
     "python scripts/orchestrate_workflow.py --self-test",
@@ -208,6 +210,8 @@ BASE_REQUIRED_PATHS = [
     "docs/v43-direction-check-roadmap.workflow.plan.json",
     "docs/v44-decision.md",
     "docs/v44-candidate-review-gate-spec.md",
+    "docs/v45-decision.md",
+    "docs/v45-readme-asset-promotion-spec.md",
     "packaging/dwm-benchmark-attempts.json",
     "packaging/dwm-adapters.json",
     "packaging/dwm-benchmarks.json",
@@ -243,6 +247,7 @@ BASE_REQUIRED_PATHS = [
     "scripts/dwm_benchmark_series.py",
     "scripts/dwm_benchmark_candidate.py",
     "scripts/dwm_benchmark_candidate_review.py",
+    "scripts/dwm_readme_asset_promotion.py",
 ]
 
 

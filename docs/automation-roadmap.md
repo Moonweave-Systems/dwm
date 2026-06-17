@@ -59,6 +59,7 @@ entrypoint remains `dynamic-workflow-designer`.
 | Benchmark candidate | promotion-ready pre-publish benchmark candidate | planned V42, first candidate slice implemented |
 | Direction checkpoint | evidence-backed direction check and V44-V50 roadmap | planned V43, direction checkpoint written |
 | Candidate review | pre-publish candidate review and overclaim gate | planned V44, first review gate implemented |
+| README asset promotion | approved asset bundle and diff summary before tracked changes | planned V45, first promotion bundle implemented |
 
 Prior art such as `oh-my-codex` already covers a broad Codex runtime layer:
 launch UX, worktree/tmux operation, durable state, and team execution. This repo
@@ -671,6 +672,8 @@ The planned roadmap splits the remaining product into versioned specs:
   `docs/v43-direction-check-roadmap.workflow.plan.json`.
 - V44 candidate review:
   `docs/v44-candidate-review-gate-spec.md`.
+- V45 README asset promotion:
+  `docs/v45-readme-asset-promotion-spec.md`.
 
 These specs define the intended path to an independent DWM product that can use
 Codex CLI directly through DWM Runner while keeping optional adapter targets
@@ -710,6 +713,23 @@ Done means:
 - unsupported external benchmark or model-superiority claims are blocked;
 - `fixtures/v44/manifest.json` proves ready, stale, missing-promotion,
   hash-drift, and overclaim paths.
+
+### V45: README Asset Promotion
+
+Status: first promotion bundle implemented.
+
+Purpose: turn an approved V44 review into a reviewable README asset promotion
+bundle before tracked assets or README are changed.
+
+Spec: `docs/v45-readme-asset-promotion-spec.md`.
+
+Done means:
+
+- `scripts/dwm_readme_asset_promotion.py` writes `asset-promotion.json`;
+- approved SVG and metadata are copied into an owned output bundle;
+- `asset-diff.md` records the proposed tracked asset and README changes;
+- stale review, missing asset, hash drift, non-approved review, and overclaim
+  paths are blocked.
 
 ## Strategic Decisions
 

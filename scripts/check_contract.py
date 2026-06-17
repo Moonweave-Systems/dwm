@@ -3208,6 +3208,7 @@ def main() -> None:
             "python scripts/dwm_benchmark_series.py build --snapshot-root out/benchmark-snapshots --out out/benchmark-series/<series_id>",
             "python scripts/dwm_benchmark_candidate.py make --series out/benchmark-series/<series_id> --out out/benchmark-candidates/<candidate_id>",
             "python scripts/dwm_benchmark_candidate_review.py review --candidate out/benchmark-candidates/<candidate_id> --out out/benchmark-candidate-reviews/<review_id>",
+            "python scripts/dwm_readme_asset_promotion.py promote --review out/benchmark-candidate-reviews/<review_id> --out out/readme-asset-promotions/<promotion_id>",
             "python scripts/dwm_benchmark_history.py build --report out/live-reports/<report_id> --out out/benchmark-history/<history_id>",
             "python scripts/dwm_benchmark_promotion.py promote --history out/benchmark-history/<history_id> --out out/benchmark-promotions/<promotion_id>",
             "python scripts/dwm_readme_benchmark_graph.py generate --report out/live-reports/<report_id> --out out/readme-benchmark-graphs/<graph_id>",
@@ -3228,6 +3229,8 @@ def main() -> None:
             "candidate.json",
             "candidate-review.json",
             "publish-checklist.md",
+            "asset-promotion.json",
+            "asset-diff.md",
             "assets/dwm-hero.svg",
             "assets/dwm-live-benchmark.svg",
             "assets/dwm-live-benchmark.json",
@@ -3246,6 +3249,7 @@ def main() -> None:
             "docs/v42-benchmark-candidate-spec.md",
             "docs/v43-direction-check-roadmap.md",
             "docs/v44-candidate-review-gate-spec.md",
+            "docs/v45-readme-asset-promotion-spec.md",
             "generated `out/` directories are verification evidence, not source of truth",
             "deterministic control-plane above agent clis",
             "bounded adapter surfaces",
@@ -3867,6 +3871,19 @@ def main() -> None:
         ],
     )
     require_terms(
+        "docs/v45-readme-asset-promotion-spec.md",
+        [
+            "status: implemented first readme asset promotion bundle in",
+            "asset-promotion.json",
+            "asset-diff.md",
+            "err_readme_asset_promotion_stale_review",
+            "err_readme_asset_promotion_asset_missing",
+            "err_readme_asset_promotion_hash_mismatch",
+            "err_readme_asset_promotion_review_not_approved",
+            "err_readme_asset_promotion_overclaim",
+        ],
+    )
+    require_terms(
         "docs/v7.5-decision.md",
         [
             "decision: keep",
@@ -3915,7 +3932,7 @@ def main() -> None:
             "python scripts/dwm.py commands --kind release --json",
             "`status`: `workflow-complete`",
             "`doctor_ok`: `true`",
-            "`release_command_count`: `92`",
+            "`release_command_count`: `94`",
             "does not claim workflow execution",
         ],
     )
