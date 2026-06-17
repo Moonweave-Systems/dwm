@@ -1694,6 +1694,8 @@ def require_release_commands_pass() -> None:
         [sys.executable, "scripts/dwm_benchmark_series.py", "--manifest", "fixtures/v41/manifest.json", "--out", "out/benchmark-series/v41-final"],
         [sys.executable, "scripts/dwm_benchmark_candidate.py", "--self-test"],
         [sys.executable, "scripts/dwm_benchmark_candidate.py", "--manifest", "fixtures/v42/manifest.json", "--out", "out/benchmark-candidates/v42-final"],
+        [sys.executable, "scripts/dwm_dogfood_attempts.py", "--self-test"],
+        [sys.executable, "scripts/dwm_dogfood_attempts.py", "--manifest", "fixtures/v54/manifest.json", "--out", "out/dogfood-attempts/v54-final"],
         [sys.executable, "scripts/run_workflow.py", "--self-test"],
         [sys.executable, "scripts/run_workflow.py", "--manifest", "fixtures/v3/manifest.json", "--out", "out/v3/final"],
         [sys.executable, "scripts/orchestrate_workflow.py", "--self-test"],
@@ -3219,6 +3221,7 @@ def main() -> None:
             "python scripts/dwm_workflow_queue.py create --packets packets.json --out out/workflow-queues/<queue_id>",
             "python scripts/dwm_workflow_queue.py resume --queue out/workflow-queues/<queue_id>",
             "python scripts/dwm_dogfood_corpus.py record --out out/dogfood-corpus/<corpus_id>",
+            "python scripts/dwm_dogfood_attempts.py record --corpus out/dogfood-corpus/<corpus_id> --attempts attempts.json --out out/dogfood-attempts/<attempt_id>",
             "python scripts/dwm_daily_operator.py today --corpus out/dogfood-corpus/<corpus_id> --out out/daily-operator/<operator_id>",
             "python scripts/dwm_benchmark_history.py build --report out/live-reports/<report_id> --out out/benchmark-history/<history_id>",
             "python scripts/dwm_benchmark_promotion.py promote --history out/benchmark-history/<history_id> --out out/benchmark-promotions/<promotion_id>",
@@ -3249,6 +3252,8 @@ def main() -> None:
             "next-action.md",
             "dogfood-corpus.json",
             "queue-packets.json",
+            "dogfood-attempts.json",
+            "comparison-ledger.json",
             "operator-loop.json",
             "today.md",
             "adapter-parity.json",
@@ -3287,6 +3292,7 @@ def main() -> None:
             "docs/v51-canonical-demo-spec.md",
             "docs/v52-readme-ux-spec.md",
             "docs/v53-demo-inspect-spec.md",
+            "docs/v54-dogfood-attempts-spec.md",
             "generated `out/` directories are verification evidence, not source of truth",
             "deterministic control-plane above agent clis",
             "bounded adapter surfaces",
@@ -4050,6 +4056,32 @@ def main() -> None:
         ],
     )
     require_terms(
+        "docs/v54-dogfood-attempts-spec.md",
+        [
+            "status: implemented first measured dogfood comparison ledger in",
+            "python scripts/dwm_dogfood_attempts.py record --corpus out/dogfood-corpus/<corpus_id> --attempts attempts.json --out out/dogfood-attempts/<attempt_id>",
+            "dogfood-attempts.json",
+            "comparison-ledger.json",
+            "err_dogfood_attempts_unknown_task",
+            "err_dogfood_attempts_evidence_missing",
+            "err_dogfood_attempts_metric_invalid",
+            "err_dogfood_attempts_overclaim",
+            "do not execute attempts automatically",
+        ],
+    )
+    require_terms(
+        "docs/v54-decision.md",
+        [
+            "decision: keep",
+            "python scripts/dwm_dogfood_attempts.py --manifest fixtures/v54/manifest.json --out out/dogfood-attempts/v54-final",
+            "dogfood-attempts.json",
+            "comparison-ledger.json",
+            "missing evidence blocking",
+            "invalid metric blocking",
+            "does not claim live adapter execution",
+        ],
+    )
+    require_terms(
         "docs/v7.5-decision.md",
         [
             "decision: keep",
@@ -4098,7 +4130,7 @@ def main() -> None:
             "python scripts/dwm.py commands --kind release --json",
             "`status`: `workflow-complete`",
             "`doctor_ok`: `true`",
-            "`release_command_count`: `106`",
+            "`release_command_count`: `108`",
             "does not claim workflow execution",
         ],
     )

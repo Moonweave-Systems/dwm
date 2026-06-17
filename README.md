@@ -172,6 +172,9 @@ V52 reorganizes the README around the quick demo, normal loop, current honesty
 boundaries, and benchmark-readiness caveats before adding any new graph claims.
 V53 records `demo-inspect.json` and `demo-summary.md` so demo output can be
 checked for missing artifacts and hash drift before a user trusts the result.
+V54 records `dogfood-attempts.json` and `comparison-ledger.json` from measured
+local attempt receipts so future graphs can start from evidence instead of
+claims.
 
 Generate graph artifacts with:
 
@@ -217,6 +220,7 @@ python scripts/dwm_readme_asset_promotion.py promote --review out/benchmark-cand
 python scripts/dwm_workflow_queue.py create --packets packets.json --out out/workflow-queues/<queue_id>
 python scripts/dwm_workflow_queue.py resume --queue out/workflow-queues/<queue_id>
 python scripts/dwm_dogfood_corpus.py record --out out/dogfood-corpus/<corpus_id>
+python scripts/dwm_dogfood_attempts.py record --corpus out/dogfood-corpus/<corpus_id> --attempts attempts.json --out out/dogfood-attempts/<attempt_id>
 python scripts/dwm_daily_operator.py today --corpus out/dogfood-corpus/<corpus_id> --out out/daily-operator/<operator_id>
 python scripts/dwm_benchmark_history.py build --report out/live-reports/<report_id> --out out/benchmark-history/<history_id>
 python scripts/dwm_benchmark_promotion.py promote --history out/benchmark-history/<history_id> --out out/benchmark-promotions/<promotion_id>
@@ -252,6 +256,7 @@ python scripts/dwm_release.py status --out out/release/<release_id>
 | `scripts/dwm_readme_asset_promotion.py` | README benchmark asset promotion bundle and diff summary. |
 | `scripts/dwm_workflow_queue.py` | Long-run workflow queue and next safe action selector. |
 | `scripts/dwm_dogfood_corpus.py` | Local dogfood task corpus recorder with comparison placeholders. |
+| `scripts/dwm_dogfood_attempts.py` | Measured local dogfood comparison ledger. |
 | `scripts/dwm_daily_operator.py` | Daily operator loop for ready, blocked, and freshness state. |
 | `scripts/dwm_adapters.py` | Adapter registry, normalized evidence, and parity matrix checks. |
 | `scripts/dwm_release_candidate.py` | Release candidate cut from parity and operator evidence. |
@@ -289,6 +294,7 @@ python scripts/dwm_release.py status --out out/release/<release_id>
 - [`docs/v51-canonical-demo-spec.md`](docs/v51-canonical-demo-spec.md): canonical local demo.
 - [`docs/v52-readme-ux-spec.md`](docs/v52-readme-ux-spec.md): README UX consolidation.
 - [`docs/v53-demo-inspect-spec.md`](docs/v53-demo-inspect-spec.md): demo inspect surface.
+- [`docs/v54-dogfood-attempts-spec.md`](docs/v54-dogfood-attempts-spec.md): measured dogfood comparison ledger.
 
 Generated `out/` directories are verification evidence, not source of truth.
 
