@@ -99,12 +99,15 @@ python scripts/dwm_adapters.py parity --out out/adapters/<parity_id>
 python scripts/dwm_adapter_live_matrix.py matrix --out out/adapter-live-matrix/<matrix_id>
 python scripts/dwm_release_candidate.py cut --parity out/adapters/<parity_id> --operator out/daily-operator/<operator_id> --out out/release-candidates/<candidate_id>
 python scripts/dwm_release.py status --out out/release/<release_id>
+python scripts/dwm_release_timing.py plan --out out/release-timing/<timing_id>
+python scripts/dwm_release_timing.py measure --limit 3 --out out/release-timing/<timing_id>
 ```
 
 Release artifacts include `operator-loop.json`, `today.md`,
 `adapter-parity.json`, `adapter-parity.md`, `adapter-live-matrix.json`,
 `adapter-live-matrix.md`, `release-candidate.json`, `release-notes.md`, and
-`release-checklist.md`.
+`release-checklist.md`, `release-timing.json`, `release-timing.md`, and
+`status.json`.
 
 ## Repository Map
 

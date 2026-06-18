@@ -132,6 +132,8 @@ RELEASE_COMMANDS = [
     "python scripts/dwm_dogfood_progress_asset_promotion.py --manifest fixtures/v67/manifest.json --out out/dogfood-progress-asset-promotions/v67-final",
     "python scripts/check_readme_quality.py --self-test",
     "python scripts/check_readme_quality.py README.md",
+    "python scripts/dwm_release_timing.py --self-test",
+    "python scripts/dwm_release_timing.py --manifest fixtures/v71/manifest.json --out out/release-timing/v71-final",
     "python scripts/dwm_daily_operator.py --self-test",
     "python scripts/dwm_daily_operator.py --manifest fixtures/v48/manifest.json --out out/daily-operator/v48-final",
     "python scripts/dwm_release_candidate.py --self-test",
@@ -304,6 +306,8 @@ BASE_REQUIRED_PATHS = [
     "docs/v69-readme-quality-gate-spec.md",
     "docs/v70-decision.md",
     "docs/v70-contract-timeout-spec.md",
+    "docs/v71-decision.md",
+    "docs/v71-release-timing-spec.md",
     "docs/command-reference.md",
     "docs/release-history.md",
     "packaging/dwm-benchmark-attempts.json",
@@ -357,6 +361,7 @@ BASE_REQUIRED_PATHS = [
     "scripts/dwm_dogfood_progress.py",
     "scripts/dwm_dogfood_progress_asset_promotion.py",
     "scripts/check_readme_quality.py",
+    "scripts/dwm_release_timing.py",
     "scripts/dwm_daily_operator.py",
     "scripts/dwm_adapter_live_matrix.py",
     "fixtures/v49/manifest.json",
@@ -417,6 +422,9 @@ BASE_REQUIRED_PATHS = [
     "docs/v69-readme-quality-gate-spec.md",
     "docs/v70-decision.md",
     "docs/v70-contract-timeout-spec.md",
+    "fixtures/v71/manifest.json",
+    "docs/v71-decision.md",
+    "docs/v71-release-timing-spec.md",
 ]
 
 

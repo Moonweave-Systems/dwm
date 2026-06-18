@@ -91,6 +91,8 @@ promotion requires real release history.
   quality gate.
 - V70: `docs/v70-contract-timeout-spec.md` added timeout failure reporting for
   release-contract child commands.
+- V71: `docs/v71-release-timing-spec.md` added `release-timing.json`,
+  `release-timing.md`, and `status.json` for release command cost evidence.
 
 ## Current Public Boundaries
 

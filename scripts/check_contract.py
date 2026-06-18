@@ -130,7 +130,9 @@ def run_contract_step(label: str, callback, *, timeout_seconds: int = DEFAULT_ST
 
 def release_command_timeout(command: list[str]) -> int:
     command_text = " ".join(command)
-    if "scripts/dwm_release.py --self-test" in command_text:
+    if "scripts/dwm_release.py" in command_text:
+        return LONG_COMMAND_TIMEOUT_SECONDS
+    if "scripts/dwm_demo.py --self-test" in command_text:
         return LONG_COMMAND_TIMEOUT_SECONDS
     return DEFAULT_COMMAND_TIMEOUT_SECONDS
 
@@ -1763,6 +1765,8 @@ def require_release_commands_pass() -> None:
         [sys.executable, "scripts/dwm_dogfood_progress_asset_promotion.py", "--manifest", "fixtures/v67/manifest.json", "--out", "out/dogfood-progress-asset-promotions/v67-final"],
         [sys.executable, "scripts/check_readme_quality.py", "--self-test"],
         [sys.executable, "scripts/check_readme_quality.py", "README.md"],
+        [sys.executable, "scripts/dwm_release_timing.py", "--self-test"],
+        [sys.executable, "scripts/dwm_release_timing.py", "--manifest", "fixtures/v71/manifest.json", "--out", "out/release-timing/v71-final"],
         [sys.executable, "scripts/run_workflow.py", "--self-test"],
         [sys.executable, "scripts/run_workflow.py", "--manifest", "fixtures/v3/manifest.json", "--out", "out/v3/final"],
         [sys.executable, "scripts/orchestrate_workflow.py", "--self-test"],
@@ -2064,6 +2068,8 @@ Overclaims execution: no
     require_fixture_smoke([("valid 1", valid_block), ("valid 2", meta_block)])
     if release_command_timeout([sys.executable, "scripts/dwm_release.py", "--self-test"]) != LONG_COMMAND_TIMEOUT_SECONDS:
         raise SystemExit("self-test failed: long release command timeout not selected")
+    if release_command_timeout([sys.executable, "scripts/dwm_demo.py", "--self-test"]) != LONG_COMMAND_TIMEOUT_SECONDS:
+        raise SystemExit("self-test failed: demo release command timeout not selected")
     if release_command_timeout([sys.executable, "scripts/dwm.py", "--self-test"]) != DEFAULT_COMMAND_TIMEOUT_SECONDS:
         raise SystemExit("self-test failed: default release command timeout not selected")
     try:
@@ -3342,6 +3348,8 @@ def main() -> None:
             "python scripts/dwm_adapter_live_matrix.py matrix --out out/adapter-live-matrix/<matrix_id>",
             "python scripts/dwm_release_candidate.py cut --parity out/adapters/<parity_id> --operator out/daily-operator/<operator_id> --out out/release-candidates/<candidate_id>",
             "python scripts/dwm_release.py status --out out/release/<release_id>",
+            "python scripts/dwm_release_timing.py plan --out out/release-timing/<timing_id>",
+            "python scripts/dwm_release_timing.py measure --limit 3 --out out/release-timing/<timing_id>",
             "report.json.graph_metrics",
             "benchmark-graph.json",
             "dogfood-progress.json",
@@ -3366,6 +3374,7 @@ def main() -> None:
             "docs/v67-dogfood-progress-asset-promotion-spec.md",
             "docs/v69-readme-quality-gate-spec.md",
             "docs/v70-contract-timeout-spec.md",
+            "docs/v71-release-timing-spec.md",
             "generated `out/` directories are verification evidence, not source of truth",
             "direct-agent superiority is not claimed",
             "process progress is not an upward benchmark claim",
@@ -4522,6 +4531,34 @@ def main() -> None:
         ],
     )
     require_terms(
+        "docs/v71-release-timing-spec.md",
+        [
+            "status: implemented release command timing planner and bounded measurement",
+            "canonical command source remains `scripts/dwm.py:release_commands`",
+            "`release-timing.json`",
+            "`release-timing.md`",
+            "`status.json`",
+            "do not rerun the full release corpus by default",
+            "do not treat timeout as success",
+            "release-timing-blocked",
+        ],
+    )
+    require_terms(
+        "docs/v71-decision.md",
+        [
+            "decision: keep",
+            "python scripts/dwm_release_timing.py --manifest fixtures/v71/manifest.json --out out/release-timing/v71-final",
+            "`suite_id`: `v71-release-timing`",
+            "`fixture_count`: 3",
+            "`required_passed`: 3",
+            "`decision`: `keep`",
+            "release command inventory",
+            "bounded measurement",
+            "timeout blocking",
+            "does not claim the full release corpus is fast",
+        ],
+    )
+    require_terms(
         "docs/v7.5-decision.md",
         [
             "decision: keep",
@@ -4570,7 +4607,7 @@ def main() -> None:
             "python scripts/dwm.py commands --kind release --json",
             "`status`: `workflow-complete`",
             "`doctor_ok`: `true`",
-            "`release_command_count`: `136`",
+            "`release_command_count`: `138`",
             "does not claim workflow execution",
         ],
     )
