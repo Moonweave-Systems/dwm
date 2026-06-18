@@ -148,6 +148,9 @@ RELEASE_COMMANDS = [
     "python scripts/dwm_large_workflow_queue_bridge.py --self-test",
     "python scripts/dwm_large_workflow_queue_bridge.py --manifest fixtures/v76/manifest.json --out out/large-workflow-queue-bridge/v76-final",
     "python scripts/dwm_large_workflow_queue_bridge.py bridge --selection out/large-workflow-next/v75-canonical/large-workflow-next.json --out out/large-workflow-queue-bridge/v76-canonical --queue-out out/workflow-queues/v76-canonical",
+    "python scripts/dwm_large_workflow_queue_preflight.py --self-test",
+    "python scripts/dwm_large_workflow_queue_preflight.py --manifest fixtures/v77/manifest.json --out out/large-workflow-queue-preflight/v77-final",
+    "python scripts/dwm_large_workflow_queue_preflight.py preflight --queue out/workflow-queues/v76-canonical/queue.json --out out/large-workflow-queue-preflight/v77-canonical",
     "python scripts/dwm_daily_operator.py --self-test",
     "python scripts/dwm_daily_operator.py --manifest fixtures/v48/manifest.json --out out/daily-operator/v48-final",
     "python scripts/dwm_release_candidate.py --self-test",
@@ -334,6 +337,8 @@ BASE_REQUIRED_PATHS = [
     "docs/v75-large-workflow-next-spec.md",
     "docs/v76-decision.md",
     "docs/v76-large-workflow-queue-bridge-spec.md",
+    "docs/v77-decision.md",
+    "docs/v77-large-workflow-queue-preflight-spec.md",
     "docs/command-reference.md",
     "docs/release-history.md",
     "packaging/dwm-benchmark-attempts.json",
@@ -393,6 +398,7 @@ BASE_REQUIRED_PATHS = [
     "scripts/dwm_large_workflow_dogfood.py",
     "scripts/dwm_large_workflow_next.py",
     "scripts/dwm_large_workflow_queue_bridge.py",
+    "scripts/dwm_large_workflow_queue_preflight.py",
     "scripts/dwm_daily_operator.py",
     "scripts/dwm_adapter_live_matrix.py",
     "fixtures/v49/manifest.json",
@@ -473,6 +479,9 @@ BASE_REQUIRED_PATHS = [
     "fixtures/v76/manifest.json",
     "docs/v76-decision.md",
     "docs/v76-large-workflow-queue-bridge-spec.md",
+    "fixtures/v77/manifest.json",
+    "docs/v77-decision.md",
+    "docs/v77-large-workflow-queue-preflight-spec.md",
 ]
 
 

@@ -106,6 +106,7 @@ python scripts/dwm_large_workflow_control.py assess --workflow workflow.json --o
 python scripts/dwm_large_workflow_dogfood.py record --run out/v9/v32-semantic-dogfood --out out/large-workflow-dogfood/<dogfood_id>
 python scripts/dwm_large_workflow_next.py select --control out/large-workflow-dogfood/v74-canonical/dogfood-control.json --out out/large-workflow-next/<next_id>
 python scripts/dwm_large_workflow_queue_bridge.py bridge --selection out/large-workflow-next/v75-canonical/large-workflow-next.json --out out/large-workflow-queue-bridge/<bridge_id> --queue-out out/workflow-queues/<queue_id>
+python scripts/dwm_large_workflow_queue_preflight.py preflight --queue out/workflow-queues/v76-canonical/queue.json --out out/large-workflow-queue-preflight/<preflight_id>
 ```
 
 Release artifacts include `operator-loop.json`, `today.md`,
@@ -115,7 +116,8 @@ Release artifacts include `operator-loop.json`, `today.md`,
 `timing-history.json`, `timing-history.md`, `large-workflow-control.json`,
 `large-workflow-control.md`, `dogfood-control.json`, `dogfood-control.md`,
 `large-workflow-next.json`, `large-workflow-next.md`, `queue-bridge.json`,
-`queue-packets.json`, `queue-bridge.md`, and `status.json`.
+`queue-packets.json`, `queue-bridge.md`, `queue-preflight.json`,
+`queue-preflight.md`, and `status.json`.
 
 ## Repository Map
 

@@ -107,6 +107,9 @@ promotion requires real release history.
 - V76: `docs/v76-large-workflow-queue-bridge-spec.md` added V75-to-V46 queue
   bridging so command-ready selections become queue packets without executing
   the selected command.
+- V77: `docs/v77-large-workflow-queue-preflight-spec.md` added a preflight
+  gate for queued large-workflow packets before any runner or operator consumes
+  the selected command.
 
 ## Current Public Boundaries
 

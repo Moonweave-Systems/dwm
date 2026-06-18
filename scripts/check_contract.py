@@ -921,6 +921,7 @@ def require_v20_decision_summary_consistency() -> None:
                 "--out",
                 "out/release/v20-final",
             ],
+            timeout_seconds=LONG_COMMAND_TIMEOUT_SECONDS,
         )
         summary = json.loads(completed.stdout)
         require_v20_decision_summary_text(summary, (ROOT / "docs" / "v20-decision.md").read_text())
@@ -1781,6 +1782,9 @@ def require_release_commands_pass() -> None:
         [sys.executable, "scripts/dwm_large_workflow_queue_bridge.py", "--self-test"],
         [sys.executable, "scripts/dwm_large_workflow_queue_bridge.py", "--manifest", "fixtures/v76/manifest.json", "--out", "out/large-workflow-queue-bridge/v76-final"],
         [sys.executable, "scripts/dwm_large_workflow_queue_bridge.py", "bridge", "--selection", "out/large-workflow-next/v75-canonical/large-workflow-next.json", "--out", "out/large-workflow-queue-bridge/v76-canonical", "--queue-out", "out/workflow-queues/v76-canonical"],
+        [sys.executable, "scripts/dwm_large_workflow_queue_preflight.py", "--self-test"],
+        [sys.executable, "scripts/dwm_large_workflow_queue_preflight.py", "--manifest", "fixtures/v77/manifest.json", "--out", "out/large-workflow-queue-preflight/v77-final"],
+        [sys.executable, "scripts/dwm_large_workflow_queue_preflight.py", "preflight", "--queue", "out/workflow-queues/v76-canonical/queue.json", "--out", "out/large-workflow-queue-preflight/v77-canonical"],
         [sys.executable, "scripts/run_workflow.py", "--self-test"],
         [sys.executable, "scripts/run_workflow.py", "--manifest", "fixtures/v3/manifest.json", "--out", "out/v3/final"],
         [sys.executable, "scripts/orchestrate_workflow.py", "--self-test"],
@@ -3369,6 +3373,7 @@ def main() -> None:
             "python scripts/dwm_large_workflow_dogfood.py record --run out/v9/v32-semantic-dogfood --out out/large-workflow-dogfood/<dogfood_id>",
             "python scripts/dwm_large_workflow_next.py select --control out/large-workflow-dogfood/v74-canonical/dogfood-control.json --out out/large-workflow-next/<next_id>",
             "python scripts/dwm_large_workflow_queue_bridge.py bridge --selection out/large-workflow-next/v75-canonical/large-workflow-next.json --out out/large-workflow-queue-bridge/<bridge_id> --queue-out out/workflow-queues/<queue_id>",
+            "python scripts/dwm_large_workflow_queue_preflight.py preflight --queue out/workflow-queues/v76-canonical/queue.json --out out/large-workflow-queue-preflight/<preflight_id>",
             "report.json.graph_metrics",
             "benchmark-graph.json",
             "dogfood-progress.json",
@@ -3377,6 +3382,8 @@ def main() -> None:
             "queue-bridge.json",
             "queue-packets.json",
             "queue-bridge.md",
+            "queue-preflight.json",
+            "queue-preflight.md",
             "dwm-dogfood-progress.svg",
             "assets/dwm-hero.svg",
             "assets/dwm-live-benchmark.svg",
@@ -3404,6 +3411,7 @@ def main() -> None:
             "docs/v74-large-workflow-dogfood-spec.md",
             "docs/v75-large-workflow-next-spec.md",
             "docs/v76-large-workflow-queue-bridge-spec.md",
+            "docs/v77-large-workflow-queue-preflight-spec.md",
             "generated `out/` directories are verification evidence, not source of truth",
             "direct-agent superiority is not claimed",
             "process progress is not an upward benchmark claim",
@@ -4753,6 +4761,37 @@ def main() -> None:
         ],
     )
     require_terms(
+        "docs/v77-large-workflow-queue-preflight-spec.md",
+        [
+            "status: implemented queue-packet preflight gate in",
+            "`scripts/dwm_large_workflow_queue_preflight.py`",
+            "`queue-preflight.json`",
+            "`queue-preflight.md`",
+            "`queue-preflight-ready`",
+            "`queue-preflight-blocked`",
+            "do not execute the queued command",
+            "write, delete, network, deploy, secret, dependency, database",
+            "unsupported command blocking",
+            "actual command execution remains a separate gated step",
+        ],
+    )
+    require_terms(
+        "docs/v77-decision.md",
+        [
+            "decision: keep",
+            "python scripts/dwm_large_workflow_queue_preflight.py --manifest fixtures/v77/manifest.json --out out/large-workflow-queue-preflight/v77-final",
+            "`suite_id`: `v77-large-workflow-queue-preflight`",
+            "`fixture_count`: 6",
+            "`required_passed`: 6",
+            "`decision`: `keep`",
+            "queued packet preflight",
+            "unsafe risk blocking",
+            "queue hash drift blocking",
+            "unsupported command blocking",
+            "no queued-command execution",
+        ],
+    )
+    require_terms(
         "docs/v7.5-decision.md",
         [
             "decision: keep",
@@ -4801,7 +4840,7 @@ def main() -> None:
             "python scripts/dwm.py commands --kind release --json",
             "`status`: `workflow-complete`",
             "`doctor_ok`: `true`",
-            "`release_command_count`: `152`",
+            "`release_command_count`: `155`",
             "does not claim workflow execution",
         ],
     )
