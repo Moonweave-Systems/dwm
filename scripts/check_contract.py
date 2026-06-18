@@ -1785,6 +1785,9 @@ def require_release_commands_pass() -> None:
         [sys.executable, "scripts/dwm_large_workflow_queue_preflight.py", "--self-test"],
         [sys.executable, "scripts/dwm_large_workflow_queue_preflight.py", "--manifest", "fixtures/v77/manifest.json", "--out", "out/large-workflow-queue-preflight/v77-final"],
         [sys.executable, "scripts/dwm_large_workflow_queue_preflight.py", "preflight", "--queue", "out/workflow-queues/v76-canonical/queue.json", "--out", "out/large-workflow-queue-preflight/v77-canonical"],
+        [sys.executable, "scripts/dwm_graph_timing_gate.py", "--self-test"],
+        [sys.executable, "scripts/dwm_graph_timing_gate.py", "--manifest", "fixtures/v78/manifest.json", "--out", "out/graph-timing/v78-final"],
+        [sys.executable, "scripts/dwm_graph_timing_gate.py", "check", "--progress", "out/dogfood-progress/local-v66-current/dogfood-progress.json", "--readiness", "out/dogfood-pair-series/local-v64-selected-series/graph-readiness.json", "--preflight", "out/large-workflow-queue-preflight/v77-canonical/queue-preflight.json", "--out", "out/graph-timing/v78-canonical"],
         [sys.executable, "scripts/run_workflow.py", "--self-test"],
         [sys.executable, "scripts/run_workflow.py", "--manifest", "fixtures/v3/manifest.json", "--out", "out/v3/final"],
         [sys.executable, "scripts/orchestrate_workflow.py", "--self-test"],
@@ -3374,6 +3377,7 @@ def main() -> None:
             "python scripts/dwm_large_workflow_next.py select --control out/large-workflow-dogfood/v74-canonical/dogfood-control.json --out out/large-workflow-next/<next_id>",
             "python scripts/dwm_large_workflow_queue_bridge.py bridge --selection out/large-workflow-next/v75-canonical/large-workflow-next.json --out out/large-workflow-queue-bridge/<bridge_id> --queue-out out/workflow-queues/<queue_id>",
             "python scripts/dwm_large_workflow_queue_preflight.py preflight --queue out/workflow-queues/v76-canonical/queue.json --out out/large-workflow-queue-preflight/<preflight_id>",
+            "python scripts/dwm_graph_timing_gate.py check --progress out/dogfood-progress/local-v66-current/dogfood-progress.json --readiness out/dogfood-pair-series/local-v64-selected-series/graph-readiness.json --preflight out/large-workflow-queue-preflight/v77-canonical/queue-preflight.json --out out/graph-timing/<timing_id>",
             "report.json.graph_metrics",
             "benchmark-graph.json",
             "dogfood-progress.json",
@@ -3384,6 +3388,8 @@ def main() -> None:
             "queue-bridge.md",
             "queue-preflight.json",
             "queue-preflight.md",
+            "graph-timing.json",
+            "graph-timing.md",
             "dwm-dogfood-progress.svg",
             "assets/dwm-hero.svg",
             "assets/dwm-live-benchmark.svg",
@@ -3412,6 +3418,7 @@ def main() -> None:
             "docs/v75-large-workflow-next-spec.md",
             "docs/v76-large-workflow-queue-bridge-spec.md",
             "docs/v77-large-workflow-queue-preflight-spec.md",
+            "docs/v78-graph-timing-gate-spec.md",
             "generated `out/` directories are verification evidence, not source of truth",
             "direct-agent superiority is not claimed",
             "process progress is not an upward benchmark claim",
@@ -4792,6 +4799,36 @@ def main() -> None:
         ],
     )
     require_terms(
+        "docs/v78-graph-timing-gate-spec.md",
+        [
+            "status: implemented graph timing gate in",
+            "`scripts/dwm_graph_timing_gate.py`",
+            "`graph-timing.json`",
+            "`graph-timing.md`",
+            "`process_progress`",
+            "`local_benchmark_candidate`",
+            "`public_benchmark_trend`",
+            "does not draw a new graph",
+            "process progress, not benchmark performance",
+            "err_graph_timing_public_promotion_missing",
+            "fake upward trend",
+        ],
+    )
+    require_terms(
+        "docs/v78-decision.md",
+        [
+            "decision: keep",
+            "python scripts/dwm_graph_timing_gate.py --manifest fixtures/v78/manifest.json --out out/graph-timing/v78-final",
+            "`suite_id`: `v78-graph-timing-gate`",
+            "`fixture_count`: 5",
+            "`required_passed`: 5",
+            "`decision`: `keep`",
+            "process-only visibility",
+            "public benchmark and upward-trend claims blocked",
+            "does not draw a new graph",
+        ],
+    )
+    require_terms(
         "docs/v7.5-decision.md",
         [
             "decision: keep",
@@ -4840,7 +4877,7 @@ def main() -> None:
             "python scripts/dwm.py commands --kind release --json",
             "`status`: `workflow-complete`",
             "`doctor_ok`: `true`",
-            "`release_command_count`: `155`",
+            "`release_command_count`: `158`",
             "does not claim workflow execution",
         ],
     )

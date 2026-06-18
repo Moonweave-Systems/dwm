@@ -110,6 +110,9 @@ promotion requires real release history.
 - V77: `docs/v77-large-workflow-queue-preflight-spec.md` added a preflight
   gate for queued large-workflow packets before any runner or operator consumes
   the selected command.
+- V78: `docs/v78-graph-timing-gate-spec.md` added `graph-timing.json` and
+  `graph-timing.md` to distinguish process progress visibility from public
+  benchmark trend promotion.
 
 ## Current Public Boundaries
 
@@ -117,3 +120,5 @@ promotion requires real release history.
 - Process progress is not an upward benchmark claim.
 - Generated `out/` directories are verification evidence, not source of truth.
 - Benchmark promotion remains gated by history, review, and claim policy.
+- Graph timing keeps process progress visible without forcing a public upward
+  benchmark graph.
