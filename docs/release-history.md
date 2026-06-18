@@ -93,6 +93,9 @@ promotion requires real release history.
   release-contract child commands.
 - V71: `docs/v71-release-timing-spec.md` added `release-timing.json`,
   `release-timing.md`, and `status.json` for release command cost evidence.
+- V72: `docs/v72-release-timing-history-spec.md` added
+  `timing-history.json`, `timing-history.md`, and `status.json` for release
+  timing history evidence.
 
 ## Current Public Boundaries
 

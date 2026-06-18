@@ -1767,6 +1767,8 @@ def require_release_commands_pass() -> None:
         [sys.executable, "scripts/check_readme_quality.py", "README.md"],
         [sys.executable, "scripts/dwm_release_timing.py", "--self-test"],
         [sys.executable, "scripts/dwm_release_timing.py", "--manifest", "fixtures/v71/manifest.json", "--out", "out/release-timing/v71-final"],
+        [sys.executable, "scripts/dwm_release_timing_history.py", "--self-test"],
+        [sys.executable, "scripts/dwm_release_timing_history.py", "--manifest", "fixtures/v72/manifest.json", "--out", "out/release-timing-history/v72-final"],
         [sys.executable, "scripts/run_workflow.py", "--self-test"],
         [sys.executable, "scripts/run_workflow.py", "--manifest", "fixtures/v3/manifest.json", "--out", "out/v3/final"],
         [sys.executable, "scripts/orchestrate_workflow.py", "--self-test"],
@@ -3350,6 +3352,7 @@ def main() -> None:
             "python scripts/dwm_release.py status --out out/release/<release_id>",
             "python scripts/dwm_release_timing.py plan --out out/release-timing/<timing_id>",
             "python scripts/dwm_release_timing.py measure --limit 3 --out out/release-timing/<timing_id>",
+            "python scripts/dwm_release_timing_history.py build --timing-root out/release-timing --out out/release-timing-history/<history_id>",
             "report.json.graph_metrics",
             "benchmark-graph.json",
             "dogfood-progress.json",
@@ -3375,6 +3378,7 @@ def main() -> None:
             "docs/v69-readme-quality-gate-spec.md",
             "docs/v70-contract-timeout-spec.md",
             "docs/v71-release-timing-spec.md",
+            "docs/v72-release-timing-history-spec.md",
             "generated `out/` directories are verification evidence, not source of truth",
             "direct-agent superiority is not claimed",
             "process progress is not an upward benchmark claim",
@@ -4559,6 +4563,35 @@ def main() -> None:
         ],
     )
     require_terms(
+        "docs/v72-release-timing-history-spec.md",
+        [
+            "status: implemented release timing history ledger in",
+            "`scripts/dwm_release_timing_history.py`",
+            "`timing-history.json`",
+            "`timing-history.md`",
+            "`status.json`",
+            "do not publish upward benchmark claims",
+            "does not execute release commands",
+            "duplicate `timing_id` values",
+            "read-only against timing inputs",
+        ],
+    )
+    require_terms(
+        "docs/v72-decision.md",
+        [
+            "decision: keep",
+            "python scripts/dwm_release_timing_history.py --manifest fixtures/v72/manifest.json --out out/release-timing-history/v72-final",
+            "`suite_id`: `v72-release-timing-history`",
+            "`fixture_count`: 2",
+            "`required_passed`: 2",
+            "`decision`: `keep`",
+            "mixed planned/recorded/blocked history aggregation",
+            "duplicate timing id blocking",
+            "source hash recording",
+            "does not publish an upward benchmark claim",
+        ],
+    )
+    require_terms(
         "docs/v7.5-decision.md",
         [
             "decision: keep",
@@ -4607,7 +4640,7 @@ def main() -> None:
             "python scripts/dwm.py commands --kind release --json",
             "`status`: `workflow-complete`",
             "`doctor_ok`: `true`",
-            "`release_command_count`: `138`",
+            "`release_command_count`: `140`",
             "does not claim workflow execution",
         ],
     )
