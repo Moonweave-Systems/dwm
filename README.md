@@ -69,13 +69,14 @@ python scripts/dwm.py commands --kind product
 Run the release contract before publishing changes:
 
 ```bash
-python scripts/check_contract.py
+python scripts/check_contract.py --tier changed
 python scripts/check_readme_quality.py README.md
 ```
 
 For the full release command corpus, use:
 
 ```bash
+python scripts/check_contract.py
 python scripts/dwm.py commands --kind release
 ```
 

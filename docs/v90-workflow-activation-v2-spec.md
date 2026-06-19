@@ -17,6 +17,8 @@ V90 is an activation gate, not an executor. It decides whether the next safe
 action is workflow design after the current workflow, install surface, product
 surface, roadmap, and command-safety evidence are all current.
 
+V90 does not execute commands.
+
 Non-goals:
 
 - do not execute commands,
@@ -41,7 +43,7 @@ The activation blocks if:
 - the current workflow is not complete or lacks the recorded human gate,
 - the brand boundary audit is not `brand_boundary_ready`,
 - the roadmap reconciliation is not `roadmap_reconciled`,
-- the roadmap latest version is not `V90`,
+- the roadmap latest version is not the current reconciled version,
 - command safety did not keep all required fixtures.
 
 ## Execution Model

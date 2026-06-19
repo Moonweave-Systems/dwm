@@ -2105,6 +2105,106 @@ def require_fixture_smoke(blocks: list[tuple[str, str]] | None = None) -> None:
         raise SystemExit(f"fixture smoke missing fixture types: {missing_types}")
 
 
+def require_smoke_commands_pass() -> None:
+    commands = [
+        [sys.executable, "scripts/quick_validate_skill.py", "."],
+        [sys.executable, "scripts/dwm.py", "doctor", "--json"],
+        [sys.executable, "scripts/check_whitespace.py", "."],
+        [sys.executable, "scripts/check_release_text.py", "."],
+    ]
+    for command in commands:
+        run_contract_command(command, timeout_seconds=release_command_timeout(command))
+
+
+def require_changed_surface_commands_pass() -> None:
+    commands = [
+        [sys.executable, "scripts/dwm_roadmap_reconciliation.py", "--self-test"],
+        [sys.executable, "scripts/dwm_roadmap_reconciliation.py", "--manifest", "fixtures/v88/manifest.json", "--out", "out/roadmap-reconciliations/v88-final"],
+        [sys.executable, "scripts/dwm_roadmap_reconciliation.py", "audit", "--out", "out/roadmap-reconciliations/v88-canonical"],
+        [sys.executable, "scripts/dwm_command_safety.py", "--self-test"],
+        [sys.executable, "scripts/dwm_command_safety.py", "--manifest", "fixtures/v89/manifest.json", "--out", "out/command-safety/v89-final"],
+        [sys.executable, "scripts/dwm_workflow_activation.py", "--self-test"],
+        [sys.executable, "scripts/dwm_workflow_activation.py", "--manifest", "fixtures/v90/manifest.json", "--out", "out/workflow-activations/v90-final"],
+        [
+            sys.executable,
+            "scripts/dwm_workflow_activation.py",
+            "activate",
+            "--audit",
+            "out/installed-surface-audits/v84-canonical/installed-surface-audit.json",
+            "--receipt",
+            "out/runner-receipt-dry-runs/v83-canonical/runner-receipt.json",
+            "--status",
+            "out/v9/v32-semantic-dogfood/status.json",
+            "--brand-audit",
+            "out/brand-boundary-audits/v87-canonical/brand-boundary-audit.json",
+            "--roadmap-reconciliation",
+            "out/roadmap-reconciliations/v88-canonical/roadmap-reconciliation.json",
+            "--command-safety",
+            "out/command-safety/v89-final/summary.json",
+            "--out",
+            "out/workflow-activations/v90-canonical",
+        ],
+        [sys.executable, "scripts/dwm.py", "doctor", "--json"],
+        [sys.executable, "scripts/check_release_text.py", "."],
+    ]
+    for command in commands:
+        run_contract_command(command, timeout_seconds=release_command_timeout(command))
+
+
+def contract_steps_for_tier(tier: str) -> list[tuple[str, object, int]]:
+    if tier == "smoke":
+        return [
+            ("fixture smoke", require_fixture_smoke, DEFAULT_STEP_TIMEOUT_SECONDS),
+            ("smoke command tier", require_smoke_commands_pass, 300),
+        ]
+    if tier == "changed":
+        return [
+            ("fixture smoke", require_fixture_smoke, DEFAULT_STEP_TIMEOUT_SECONDS),
+            ("changed-surface command tier", require_changed_surface_commands_pass, 600),
+        ]
+    if tier != "full":
+        raise SystemExit(f"unknown contract tier: {tier}")
+    return [
+        ("fixture smoke", require_fixture_smoke, DEFAULT_STEP_TIMEOUT_SECONDS),
+        ("release command corpus", require_release_commands_pass, 1800),
+        ("v0.5 decision summary consistency", require_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
+        ("v1 decision summary consistency", require_v1_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
+        ("v2 decision summary consistency", require_v2_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
+        ("v2.5 decision summary consistency", require_v25_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
+        ("v3 decision summary consistency", require_v3_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
+        ("v7.5 decision summary consistency", require_v75_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
+        ("v8 decision summary consistency", require_v8_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
+        ("v9 decision summary consistency", require_v9_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
+        ("v10 decision summary consistency", require_v10_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
+        ("v11 decision summary consistency", require_v11_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
+        ("v13 decision summary consistency", require_v13_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
+        ("v14 decision summary consistency", require_v14_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
+        ("v15 decision summary consistency", require_v15_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
+        ("v16 decision summary consistency", require_v16_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
+        ("v17 decision summary consistency", require_v17_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
+        ("v18 decision summary consistency", require_v18_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
+        ("v19 decision summary consistency", require_v19_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
+        ("v20 decision summary consistency", require_v20_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
+        ("v20.5 decision summary consistency", require_v205_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
+        ("v20.6 decision summary consistency", require_v206_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
+        ("v22 decision summary consistency", require_v22_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
+        ("v23 decision summary consistency", require_v23_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
+        ("v24 decision summary consistency", require_v24_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
+        ("v25 task decision summary consistency", require_v25_tasks_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
+        ("v26 attempts decision summary consistency", require_v26_attempts_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
+        ("v27 smoke decision summary consistency", require_v27_smoke_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
+        ("v28 live plan decision summary consistency", require_v28_live_plan_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
+        ("v29 runner preflight decision summary consistency", require_v29_runner_preflight_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
+        ("v30 receipt decision summary consistency", require_v30_receipt_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
+        ("v31 receipt judge decision summary consistency", require_v31_receipt_judge_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
+        ("v32 live score decision summary consistency", require_v32_live_score_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
+        ("v33 live score aggregate decision summary consistency", require_v33_live_score_aggregate_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
+        ("v34 live score review decision summary consistency", require_v34_live_score_review_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
+        ("v35 live report decision summary consistency", require_v35_live_report_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
+        ("v36 readme graph decision summary consistency", require_v36_readme_graph_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
+    ]
+
+
 def self_test() -> None:
     valid_block = """
 Fixture type: codebase-facing
@@ -2142,6 +2242,12 @@ Overclaims execution: no
         raise SystemExit("self-test failed: demo release command timeout not selected")
     if release_command_timeout([sys.executable, "scripts/dwm.py", "--self-test"]) != DEFAULT_COMMAND_TIMEOUT_SECONDS:
         raise SystemExit("self-test failed: default release command timeout not selected")
+    if [label for label, _callback, _timeout in contract_steps_for_tier("smoke")] != ["fixture smoke", "smoke command tier"]:
+        raise SystemExit("self-test failed: smoke tier steps changed")
+    if [label for label, _callback, _timeout in contract_steps_for_tier("changed")] != ["fixture smoke", "changed-surface command tier"]:
+        raise SystemExit("self-test failed: changed tier steps changed")
+    if "release command corpus" not in [label for label, _callback, _timeout in contract_steps_for_tier("full")]:
+        raise SystemExit("self-test failed: full tier does not include release command corpus")
     try:
         run_contract_command([sys.executable, "-c", "import time; time.sleep(2)"], timeout_seconds=1)
     except SystemExit as exc:
@@ -3318,6 +3424,7 @@ def main() -> None:
     global SHOW_PROGRESS
     parser = argparse.ArgumentParser()
     parser.add_argument("--self-test", action="store_true")
+    parser.add_argument("--tier", choices=["smoke", "changed", "full"], default="full", help="verification depth; default preserves the full release contract")
     args = parser.parse_args()
     if args.self_test:
         self_test()
@@ -3593,7 +3700,7 @@ def main() -> None:
             "`roadmap-reconciliation.md`",
             "public product brand: `keelplane`",
             "internal engine name: `dwm core`",
-            "latest reconciled version: `v90`",
+            "latest reconciled version: `v91`",
             "does not claim autonomous execution",
         ],
     )
@@ -3607,7 +3714,7 @@ def main() -> None:
             "`required_passed`: 4",
             "`decision`: `keep`",
             "`decision`: `roadmap_reconciled`",
-            "`latest_version`: `v90`",
+            "`latest_version`: `v91`",
             "does not execute queued commands",
         ],
     )
@@ -3645,7 +3752,7 @@ def main() -> None:
             "`ready_for_next_workflow_design`",
             "`brand_boundary_ready`",
             "`roadmap_reconciled`",
-            "the roadmap latest version is not `v90`",
+            "the roadmap latest version is not the current reconciled version",
             "command safety did not keep all required fixtures",
             "does not execute commands",
         ],
@@ -3659,8 +3766,32 @@ def main() -> None:
             "`fixture_count`: 4",
             "`required_passed`: 4",
             "`decision`: `keep`",
-            "`roadmap_latest_version`: `v90`",
+            "`roadmap_latest_version`: `v91`",
             "`command_safety_decision`: `keep`",
+        ],
+    )
+    require_terms(
+        "docs/v91-contract-tiering-spec.md",
+        [
+            "status: implemented release-contract tiering",
+            "`scripts/check_contract.py`",
+            "`--tier smoke`",
+            "`--tier changed`",
+            "`--tier full`",
+            "full release verification as the publishing boundary",
+            "do not treat smoke or changed tiers as publish approval",
+        ],
+    )
+    require_terms(
+        "docs/v91-decision.md",
+        [
+            "decision: keep",
+            "python scripts/check_contract.py --self-test",
+            "python scripts/check_contract.py --tier smoke",
+            "python scripts/check_contract.py --tier changed",
+            "`smoke`: pass",
+            "`changed`: pass",
+            "`full_default`: preserved by `python scripts/check_contract.py`",
         ],
     )
     require_terms("docs/v0.5-plan-schema-evaluator-spec.md", V05_REQUIRED_TERMS)
@@ -5401,48 +5532,10 @@ def main() -> None:
             "out/v0.5/summary.json",
         ],
     )
-    steps = [
-        ("fixture smoke", require_fixture_smoke, DEFAULT_STEP_TIMEOUT_SECONDS),
-        ("release command corpus", require_release_commands_pass, 1800),
-        ("v0.5 decision summary consistency", require_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
-        ("v1 decision summary consistency", require_v1_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
-        ("v2 decision summary consistency", require_v2_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
-        ("v2.5 decision summary consistency", require_v25_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
-        ("v3 decision summary consistency", require_v3_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
-        ("v7.5 decision summary consistency", require_v75_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
-        ("v8 decision summary consistency", require_v8_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
-        ("v9 decision summary consistency", require_v9_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
-        ("v10 decision summary consistency", require_v10_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
-        ("v11 decision summary consistency", require_v11_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
-        ("v13 decision summary consistency", require_v13_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
-        ("v14 decision summary consistency", require_v14_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
-        ("v15 decision summary consistency", require_v15_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
-        ("v16 decision summary consistency", require_v16_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
-        ("v17 decision summary consistency", require_v17_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
-        ("v18 decision summary consistency", require_v18_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
-        ("v19 decision summary consistency", require_v19_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
-        ("v20 decision summary consistency", require_v20_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
-        ("v20.5 decision summary consistency", require_v205_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
-        ("v20.6 decision summary consistency", require_v206_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
-        ("v22 decision summary consistency", require_v22_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
-        ("v23 decision summary consistency", require_v23_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
-        ("v24 decision summary consistency", require_v24_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
-        ("v25 task decision summary consistency", require_v25_tasks_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
-        ("v26 attempts decision summary consistency", require_v26_attempts_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
-        ("v27 smoke decision summary consistency", require_v27_smoke_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
-        ("v28 live plan decision summary consistency", require_v28_live_plan_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
-        ("v29 runner preflight decision summary consistency", require_v29_runner_preflight_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
-        ("v30 receipt decision summary consistency", require_v30_receipt_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
-        ("v31 receipt judge decision summary consistency", require_v31_receipt_judge_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
-        ("v32 live score decision summary consistency", require_v32_live_score_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
-        ("v33 live score aggregate decision summary consistency", require_v33_live_score_aggregate_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
-        ("v34 live score review decision summary consistency", require_v34_live_score_review_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
-        ("v35 live report decision summary consistency", require_v35_live_report_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
-        ("v36 readme graph decision summary consistency", require_v36_readme_graph_decision_summary_consistency, DEFAULT_STEP_TIMEOUT_SECONDS),
-    ]
+    steps = contract_steps_for_tier(args.tier)
     for label, callback, timeout_seconds in steps:
         run_contract_step(label, callback, timeout_seconds=timeout_seconds)
-    print("contract smoke: pass")
+    print(f"contract {args.tier}: pass")
 
 
 if __name__ == "__main__":

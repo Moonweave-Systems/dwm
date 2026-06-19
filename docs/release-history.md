@@ -148,6 +148,9 @@ promotion requires real release history.
   so V75/V76/V77 no longer rely on candidate-declared `risk_codes` alone.
 - V90: `docs/v90-workflow-activation-v2-spec.md` added product-evidence
   activation so V87/V88/V89 gates feed the next-workflow readiness decision.
+- V91: `docs/v91-contract-tiering-spec.md` added smoke, changed-surface, and
+  full contract tiers while keeping full release verification as the publish
+  boundary.
 
 ## Current Public Boundaries
 

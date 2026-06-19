@@ -25,6 +25,8 @@ RELEASE_COMMANDS = [
     "python scripts/quick_validate_skill.py --self-test",
     "python scripts/check_contract.py",
     "python scripts/check_contract.py --self-test",
+    "python scripts/check_contract.py --tier smoke",
+    "python scripts/check_contract.py --tier changed",
     "python scripts/evaluate_plan.py --self-test",
     "python scripts/evaluate_plan.py --manifest fixtures/v0.5/manifest.json --out out/v0.5",
     "python scripts/compile_workflow.py --self-test",
@@ -399,6 +401,8 @@ BASE_REQUIRED_PATHS = [
     "docs/v89-command-safety-spec.md",
     "docs/v90-decision.md",
     "docs/v90-workflow-activation-v2-spec.md",
+    "docs/v91-decision.md",
+    "docs/v91-contract-tiering-spec.md",
     "docs/command-reference.md",
     "docs/release-history.md",
     "packaging/dwm-benchmark-attempts.json",
@@ -591,6 +595,8 @@ BASE_REQUIRED_PATHS = [
     "fixtures/v90/manifest.json",
     "docs/v90-decision.md",
     "docs/v90-workflow-activation-v2-spec.md",
+    "docs/v91-decision.md",
+    "docs/v91-contract-tiering-spec.md",
 ]
 
 

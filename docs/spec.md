@@ -1,6 +1,6 @@
 # Keelplane / DWM Core Spec
 
-Status: V1 implemented, V2 release candidate, V2.5 first loop implemented, V3 entry runtime implemented, V12-V20 product slices implemented, V87 brand boundary audit implemented, V88 roadmap reconciliation, V89 command safety, V90 activation v2, Last updated: 2026-06-19
+Status: V1 implemented, V2 release candidate, V2.5 first loop implemented, V3 entry runtime implemented, V12-V20 product slices implemented, V87 brand boundary audit implemented, V88 roadmap reconciliation, V89 command safety, V90 activation v2, V91 contract tiering, Last updated: 2026-06-19
 
 ## Purpose
 
@@ -54,11 +54,12 @@ Positioning:
   planning, runner execution, session/worktree durability, review/repair,
   bounded fanout, HUD, install packaging, adapter registry, and release
   hardening.
-- V86-V90 brand, roadmap, command safety, and activation gate: make Keelplane
-  the public product brand, preserve DWM Core and `dynamic-workflow-designer`
-  compatibility, keep the spec, roadmap, and release history aligned through
-  audit artifacts, prevent command planning from trusting declared `risk_codes`
-  alone, and require that evidence before next-workflow activation.
+- V86-V91 brand, roadmap, command safety, activation, and contract tier gate:
+  make Keelplane the public product brand, preserve DWM Core and
+  `dynamic-workflow-designer` compatibility, keep the spec, roadmap, and
+  release history aligned through audit artifacts, prevent command planning from
+  trusting declared `risk_codes` alone, require that evidence before
+  next-workflow activation, and keep iterative verification fast enough to use.
 
 ## Users
 
@@ -213,13 +214,13 @@ destructive, networked, dependency-installing, secret-reading, external-message,
 database, production, or history-rewrite action occurs without a matching DWM
 gate and a safe default.
 
-### V86-V90: Brand, Roadmap, Command Safety, And Activation
+### V86-V91: Brand, Roadmap, Command Safety, Activation, And Contract Tiers
 
-V86-V90 align the product surface after the control-plane became broader than a
+V86-V91 align the product surface after the control-plane became broader than a
 single skill, harden the command boundary that follows next-action selection,
-and make next-workflow activation consume those later evidence gates. The
-public product brand is Keelplane. DWM Core remains the internal deterministic
-engine. The compatibility skill name remains
+make next-workflow activation consume those later evidence gates, and split
+verification into practical tiers. The public product brand is Keelplane. DWM
+Core remains the internal deterministic engine. The compatibility skill name remains
 `dynamic-workflow-designer`, and the repository slug remains `dwm` until a
 separate migration gate proves a rename will not break install surfaces.
 
@@ -240,6 +241,9 @@ their own; supported commands can still be blocked or gated.
 V90 activation v2 makes V87 brand boundary, V88 roadmap reconciliation, and V89
 command safety part of the readiness decision before DWM says the next workflow
 can proceed.
+
+V91 contract tiering adds `smoke`, `changed`, and `full` verification paths
+while keeping full release verification as the publishing boundary.
 
 ### Harness Strategy
 
