@@ -225,7 +225,9 @@ strings alone. V93 renders those signals as a Keelplane Control Deck so users
 can see chart, gate, activation, oracle, and next-move state without treating
 evocative labels as source truth. V94 derives a Control Deck readiness score
 from those same artifacts while explicitly blocking public benchmark and upward
-trend claims. V95 records those scores as internal readiness history and can
+trend claims. V94-V101 are frozen as the meta layer and remain bounded to
+artifact status, internal readiness, and human-gated publication routing. V95
+records those scores as internal readiness history and can
 render a local SVG without treating it as a public benchmark graph. V96 adds a
 Metric Ladder so process, operator-readiness, and public-benchmark graph levels
 stay separate. V97 adds a Benchmark Readiness report so internal readiness
@@ -235,9 +237,10 @@ activation evidence. V99 adds a Wave Receipt that verifies the selected dogfood
 evidence wave has usable acquisition evidence. V100 adds Promotion Evidence so
 source artifacts can be recorded before any human review for README graph
 publication. V101 adds Promotion Route so that evidence becomes either a
-dogfood acquisition command plan or a README publication human gate. V102 adds a
-deterministic live-proof recorder and schema gate for one bounded Codex-backed
-attempt while keeping the actual `codex exec` run behind explicit approval. The public product brand is Keelplane. DWM Core remains the internal
+dogfood acquisition command plan or a README publication human gate. The V102
+deterministic live-proof recorder now records one bounded live Codex-backed n=1
+proof that passed red-green verification and independent review. The public
+product brand is Keelplane. DWM Core remains the internal
 deterministic engine. The compatibility skill name remains
 `dynamic-workflow-designer`, and the repository slug remains `dwm` until a
 separate migration gate proves a rename will not break install surfaces.

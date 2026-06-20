@@ -175,8 +175,10 @@ promotion requires real release history.
 - V101: `docs/v101-promotion-route-spec.md` added source-only routing from
   promotion evidence to dogfood acquisition planning or a human gate.
 - V102: `docs/v102-live-proof-1-spec.md` added a deterministic live-proof
-  recorder and fixture gate for one bounded Codex-backed attempt while keeping
-  the first real `codex exec` run opt-in behind explicit approval.
+  recorder and fixture gate for one bounded Codex-backed attempt. The first
+  live n=1 Codex execution is recorded in
+  `docs/releases/v102-live-proof-1.md` with `decision: live-proof-pass`,
+  red-green verification, and approved independent review.
 
 ## Current Public Boundaries
 
@@ -212,3 +214,5 @@ promotion requires real release history.
   hashes remain the source of truth.
 - Control Deck readiness scores are operator status, not public benchmark
   evidence.
+- The V94-V101 meta layer is frozen; V102 records one bounded live proof
+  without adding new score, route, or benchmark layers.
