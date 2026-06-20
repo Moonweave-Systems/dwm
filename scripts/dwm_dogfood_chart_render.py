@@ -19,8 +19,6 @@ if str(SCRIPTS) not in sys.path:
     sys.path.insert(0, str(SCRIPTS))
 
 from compile_workflow import canonical_hash, canonical_json_text, read_json, write_json_atomic, write_text_atomic  # noqa: E402
-from dwm_dogfood_chart_candidate import CHART_ROOT, create_candidate, make_series_dir  # noqa: E402
-from dwm_dogfood_chart_review import REVIEW_ROOT, make_receipt, review_candidate  # noqa: E402
 
 
 TOOL = "dwm_dogfood_chart_render.py"
@@ -99,8 +97,21 @@ def resolve_out(value: str | Path) -> Path:
     return path
 
 
+def chart_candidate_api() -> tuple[Path, Any, Any]:
+    from dwm_dogfood_chart_candidate import CHART_ROOT, create_candidate, make_series_dir
+
+    return CHART_ROOT, create_candidate, make_series_dir
+
+
+def chart_review_api() -> tuple[Path, Any, Any]:
+    from dwm_dogfood_chart_review import REVIEW_ROOT, make_receipt, review_candidate
+
+    return REVIEW_ROOT, make_receipt, review_candidate
+
+
 def resolve_review(value: str | Path) -> Path:
-    return resolve_under(value, REVIEW_ROOT, code="ERR_DOGFOOD_CHART_RENDER_REVIEW_INVALID", label="chart review")
+    review_root, _make_receipt, _review_candidate = chart_review_api()
+    return resolve_under(value, review_root, code="ERR_DOGFOOD_CHART_RENDER_REVIEW_INVALID", label="chart review")
 
 
 def read_sentinel(path: Path) -> dict[str, Any] | None:
@@ -167,7 +178,8 @@ def load_review(review_dir: Path) -> dict[str, Any]:
 
 def load_candidate(review: dict[str, Any]) -> dict[str, Any]:
     candidate_dir = ROOT / review["candidate_path"]
-    resolved = resolve_under(candidate_dir, CHART_ROOT, code="ERR_DOGFOOD_CHART_RENDER_CANDIDATE_INVALID", label="chart candidate")
+    chart_root, _create_candidate, _make_series_dir = chart_candidate_api()
+    resolved = resolve_under(candidate_dir, chart_root, code="ERR_DOGFOOD_CHART_RENDER_CANDIDATE_INVALID", label="chart candidate")
     candidate = read_json_obj(resolved / "chart-candidate.json", code="ERR_DOGFOOD_CHART_RENDER_CANDIDATE_MISSING", message="chart-candidate.json is missing")
     status = read_json_obj(resolved / "status.json", code="ERR_DOGFOOD_CHART_RENDER_CANDIDATE_MISSING", message="status.json is missing")
     if candidate != status:
@@ -275,11 +287,13 @@ def render_review(review_dir: Path, out_dir: Path) -> dict[str, Any]:
 
 
 def make_review_dir(base_name: str, suite_dir: Path) -> Path:
+    chart_root, create_candidate, make_series_dir = chart_candidate_api()
+    review_root, make_receipt, review_candidate = chart_review_api()
     series_dir = make_series_dir(base_name, suite_dir, ready=True)
-    candidate_dir = CHART_ROOT / suite_dir.name / f"{base_name}-candidate"
+    candidate_dir = chart_root / suite_dir.name / f"{base_name}-candidate"
     create_candidate(series_dir, candidate_dir, chart_id=candidate_dir.name)
     receipt = make_receipt(candidate_dir, suite_dir, base_name)
-    review_dir = REVIEW_ROOT / suite_dir.name / f"{base_name}-review"
+    review_dir = review_root / suite_dir.name / f"{base_name}-review"
     review_candidate(candidate_dir, receipt, review_dir, review_id=review_dir.name)
     return review_dir
 

@@ -54,6 +54,15 @@ Trust bottoms out at the human-authored immutable verification files. The loop
 cannot verify the verifier; that is the human's responsibility and is stated
 honestly, not hidden.
 
+## Render-Observe Verification Type
+
+For a renderable artifact, verification must render or parse the produced
+artifact and assert the observed content against declared input; file existence
+or "created" alone is FAIL. The deterministic keep gate covers parseable data
+artifacts such as SVG charts with embedded `data-*` attributes or data labels.
+Interactive UI/game correctness is opt-in LIVE EVIDENCE only, never the
+deterministic keep gate in this slice.
+
 ## Non-Goals (v1)
 
 - No auto-planning. The loop consumes a GIVEN plan; objective-to-plan is later.

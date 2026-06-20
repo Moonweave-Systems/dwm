@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -377,6 +378,26 @@ def verify_phase_scope(
     }
 
 
+def target_artifacts(worktree: Path, phase: dict[str, Any]) -> list[dict[str, Any]]:
+    artifacts: list[dict[str, Any]] = []
+    for value in require_str_list(phase, "target_files"):
+        rel_path = safe_rel_path(value, label="target file").as_posix()
+        path = worktree / rel_path
+        if not path.exists() or path.is_symlink() or not path.is_file():
+            artifacts.append({"path": rel_path, "present": False})
+            continue
+        data = path.read_bytes()
+        artifacts.append(
+            {
+                "path": rel_path,
+                "present": True,
+                "byte_count": len(data),
+                "sha256": hashlib.sha256(data).hexdigest(),
+            }
+        )
+    return artifacts
+
+
 def apply_recording(recording_path: Path, worktree: Path, allowed_targets: set[str], *, attempt: int) -> dict[str, Any]:
     recording = read_json(recording_path)
     if recording.get("fail"):
@@ -488,6 +509,7 @@ def phase_evidence(
     previous_hash: str,
     executor_evidence: list[dict[str, Any]],
     verification: dict[str, Any],
+    artifacts: list[dict[str, Any]],
     checkpoint_commit: str,
 ) -> dict[str, Any]:
     body = {
@@ -514,6 +536,7 @@ def phase_evidence(
                 "invalidators": verification["invalidators"],
             }
         ),
+        "target_artifacts": artifacts,
         "checkpoint_commit": checkpoint_commit,
         "recorded_at": now_utc(),
     }
@@ -526,6 +549,7 @@ def terminal_status(
     fixture_id: str,
     journal: dict[str, Any],
     invalidators: list[dict[str, Any]] | None = None,
+    artifacts: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     status = {
         "schema_version": SCHEMA_VERSION,
@@ -538,6 +562,8 @@ def terminal_status(
         "invalidators": invalidators or [],
         "checked_at": now_utc(),
     }
+    if artifacts is not None:
+        status["target_artifacts"] = artifacts
     return {**status, "status_hash": canonical_hash(status)}
 
 
@@ -655,6 +681,7 @@ def run_loop(
             )
             if verification["verified"]:
                 commit = checkpoint(worktree, phase_id)
+                artifacts = target_artifacts(worktree, phase)
                 evidence = phase_evidence(
                     fixture_id=fixture_id,
                     phase=phase,
@@ -662,6 +689,7 @@ def run_loop(
                     previous_hash=journal["chain_head"],
                     executor_evidence=executor_records,
                     verification=verification,
+                    artifacts=artifacts,
                     checkpoint_commit=commit,
                 )
                 journal["phases"].append(evidence)
@@ -677,6 +705,7 @@ def run_loop(
                     fixture_id=fixture_id,
                     journal=journal,
                     invalidators=verification["invalidators"],
+                    artifacts=target_artifacts(worktree, phase),
                 )
                 write_status(out_dir, status)
                 return status
