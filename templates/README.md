@@ -36,14 +36,14 @@ Workflow({
     verifyBatchSize: 8                                 // OPTIONAL; claims per verifier (default 8)
   }
 })
+```
 
 `args` may be passed as a real JSON value or a JSON string — the template parses
 either.
-```
 
-Returns `{ doc, confirmed, refuted, unverified, claimCount, angles }`. The script
-stays pure (no file write) so it is resumable/cacheable — the caller writes `doc`
-to `outPath`.
+Returns `{ doc, confirmed, partial, refuted, unverified, uncovered, claimCount,
+angles }` (`partial` = partially-supported). The script stays pure (no file write)
+so it is resumable/cacheable — the caller writes `doc` to `outPath`.
 
 ### Contract notes
 
@@ -58,6 +58,15 @@ to `outPath`.
   of 83 claims ran ~20 agents batched vs. ~92 unbatched. A failed batch is retried
   once; any claim still left without a verdict is returned as `uncovered` and the
   composed doc discloses it -- never silently treated as confirmed.
+- Verdict integrity is enforced in code, not just prompt: a `confirmed` /
+  `partially-supported` verdict with no evidence locator+excerpt is downgraded to
+  `unverified`; verdicts for claim ids not in the draft (hallucinated) are dropped;
+  duplicate verdicts are deduped keeping the most conservative (refuted > unverified
+  > partial > confirmed). `partially-supported` exists for prose claims that are
+  overstated/right-in-part — the composer asserts only the narrower supported form.
+- Known limit: the composer is *instructed* to drop refuted/unverified/uncovered
+  claims, but whether the final prose silently reuses a refuted claim's substance is
+  not machine-checked.
 
 ### Validation
 

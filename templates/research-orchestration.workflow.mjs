@@ -14,15 +14,24 @@
 //                sources:  [ "path/to/source.py", "docs/spec.md" ], // REQUIRED ground truth to verify against
 //                angles:   [ { key: "perf", prompt: "..." } ],      // OPTIONAL; derived from `question` if omitted
 //                outPath:  "where/to/write/design-doc.md",          // OPTIONAL; doc is also returned
-//                docKind:  "design document" } })                   // OPTIONAL label for the final artifact
+//                docKind:  "design document",                       // OPTIONAL label for the final artifact
+//                verifyBatchSize: 8 } })                            // OPTIONAL; claims per verifier (default 8)
 //
-// The script RETURNS { doc, confirmed, refuted, unverified, claimCount, angles }.
+// The script RETURNS { doc, confirmed, partial, refuted, unverified, uncovered, claimCount, angles }.
 // The caller (you, the orchestrator) writes `doc` to `args.outPath` if set --
 // keeping the workflow pure keeps it resumable and cacheable.
 //
 // Runtime requirement: the verify phase reads `args.sources` directly, so the
 // workflow subagent must have read access to them (Read/Grep for local files,
 // WebFetch for urls). Pass sources the agents can actually open.
+//
+// Enforcement note: the verification discipline is enforced in CODE where it
+// matters -- a "confirmed"/"partially-supported" verdict with no evidence locator
+// is downgraded to "unverified"; verdicts for claim ids that were never in the
+// draft are dropped; duplicate verdicts are deduped (most-conservative wins). What
+// stays prompt-enforced (a known limit): whether the final prose silently reuses a
+// refuted claim's substance -- the composer is instructed not to, but that is not
+// machine-checked.
 
 export const meta = {
   name: 'research-orchestration',
@@ -32,37 +41,56 @@ export const meta = {
     { title: 'Scope', detail: 'derive research angles from the question (skipped if angles supplied)' },
     { title: 'Research', detail: 'one worker per angle, each returns checkable claims' },
     { title: 'Synthesize', detail: 'barrier: merge all findings into a draft + flat claim list' },
-    { title: 'Verify', detail: 'adversarial verify-against-source, one verifier per claim' },
-    { title: 'Compose', detail: 'assemble the final doc from confirmed claims; flag refuted/unverified' },
+    { title: 'Verify', detail: 'adversarial verify-against-source; verifiers batch claims (one source read per batch)' },
+    { title: 'Compose', detail: 'assemble the final doc from confirmed claims; flag refuted/unverified/uncovered' },
   ],
 }
 
 // ---- input contract -------------------------------------------------------
 
-// `args` may arrive as a parsed object OR, depending on how the caller passes it,
-// as a JSON string. Normalize to an object so the contract checks are robust.
-const input = typeof args === 'string' ? JSON.parse(args || '{}') : (args || {})
+// `args` may arrive as a parsed object OR as a JSON string. Normalize to an
+// object; a non-JSON string (e.g. a bare question) gets a clear error, not a
+// cryptic SyntaxError.
+let input
+if (typeof args === 'string') {
+  try {
+    input = JSON.parse(args || '{}')
+  } catch {
+    throw new Error('research-orchestration: args was passed as a string that is not valid JSON -- pass an object {question, sources, ...}')
+  }
+} else {
+  input = args || {}
+}
 
 const question = input.question
-const sources = input.sources || []
+// Keep only usable string sources; a non-string item would render as "[object
+// Object]" into the verifier prompt and silently break the against-source check.
+const rawSources = Array.isArray(input.sources) ? input.sources : []
+const sources = rawSources.filter((s) => typeof s === 'string' && s.trim())
 const docKind = input.docKind || 'design document'
-// Claims per verifier. One verifier reads the sources once and judges a batch,
-// instead of one agent (and one redundant source re-read) per claim.
-const verifyBatchSize = Number.isInteger(input.verifyBatchSize) && input.verifyBatchSize > 0 ? input.verifyBatchSize : 8
+// Claims per verifier (one source read per batch). Coerce robustly: a finite
+// integer >=1, else 8 (a 0/negative size would make chunk() loop forever; a
+// non-finite size would collapse all claims into one verifier).
+const batchN = Math.floor(Number(input.verifyBatchSize))
+const verifyBatchSize = Number.isFinite(batchN) && batchN >= 1 ? batchN : 8
 
-// Accept angles as objects {key, prompt, why} or as bare strings; normalize so a
-// string angle does not silently leak `undefined` into labels and prompts.
-const suppliedAngles = (input.angles || []).map((a, i) =>
-  typeof a === 'string' ? { key: `angle-${i + 1}`, prompt: a } : a,
-)
+// Accept angles as objects {key, prompt, why} or bare strings; normalize, then
+// drop anything that is not a usable {key, prompt} so a malformed element cannot
+// leak `undefined` into prompts or crash `angles.map(a => a.key)`.
+const suppliedAngles = (Array.isArray(input.angles) ? input.angles : [])
+  .map((a, i) => (typeof a === 'string' ? { key: `angle-${i + 1}`, prompt: a } : a))
+  .filter((a) => a && typeof a.key === 'string' && typeof a.prompt === 'string')
 
-if (!question || typeof question !== 'string') {
-  throw new Error('research-orchestration: args.question (string) is required')
+if (typeof question !== 'string' || !question.trim()) {
+  throw new Error('research-orchestration: args.question (non-empty string) is required')
 }
-if (!Array.isArray(sources) || sources.length === 0) {
+if (rawSources.length !== sources.length) {
+  log(`WARNING: dropped ${rawSources.length - sources.length} non-string source(s); ${sources.length} usable source(s) remain`)
+}
+if (sources.length === 0) {
   // Against-source verification is the whole point. Without ground truth the
   // verify phase can only check plausibility, which is the weak form we reject.
-  log('WARNING: args.sources is empty -- verifiers have no ground truth, so every claim will come back "unverified". Supply real files/data/artifacts to get the high-value against-source check.')
+  log('WARNING: no usable sources -- verifiers have no ground truth, so every claim will come back "unverified". Supply real files/data/urls for the high-value against-source check.')
 }
 
 // ---- schemas (validated at the tool layer; agents retry on mismatch) ------
@@ -127,15 +155,15 @@ const DRAFT_SCHEMA = {
     },
     claims: {
       type: 'array',
-      description: 'flat, de-duplicated list of every checkable claim the doc relies on',
+      description: 'flat, de-duplicated list of every checkable claim the doc relies on; ids MUST be unique',
       items: {
         type: 'object',
-        required: ['id', 'statement'],
+        required: ['id', 'statement', 'origin_angle'],
         properties: {
           id: { type: 'string', description: 'stable id unique across the whole draft' },
           statement: { type: 'string' },
           source_hint: { type: 'string' },
-          origin_angle: { type: 'string' },
+          origin_angle: { type: 'string', description: 'the angle key this claim came from (provenance)' },
         },
       },
     },
@@ -148,7 +176,7 @@ const VERDICT_SCHEMA = {
   required: ['claim_id', 'verdict', 'reason'],
   properties: {
     claim_id: { type: 'string' },
-    verdict: { type: 'string', enum: ['confirmed', 'refuted', 'unverified'] },
+    verdict: { type: 'string', enum: ['confirmed', 'partially-supported', 'refuted', 'unverified'] },
     evidence: {
       type: 'object',
       properties: {
@@ -170,12 +198,14 @@ const VERDICT_BATCH_SCHEMA = {
 
 // ---- prompts --------------------------------------------------------------
 
+const sourceList = sources.length ? sources.map((s) => `- ${s}`).join('\n') : '(none supplied)'
+
 const scopePrompt = `You are scoping a research/design question into independent investigation angles.
 
 QUESTION:
 ${question}
 
-${sources.length ? `Ground-truth sources that exist to check claims against:\n${sources.map((s) => `- ${s}`).join('\n')}` : 'No ground-truth sources were supplied.'}
+${sources.length ? `Ground-truth sources that exist to check claims against:\n${sourceList}` : 'No ground-truth sources were supplied.'}
 
 Decompose the question into 3-6 distinct, non-overlapping angles. Each angle is a
 separate surface or perspective a worker can investigate without coordinating with
@@ -190,7 +220,7 @@ YOUR ANGLE (${angle.key}):
 ${angle.prompt}
 ${angle.why ? `Why it matters: ${angle.why}` : ''}
 
-${sources.length ? `Ground-truth sources available (read them when relevant):\n${sources.map((s) => `- ${s}`).join('\n')}` : ''}
+${sources.length ? `Ground-truth sources available (read them when relevant):\n${sourceList}` : ''}
 
 Return discrete, CHECKABLE claims -- each a single factual statement another agent
 could later confirm or refute against a source. Do not pad with generalities.
@@ -206,10 +236,14 @@ FINDINGS (JSON):
 ${JSON.stringify(findings, null, 2)}
 
 Produce a coherent draft ${docKind}: ordered sections that answer the question,
-referencing claims by id. Then produce a flat, de-duplicated \`claims\` list of every
-checkable claim the draft relies on (merge duplicate claims from different angles into
-one id, keeping the clearest statement and a source_hint). Carry forward unresolved
-tensions as open_questions. Do not invent claims that no worker reported.`
+referencing claims by id. Then produce a flat \`claims\` list of every checkable claim
+the draft relies on. Rules for the claims list:
+- Each claim id MUST be unique across the whole draft.
+- Set origin_angle to the angle the claim came from.
+- Merge duplicate claims from different angles into ONE id (keep the clearest
+  statement + a source_hint).
+- Do NOT invent claims that no worker reported.
+Carry forward unresolved tensions as open_questions.`
 
 const verifyBatchPrompt = (claimsChunk) => `You are an INDEPENDENT adversarial verifier. Your job is to REFUTE these claims, not
 rubber-stamp them. You did not produce them and owe them no benefit of the doubt.
@@ -217,24 +251,34 @@ rubber-stamp them. You did not produce them and owe them no benefit of the doubt
 Read the ground-truth sources ONCE, then judge EVERY claim below against them.
 
 GROUND-TRUTH SOURCES you may read:
-${sources.length ? sources.map((s) => `- ${s}`).join('\n') : '(none supplied)'}
+${sourceList}
 
 CLAIMS (JSON):
 ${JSON.stringify(claimsChunk.map((c) => ({ id: c.id, statement: c.statement, source_hint: c.source_hint })), null, 2)}
 
 Rules:
 - Verify against GROUND TRUTH, not against the producer's reasoning. Open the actual
-  source/data/artifact, read the relevant part, and cite it (file:line, key, or value).
+  source/data/artifact yourself, read the relevant part, and cite it in evidence
+  (locator = file:line / key / url you ACTUALLY read; excerpt_or_value = the exact
+  text or number found there). The source_hint is the producer's guess -- do not
+  trust it; confirm by reading.
 - Any "verified"/"confirmed" wording attached to a claim is itself a claim to refute,
   not a fact.
-- Default to "refuted" when the ground truth contradicts the claim, and "unverified"
-  when no source lets you check it (including when no sources were supplied).
-- Only return "confirmed" when you actually read a source whose content supports it,
-  and you cite that exact locator and excerpt/value.
+- Verdicts:
+  - "confirmed": you read a source whose content fully supports the claim. REQUIRES
+    a real evidence locator + excerpt.
+  - "partially-supported": the source supports only a NARROWER version (the claim is
+    overstated, over-generalized, or right-in-part). REQUIRES evidence; in reason,
+    state exactly which part is unsupported and the narrower version that holds.
+  - "refuted": the ground truth contradicts the claim.
+  - "unverified": no supplied source lets you check it (default when unsure or when
+    no sources were supplied).
+- A "confirmed" or "partially-supported" verdict WITHOUT a real evidence locator is
+  invalid and will be downgraded to "unverified" -- so always cite.
 - Return EXACTLY ONE verdict per claim, each carrying the matching claim_id. Do not
-  merge, skip, or invent claims.`
+  merge, skip, invent, or relabel claim ids.`
 
-const composePrompt = (draft, ledger) => `You are composing the final ${docKind}. Use ONLY claims that survived verification.
+const composePrompt = (draft, ledger) => `You are composing the final ${docKind}.
 
 OVERALL QUESTION:
 ${question}
@@ -242,27 +286,33 @@ ${question}
 DRAFT (sections + claims, JSON):
 ${JSON.stringify(draft, null, 2)}
 
-VERIFICATION LEDGER (JSON):
+VERIFICATION LEDGER (JSON: confirmed / partial / refuted / unverified / uncovered):
 ${JSON.stringify(ledger, null, 2)}
 
 Write the final document in Markdown:
-- Build the argument on CONFIRMED claims (cite their evidence locator inline).
-- REMOVE or rewrite any section that depended on a refuted claim; do not silently keep it.
-- Add a short "Unverified / open" section listing (i) unverified claims, (ii) any
-  UNCOVERED claims (ledger.uncovered -- no verdict because a verifier batch failed
-  or skipped them; name their ids/statements, they were NOT checked), and (iii) open
-  questions. Do not present uncovered claims as established.
-- End with a "Verification summary" line: counts of confirmed / refuted / unverified / uncovered.
+- Build the argument on CONFIRMED claims; cite each one's evidence locator inline.
+- For PARTIALLY-SUPPORTED claims, assert ONLY the narrower supported version stated
+  in the verdict's reason, and cite the locator. Never assert the overstated form.
+- Treat REFUTED, UNVERIFIED, and UNCOVERED claims as NOT established: do not assert
+  their content anywhere in the prose, even if it appears in the draft sections.
+- Add a short "Unverified / open" section listing (i) refuted claims (with why),
+  (ii) unverified claims, (iii) uncovered claims (ledger.uncovered -- no verdict
+  because a verifier batch failed or skipped them; they were NOT checked), and
+  (iv) open questions.
+- End with a "Verification summary" line: counts of confirmed / partial / refuted /
+  unverified / uncovered.
 Return the Markdown document only -- no preamble.`
 
 // ---- orchestration --------------------------------------------------------
 
 phase('Scope')
-const angles = suppliedAngles.length
-  ? suppliedAngles
-  : (await agent(scopePrompt, { schema: ANGLES_SCHEMA, label: 'scope', phase: 'Scope' })).angles
-if (!angles || !angles.length) {
-  throw new Error('research-orchestration: no angles to research (scoping returned none)')
+let angles = suppliedAngles
+if (!angles.length) {
+  const scoped = await agent(scopePrompt, { schema: ANGLES_SCHEMA, label: 'scope', phase: 'Scope' })
+  angles = (scoped && scoped.angles) || []
+}
+if (!angles.length) {
+  throw new Error('research-orchestration: no angles to research (scoping failed or returned none)')
 }
 log(`${angles.length} angle(s): ${angles.map((a) => a.key).join(', ')}`)
 
@@ -271,6 +321,9 @@ const findings = (await parallel(
   angles.map((a) => () =>
     agent(researchPrompt(a), { schema: FINDINGS_SCHEMA, label: `research:${a.key}`, phase: 'Research' })),
 )).filter(Boolean)
+if (findings.length < angles.length) {
+  log(`WARNING: ${angles.length - findings.length}/${angles.length} research angle(s) failed -- synthesizing from the rest`)
+}
 if (!findings.length) {
   throw new Error('research-orchestration: every research worker failed -- nothing to synthesize')
 }
@@ -279,8 +332,14 @@ phase('Synthesize')
 // Barrier is justified: synthesis needs the COMPLETE finding set to de-duplicate
 // claims across angles and resolve cross-angle tensions.
 const draft = await agent(synthPrompt(findings), { schema: DRAFT_SCHEMA, label: 'synthesize', phase: 'Synthesize' })
+if (!draft) {
+  throw new Error('research-orchestration: synthesis failed (agent returned null) -- nothing to verify or compose')
+}
 const claims = draft.claims || []
-log(`draft has ${draft.sections.length} section(s) and ${claims.length} checkable claim(s)`)
+if (!claims.length) {
+  log('WARNING: synthesis produced 0 checkable claims -- the composed doc would rest on unverified prose')
+}
+log(`draft has ${(draft.sections || []).length} section(s) and ${claims.length} checkable claim(s)`)
 
 phase('Verify')
 // Batch claims so each verifier reads the sources once and judges several claims.
@@ -305,25 +364,60 @@ if (failedIdx.length) {
 }
 const droppedBatches = batchResults.filter((r) => !r).length
 if (droppedBatches) {
-  // A dropped batch loses its claims -- surface it, never treat an unverified claim
-  // as confirmed by omission.
   log(`WARNING: ${droppedBatches}/${claimBatches.length} verify batch(es) still failed after retry -- their claims stay UNVERIFIED, not silently confirmed`)
 }
-const verdicts = batchResults.filter(Boolean).flatMap((r) => r.verdicts || [])
+
+// Integrity pass over raw verdicts: (1) drop verdicts whose claim_id was never in
+// the draft (hallucinated); (2) downgrade evidence-less confirmations so "confirmed"
+// always means "checked against a cited source"; (3) dedupe to one verdict per
+// claim, keeping the most CONSERVATIVE on conflict (never over-claim).
+const rawVerdicts = batchResults.filter(Boolean).flatMap((r) => Array.isArray(r.verdicts) ? r.verdicts : [])
+const claimIds = new Set(claims.map((c) => c.id))
+const conservativeRank = { refuted: 3, unverified: 2, 'partially-supported': 1, confirmed: 0 }
+const byClaim = new Map()
+let droppedVerdicts = 0
+let downgraded = 0
+for (const v of rawVerdicts) {
+  if (!v || !claimIds.has(v.claim_id)) {
+    droppedVerdicts++
+    continue
+  }
+  if ((v.verdict === 'confirmed' || v.verdict === 'partially-supported') &&
+      !(v.evidence && v.evidence.locator && v.evidence.excerpt_or_value)) {
+    v.verdict = 'unverified'
+    v.reason = `downgraded (no evidence locator/excerpt): ${v.reason || ''}`
+    downgraded++
+  }
+  // Normalize any unexpected/missing verdict string to unverified, so it can never
+  // vanish from both the buckets AND the uncovered list (we do not trust the schema
+  // enum to be enforced on nested items).
+  if (!(v.verdict in conservativeRank)) {
+    v.reason = `normalized (unknown verdict "${v.verdict}"): ${v.reason || ''}`
+    v.verdict = 'unverified'
+  }
+  const prev = byClaim.get(v.claim_id)
+  if (!prev || conservativeRank[v.verdict] > conservativeRank[prev.verdict]) byClaim.set(v.claim_id, v)
+}
+if (droppedVerdicts) log(`dropped ${droppedVerdicts} verdict(s) addressing claim ids not in the draft (hallucinated)`)
+if (downgraded) log(`downgraded ${downgraded} evidence-less confirmation(s) to unverified`)
+const verdicts = [...byClaim.values()]
 
 const confirmed = verdicts.filter((v) => v.verdict === 'confirmed')
+const partial = verdicts.filter((v) => v.verdict === 'partially-supported')
 const refuted = verdicts.filter((v) => v.verdict === 'refuted')
 const unverified = verdicts.filter((v) => v.verdict === 'unverified')
 // Claims with NO verdict at all (dropped batch, or a verifier that skipped them):
 // a real coverage gap that must be disclosed downstream, not hidden.
-const verdictIds = new Set(verdicts.map((v) => v.claim_id))
-const uncovered = claims.filter((c) => !verdictIds.has(c.id))
-log(`verify: ${confirmed.length} confirmed, ${refuted.length} refuted, ${unverified.length} unverified, ${uncovered.length} uncovered (no verdict)`)
+const uncovered = claims.filter((c) => !byClaim.has(c.id))
+log(`verify: ${confirmed.length} confirmed, ${partial.length} partial, ${refuted.length} refuted, ${unverified.length} unverified, ${uncovered.length} uncovered (no verdict)`)
 
 phase('Compose')
-const doc = await agent(composePrompt(draft, { confirmed, refuted, unverified, uncovered }), {
+const doc = await agent(composePrompt(draft, { confirmed, partial, refuted, unverified, uncovered }), {
   label: 'compose',
   phase: 'Compose',
 })
+if (!doc) {
+  log('WARNING: compose returned null -- no document produced; returning the verification ledger only')
+}
 
-return { doc, confirmed, refuted, unverified, uncovered, claimCount: claims.length, angles }
+return { doc, confirmed, partial, refuted, unverified, uncovered, claimCount: claims.length, angles }
