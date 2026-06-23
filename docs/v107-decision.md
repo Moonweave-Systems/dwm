@@ -1,6 +1,6 @@
 # V107 Decision
 
-Decision: keep as the Agent Fabric control-plane direction spec.
+Decision: keep as the Agent Fabric contract/compiler slice.
 
 Command used to verify this documentation-only PR:
 
@@ -8,8 +8,9 @@ Command used to verify this documentation-only PR:
 python scripts/check_contract.py --tier changed
 ```
 
-V107 records the final direction for a Depone-compatible agent system without
-implementing that system. The accepted boundary is:
+V107 records the final direction for a Depone-compatible agent system and now
+includes the first deterministic contract/compiler slice. The accepted boundary
+is:
 
 - Depone Core remains deterministic and owns contracts, evidence, decisions,
   and assurance.
@@ -18,6 +19,16 @@ implementing that system. The accepted boundary is:
   evidence handoff.
 - Native harnesses such as Codex, Claude Code, OpenCode/OMO, shell, LangGraph,
   or Conductor remain responsible for actual execution.
+
+Implemented in this slice:
+
+- role, toolbelt, harness capability, profile, compile-report, invocation, and
+  agent-result validators;
+- `compile_agent_fabric(profile, harness_name, role_contracts)`;
+- exact, approximated, and unsupported-critical tool mapping decisions;
+- blocked reviewer write access, undeclared MCP tools, missing evidence
+  obligations, and self-reported agent-result boundaries;
+- no live model execution.
 
 This decision intentionally does not claim:
 
@@ -28,14 +39,14 @@ This decision intentionally does not claim:
 - hard per-agent tool filtering in any native harness;
 - production readiness for the existing role pack.
 
-The next implementation slice should be contract-only:
+The next implementation slice should be adapter-only and still deterministic:
 
-1. add role, toolbelt, capability, compile-report, invocation, and agent-result
-   schemas;
-2. add fixtures for exact, approximated, and unsupported-critical tool mappings;
-3. reject reviewer write access, undeclared MCP tools, missing evidence
-   obligations, and agent-written authoritative evidence;
-4. avoid live model calls until deterministic fixture behavior is stable.
+1. add a reference adapter fixture for one local harness;
+2. capture self-report, diff/touched-file summary, and test output as
+   non-authoritative agent evidence;
+3. keep hard tool-hiding claims behind capability evidence;
+4. avoid public productivity or quality claims until paired dogfood evidence
+   exists.
 
 The current `agents/openai.yaml`, `packaging/dwm-roles.json`, V22 role pack
 contract, V105 final profiles, and V105 agent-team spec are useful inputs, but

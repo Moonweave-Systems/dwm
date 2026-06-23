@@ -1,6 +1,6 @@
 # V107: Depone Agent Fabric Control Plane Spec
 
-Status: proposed direction spec, no implementation  
+Status: proposed direction spec, no implementation
 Date: 2026-06-23
 
 ## Purpose
