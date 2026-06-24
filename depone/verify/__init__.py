@@ -172,6 +172,8 @@ def _self_test() -> None:
                 {
                     "claim_or_output": "All endpoints authenticated",
                     "ground_truth": "handoffs/phase-1-report.md",
+                    "evaluator": "ground-truth-contains",
+                    "expected": "authenticated",
                 }
             ],
             "risk_gates": [
@@ -585,6 +587,86 @@ def _self_test() -> None:
         else:
             print(
                 f"  [FAIL] Test {tests}: expected insufficient-evidence, got {report.verdict}"
+            )
+
+    # --- V127 fail-closed claim evaluation regression tests ---
+    def _claim_plan(verification_item: dict) -> dict:
+        return {
+            "schema_version": "0.5",
+            "plan_id": "v127-claim-test",
+            "phases": [
+                {"id": "phase-1", "name": "p1", "entry_criteria": [], "exit_criteria": []}
+            ],
+            "workers": [],
+            "handoffs": [],
+            "parallelism": {"shape": "none", "cap": 1, "barriers": [], "fan_in_rule": None},
+            "verification": [verification_item],
+            "risk_gates": [],
+            "budget": {},
+            "resume": {"cached_outputs": [], "invalidation_rules": []},
+        }
+
+    def _claim_evidence(tmp: str, *, gt_content: str = "ok"):
+        d = Path(tmp) / "evidence"
+        d.mkdir(parents=True, exist_ok=True)
+        (d / "gt.md").write_text(gt_content)
+        (d / "run-metadata.json").write_text('{"run_id": "v127"}')
+        _write_evidence_contract(d)
+        return generic.read_evidence(str(d))
+
+    # Test 8 (gap-map regression): required claim, ground truth present, NO
+    # evaluator -> inconclusive, never pass.
+    tests += 1
+    with tempfile.TemporaryDirectory() as tmp:
+        plan = _claim_plan({"claim_or_output": "X holds", "ground_truth": "gt.md"})
+        report = run_verification(plan, _claim_evidence(tmp))
+        if report.verdict == "insufficient-evidence" and report.decision == "inconclusive":
+            passed += 1
+            print(
+                f"  [PASS] Test {tests}: unevaluated claim + present ground truth -> inconclusive"
+            )
+        else:
+            print(
+                f"  [FAIL] Test {tests}: expected inconclusive, got {report.verdict}/{report.decision}"
+            )
+
+    # Test 9: declared evaluator deterministically refutes -> fail.
+    tests += 1
+    with tempfile.TemporaryDirectory() as tmp:
+        plan = _claim_plan(
+            {
+                "claim_or_output": "ground truth says approved",
+                "ground_truth": "gt.md",
+                "evaluator": "ground-truth-contains",
+                "expected": "approved",
+            }
+        )
+        report = run_verification(plan, _claim_evidence(tmp, gt_content="rejected"))
+        if report.verdict == "refuted" and report.decision == "fail":
+            passed += 1
+            print(f"  [PASS] Test {tests}: evaluator refutes claim -> fail")
+        else:
+            print(
+                f"  [FAIL] Test {tests}: expected fail, got {report.verdict}/{report.decision}"
+            )
+
+    # Test 10: unknown evaluator -> unsupported-evaluator -> inconclusive.
+    tests += 1
+    with tempfile.TemporaryDirectory() as tmp:
+        plan = _claim_plan(
+            {
+                "claim_or_output": "X holds",
+                "ground_truth": "gt.md",
+                "evaluator": "made-up-evaluator",
+            }
+        )
+        report = run_verification(plan, _claim_evidence(tmp))
+        if report.verdict == "insufficient-evidence" and report.decision == "inconclusive":
+            passed += 1
+            print(f"  [PASS] Test {tests}: unknown evaluator -> inconclusive")
+        else:
+            print(
+                f"  [FAIL] Test {tests}: expected inconclusive, got {report.verdict}/{report.decision}"
             )
 
     print(f"\nSelf-test: {passed}/{tests} passed")

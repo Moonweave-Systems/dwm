@@ -211,8 +211,11 @@ def _generate_demo_plan() -> dict[str, Any]:
         },
         "verification": [
             {
-                "claim_or_output": "README exists and was read",
-                "falsifier": "README.md does not exist or is empty",
+                "claim_or_output": "Review handoff produced from reading the README",
+                "ground_truth": "handoffs/phase-2-input.md",
+                "evaluator": "ground-truth-contains",
+                "expected": "README",
+                "falsifier": "no review handoff referencing the README exists",
                 "evidence_required": ["README.md file content"],
             },
         ],

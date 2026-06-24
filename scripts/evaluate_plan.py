@@ -656,9 +656,14 @@ def validate_verification(plan: dict[str, Any], activated: bool) -> None:
     verification = plan["verification"]
     require(isinstance(verification, list), "verification must be a list")
     require(verification or not activated, "activated plans need verification")
+    required_keys = {"claim_or_output", "falsifier", "evidence_required"}
+    optional_keys = {"ground_truth", "evaluator", "expected", "required"}
     for item in verification:
         require(isinstance(item, dict), "verification item must be an object")
-        require_keys(item, ["claim_or_output", "falsifier", "evidence_required"], "verification")
+        missing = sorted(required_keys - set(item))
+        require(not missing, f"verification missing keys: {missing}")
+        extra = sorted(set(item) - required_keys - optional_keys)
+        require(not extra, f"verification contains unexpected keys: {extra}")
         require(non_empty_string(item["claim_or_output"]), "claim_or_output is empty")
         require(non_empty_string(item["falsifier"]), "falsifier is empty")
         require(non_empty_list(item["evidence_required"]), "evidence_required is empty")

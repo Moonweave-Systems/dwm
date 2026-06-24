@@ -25,7 +25,7 @@ def read_evidence(evidence_dir: str) -> EvidenceContext:
     for entry in sorted(root.rglob("*")):
         if entry.is_dir():
             continue
-        rel = str(entry.relative_to(root))
+        rel = entry.relative_to(root).as_posix()
         content_bytes = entry.read_bytes()
         sha = hashlib.sha256(content_bytes).hexdigest()
 

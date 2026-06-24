@@ -44,6 +44,17 @@ class AdversarialCheck:
 
 
 @dataclass
+class ClaimEvaluation:
+    claim: str
+    evaluator: str
+    state: str  # supported | refuted | not-evaluated | stale | unsupported-evaluator
+    required: bool = True
+    detail: str | None = None
+    ground_truth_source: str = ""
+    advisory: bool = False
+
+
+@dataclass
 class BudgetCheck:
     within_limits: bool
     exceeded: list[str] = field(default_factory=list)
@@ -81,6 +92,7 @@ class VerificationReport:
     agent_fabric_captures: list[AgentFabricCaptureCheck] = field(
         default_factory=list
     )
+    claim_evaluations: list[ClaimEvaluation] = field(default_factory=list)
     verdict: Literal["verified", "refuted", "insufficient-evidence"] = "verified"
 
 
@@ -195,40 +207,126 @@ def check_handoff_integrity(
     return results
 
 
-def check_adversarial(
-    plan: dict[str, Any], evidence: EvidenceContext
-) -> list[AdversarialCheck]:
-    """Check 3: Adversarial check against ground truth (V104.0: heuristic stub).
+CLAIM_EVALUATORS = frozenset({"ground-truth-exists", "ground-truth-contains"})
+_INCONCLUSIVE_CLAIM_STATES = frozenset(
+    {"not-evaluated", "stale", "unsupported-evaluator"}
+)
 
-    Full adversarial verification requires an independent verifier agent.
-    In V104.0, we perform a heuristic check: if a claim references a
-    ``ground_truth`` file that does not exist, the claim is flagged.
+
+def _evaluate_one_claim(
+    item: dict[str, Any], evidence_map: dict[str, Any]
+) -> ClaimEvaluation:
+    """Evaluate one verification claim with a declared deterministic evaluator.
+
+    Fail-closed (V127): a claim is ``supported`` only when a declared
+    deterministic evaluator runs and succeeds. A claim with no declared
+    evaluator stays ``not-evaluated`` (an advisory ground-truth presence note is
+    recorded but never upgrades the claim to supported). A required claim that
+    is not supported never yields a pass; only a deterministic refutation fails.
+    """
+    claim = str(item.get("claim_or_output", ""))
+    required = bool(item.get("required", True))
+    evaluator = item.get("evaluator")
+    ground_truth = str(item.get("ground_truth", ""))
+
+    if not evaluator:
+        note = "present" if ground_truth and ground_truth in evidence_map else "absent or undeclared"
+        return ClaimEvaluation(
+            claim=claim,
+            evaluator="(none)",
+            state="not-evaluated",
+            required=required,
+            detail=f"no evaluator declared; ground truth {note} (advisory only)",
+            ground_truth_source=ground_truth,
+            advisory=True,
+        )
+
+    if evaluator not in CLAIM_EVALUATORS:
+        return ClaimEvaluation(
+            claim=claim,
+            evaluator=str(evaluator),
+            state="unsupported-evaluator",
+            required=required,
+            detail=f"unknown evaluator: {evaluator}",
+            ground_truth_source=ground_truth,
+        )
+
+    if not ground_truth or ground_truth not in evidence_map:
+        return ClaimEvaluation(
+            claim=claim,
+            evaluator=str(evaluator),
+            state="refuted",
+            required=required,
+            detail=f"ground truth source not found: {ground_truth or '(undeclared)'}",
+            ground_truth_source=ground_truth,
+        )
+
+    if evaluator == "ground-truth-exists":
+        return ClaimEvaluation(
+            claim=claim,
+            evaluator=str(evaluator),
+            state="supported",
+            required=required,
+            detail=f"ground truth present: {ground_truth}",
+            ground_truth_source=ground_truth,
+        )
+
+    # ground-truth-contains: deterministic substring check against ground truth.
+    expected = str(item.get("expected", ""))
+    content = getattr(evidence_map[ground_truth], "content", "") or ""
+    if expected and expected in content:
+        return ClaimEvaluation(
+            claim=claim,
+            evaluator=str(evaluator),
+            state="supported",
+            required=required,
+            detail=f"ground truth contains expected text: {expected!r}",
+            ground_truth_source=ground_truth,
+        )
+    return ClaimEvaluation(
+        claim=claim,
+        evaluator=str(evaluator),
+        state="refuted",
+        required=required,
+        detail=f"expected text not found in ground truth: {expected!r}",
+        ground_truth_source=ground_truth,
+    )
+
+
+def evaluate_claims(
+    plan: dict[str, Any], evidence: EvidenceContext
+) -> list[ClaimEvaluation]:
+    """Check 3 (V127): deterministic, fail-closed claim evaluation.
+
+    Replaces the V104 path-existence heuristic. A claim is supported only when a
+    declared deterministic evaluator succeeds; an unevaluated required claim
+    contributes ``inconclusive``, never ``pass``.
     """
     verification = plan.get("verification", [])
-    if not verification:
-        return []
+    evidence_map = {f.path: f for f in evidence.files}
+    return [
+        _evaluate_one_claim(item, evidence_map)
+        for item in verification
+        if isinstance(item, dict)
+    ]
 
-    evidence_paths = {f.path for f in evidence.files}
-    results: list[AdversarialCheck] = []
-    for item in verification:
-        if not isinstance(item, dict):
-            continue
-        claim = item.get("claim_or_output", "")
-        ground_truth_source = item.get("ground_truth", "")
-        refuted = False
-        refutation = None
-        if ground_truth_source and ground_truth_source not in evidence_paths:
-            refuted = True
-            refutation = f"ground truth source not found: {ground_truth_source}"
-        results.append(
+
+def _adversarial_from_claims(
+    claim_evals: list[ClaimEvaluation],
+) -> list[AdversarialCheck]:
+    """Derive the legacy advisory adversarial view from claim evaluations."""
+    checks: list[AdversarialCheck] = []
+    for evaluation in claim_evals:
+        refuted = evaluation.state == "refuted"
+        checks.append(
             AdversarialCheck(
-                claim=claim,
+                claim=evaluation.claim,
                 refuted=refuted,
-                refutation=refutation,
-                ground_truth_source=ground_truth_source,
+                refutation=evaluation.detail if refuted else None,
+                ground_truth_source=evaluation.ground_truth_source,
             )
         )
-    return results
+    return checks
 
 
 def check_budget_adherence(
@@ -236,15 +334,21 @@ def check_budget_adherence(
 ) -> BudgetCheck:
     budget = plan.get("budget", {})
     exceeded: list[str] = []
+    metadata = evidence.raw.get("metadata", {})
 
     max_agents = budget.get("max_agents", 0)
     if max_agents > 0:
-        agent_logs = [f for f in evidence.files if "agent" in f.path.lower()]
-        agent_count = len(agent_logs)
+        # V127: count agent invocations from observed records, not filenames.
+        invocations = metadata.get("invocations")
+        if isinstance(invocations, list):
+            agent_count = len(invocations)
+        elif isinstance(metadata.get("num_agents"), int):
+            agent_count = metadata["num_agents"]
+        else:
+            agent_count = 0  # unobserved; do not infer from filenames
         if agent_count > max_agents:
             exceeded.append(f"max_agents: {agent_count} > {max_agents}")
 
-    metadata = evidence.raw.get("metadata", {})
     if metadata:
         num_rounds = metadata.get("num_rounds", 0)
         max_rounds = budget.get("max_rounds", 0)
@@ -326,7 +430,8 @@ def run_verification(
     # Compute each check ONCE (P1-5)
     gates = check_gate_compliance(plan, evidence)
     all_handoffs = check_handoff_integrity(plan, evidence)
-    adv_checks = check_adversarial(plan, evidence)
+    claim_evals = evaluate_claims(plan, evidence)
+    adv_checks = _adversarial_from_claims(claim_evals)
     budget = check_budget_adherence(plan, evidence)
     evidence_contract = validate_evidence_contract(evidence)
     agent_fabric_captures = _read_agent_fabric_captures(evidence)
@@ -384,6 +489,14 @@ def run_verification(
     if any(not capture.valid for capture in agent_fabric_captures):
         any_refuted = True
 
+    # V127: deterministic claim evaluation drives the verdict, fail-closed.
+    if any(ce.required and ce.state == "refuted" for ce in claim_evals):
+        any_refuted = True
+    if any(
+        ce.required and ce.state in _INCONCLUSIVE_CLAIM_STATES for ce in claim_evals
+    ):
+        any_insufficient = True
+
     if any_refuted:
         overall: Literal["verified", "refuted", "insufficient-evidence"] = "refuted"
     elif any_insufficient:
@@ -400,5 +513,6 @@ def run_verification(
         decision=_decision_for_verdict(overall),
         assurance=_assurance_for_report(agent_fabric_captures),
         agent_fabric_captures=agent_fabric_captures,
+        claim_evaluations=claim_evals,
         verdict=overall,
     )
