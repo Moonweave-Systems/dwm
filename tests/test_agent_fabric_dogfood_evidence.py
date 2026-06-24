@@ -188,5 +188,40 @@ class AgentFabricDogfoodEvidenceTests(unittest.TestCase):
             self.assertIn("Dogfood evidence report written", result.stdout)
 
 
+
+    def test_cli_repeated_capture_manifest_writes_corpus_report(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            first_path = root / "capture-manifest-a.json"
+            second_path = root / "capture-manifest-b.json"
+            out_path = root / "dogfood-corpus.json"
+            first_path.write_text(json.dumps(observed_capture_manifest()))
+            second_path.write_text(json.dumps(observed_capture_manifest()))
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "depone",
+                    "agent-fabric-dogfood-evidence",
+                    "--capture-manifest",
+                    str(first_path),
+                    "--capture-manifest",
+                    str(second_path),
+                    "--out",
+                    str(out_path),
+                ],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            report = json.loads(out_path.read_text())
+            self.assertEqual(report["kind"], "agent-fabric-dogfood-evidence-corpus")
+            self.assertEqual(report["decision"], "dogfood-corpus-ready-source-only")
+            self.assertEqual(report["summary"]["total_manifests"], 2)
+            self.assertIn("Ready manifests: 2/2", result.stdout)
+
 if __name__ == "__main__":
     unittest.main()
