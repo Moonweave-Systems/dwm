@@ -979,6 +979,9 @@ Implemented continuation:
 - V122 added `depone agent-fabric-dogfood-evidence`, a source-only CLI that
   produces dogfood evidence from validated A1 local observed capture manifests
   without executing dogfood runs or approving public claims.
+- V123 added `depone agent-fabric-controlled-capture`, a source-only CLI that
+  summarizes multiple distinct capture manifests as controlled corpus coverage
+  without executing dogfood runs, approving public claims, or upgrading trust.
 
 Next roadmap direction:
 

@@ -27,11 +27,14 @@ def build_controlled_capture_corpus_report(
     manifest_records: list[dict[str, Any]] = []
     invalid_count = 0
     dogfood_ready_count = 0
+    manifest_hashes: list[str] = []
 
     for index, capture_manifest in enumerate(capture_manifests):
         validation_errors = validate_capture_manifest(capture_manifest)
         dogfood_report = build_dogfood_evidence_report(capture_manifest)
         dogfood_decision = dogfood_report.get("decision")
+        manifest_hash = canonical_hash(capture_manifest)
+        manifest_hashes.append(manifest_hash)
         if validation_errors:
             invalid_count += 1
         if dogfood_decision == READY_DOGFOOD_DECISION:
@@ -43,9 +46,13 @@ def build_controlled_capture_corpus_report(
                 "capture_decision": capture_manifest.get("decision"),
                 "dogfood_evidence_decision": dogfood_decision,
                 "validation_errors": validation_errors,
-                "source_hash": canonical_hash(capture_manifest),
+                "source_hash": manifest_hash,
             }
         )
+
+    duplicate_hashes = sorted(
+        {hash_value for hash_value in manifest_hashes if manifest_hashes.count(hash_value) > 1}
+    )
 
     blockers: list[dict[str, Any]] = []
     if len(capture_manifests) < min_manifests:
@@ -58,12 +65,22 @@ def build_controlled_capture_corpus_report(
             }
         )
         decision = "blocked-controlled-capture-too-narrow"
+    elif duplicate_hashes:
+        blockers.append(
+            {
+                "code": "ERR_CAPTURE_CORPUS_DUPLICATE",
+                "message": "controlled capture corpus entries must be distinct",
+                "duplicate_hashes": duplicate_hashes,
+            }
+        )
+        decision = "blocked-duplicate-controlled-capture"
     elif invalid_count:
         blockers.append(
             {
                 "code": "ERR_CAPTURE_CORPUS_INVALID",
                 "message": "one or more controlled capture manifests failed validation",
                 "invalid_manifest_count": invalid_count,
+            "duplicate_manifest_count": len(duplicate_hashes),
             }
         )
         decision = "blocked-invalid-controlled-capture"
@@ -90,6 +107,7 @@ def build_controlled_capture_corpus_report(
             "min_manifests": min_manifests,
             "dogfood_ready_count": dogfood_ready_count,
             "invalid_manifest_count": invalid_count,
+            "duplicate_manifest_count": len(duplicate_hashes),
         },
         "manifests": manifest_records,
         "blockers": blockers,

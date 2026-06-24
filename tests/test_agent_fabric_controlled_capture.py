@@ -51,6 +51,19 @@ class AgentFabricControlledCaptureTests(unittest.TestCase):
         self.assertEqual(report["decision"], "blocked-controlled-capture-too-narrow")
         self.assertEqual(report["blockers"][0]["code"], "ERR_CAPTURE_CORPUS_TOO_NARROW")
 
+
+    def test_duplicate_capture_manifests_block_corpus_report(self) -> None:
+        from depone.agent_fabric.controlled_capture import (
+            build_controlled_capture_corpus_report,
+        )
+
+        capture = capture_manifests()[0]
+
+        report = build_controlled_capture_corpus_report([capture, capture])
+
+        self.assertEqual(report["decision"], "blocked-duplicate-controlled-capture")
+        self.assertEqual(report["blockers"][0]["code"], "ERR_CAPTURE_CORPUS_DUPLICATE")
+
     def test_invalid_capture_manifest_blocks_corpus_report(self) -> None:
         from depone.agent_fabric.controlled_capture import (
             build_controlled_capture_corpus_report,
