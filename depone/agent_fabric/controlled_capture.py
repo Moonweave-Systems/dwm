@@ -51,7 +51,11 @@ def build_controlled_capture_corpus_report(
         )
 
     duplicate_hashes = sorted(
-        {hash_value for hash_value in manifest_hashes if manifest_hashes.count(hash_value) > 1}
+        {
+            hash_value
+            for hash_value in manifest_hashes
+            if manifest_hashes.count(hash_value) > 1
+        }
     )
 
     blockers: list[dict[str, Any]] = []
@@ -80,7 +84,7 @@ def build_controlled_capture_corpus_report(
                 "code": "ERR_CAPTURE_CORPUS_INVALID",
                 "message": "one or more controlled capture manifests failed validation",
                 "invalid_manifest_count": invalid_count,
-            "duplicate_manifest_count": len(duplicate_hashes),
+                "duplicate_manifest_count": len(duplicate_hashes),
             }
         )
         decision = "blocked-invalid-controlled-capture"
