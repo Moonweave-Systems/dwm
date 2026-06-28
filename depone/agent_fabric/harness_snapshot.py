@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from typing import Any
 
+from depone._resources import resource_text
 from depone.compile.tool_mappings import (
     ABSTRACT_TOOLS,
     ALL_HARNESSES,
@@ -67,15 +67,11 @@ def build_harness_snapshot(harness_names: list[str] | None = None) -> dict[str, 
     }
 
 
-def _capability_dir() -> Path:
-    return Path(__file__).resolve().parents[1] / "fixtures" / "capabilities"
-
-
 def _load_capability(name: str) -> dict[str, Any] | None:
-    path = _capability_dir() / f"{name}.json"
-    if not path.exists():
+    try:
+        data = json.loads(resource_text(f"fixtures/capabilities/{name}.json"))
+    except (FileNotFoundError, ModuleNotFoundError):
         return None
-    data = json.loads(path.read_text())
     if not isinstance(data, dict):
         return None
     return data

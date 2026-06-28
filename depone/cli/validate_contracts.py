@@ -11,7 +11,9 @@ import argparse
 import json
 import sys
 from pathlib import Path
+from typing import Any
 
+from depone._resources import resource_children
 from depone.agent_fabric.capture_bridge import (
     build_capture_manifest,
     validate_capture_manifest,
@@ -31,6 +33,8 @@ from depone.contract import (
     validate_agent_fabric_contract,
     validate_self_test,
 )
+
+PARKED_FIXTURE_NAMES = {"agent_operating_system_spec.json"}
 
 
 def run(args: argparse.Namespace) -> None:
@@ -57,13 +61,13 @@ def run(args: argparse.Namespace) -> None:
 
     total_errors = 0
     for path in paths:
-        if not path.exists():
+        if not _path_exists(path):
             print(f"Error: file not found: {path}", file=sys.stderr)
             total_errors += 1
             continue
 
         try:
-            data = json.loads(path.read_text())
+            data = json.loads(_read_path_text(path))
         except json.JSONDecodeError as e:
             print(f"Error: {path}: invalid JSON: {e}", file=sys.stderr)
             total_errors += 1
@@ -81,18 +85,36 @@ def run(args: argparse.Namespace) -> None:
     sys.exit(1 if total_errors else 0)
 
 
-def _all_contract_paths() -> list[Path]:
+def _all_contract_paths() -> list[Any]:
     """Return repo-shipped Agent Fabric contract files for batch validation."""
-    roots = [
-        Path("contracts"),
-        Path("depone") / "fixtures" / "capabilities",
-        Path("depone") / "fixtures" / "agent_fabric",
-    ]
-    paths: list[Path] = []
-    for root in roots:
-        if root.is_dir():
-            paths.extend(sorted(root.glob("*.json")))
+    paths: list[Any] = []
+    contracts_root = Path("contracts")
+    if contracts_root.is_dir():
+        paths.extend(sorted(contracts_root.glob("*.json")))
+    for relpath in ("fixtures/capabilities", "fixtures/agent_fabric"):
+        paths.extend(
+            sorted(
+                (
+                    child
+                    for child in resource_children(relpath)
+                    if child.is_file()
+                    and child.name.endswith(".json")
+                    and child.name not in PARKED_FIXTURE_NAMES
+                ),
+                key=lambda child: child.name,
+            )
+        )
     return paths
+
+
+def _path_exists(path: Any) -> bool:
+    if isinstance(path, Path):
+        return path.exists()
+    return bool(path.is_file())
+
+
+def _read_path_text(path: Any) -> str:
+    return path.read_text(encoding="utf-8")
 
 
 def _validate_contract_dispatch(data: dict) -> list[str]:

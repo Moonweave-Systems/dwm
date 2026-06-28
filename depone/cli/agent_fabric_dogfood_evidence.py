@@ -8,6 +8,7 @@ import sys
 import tempfile
 from pathlib import Path
 
+from depone._resources import resource_path
 from depone.agent_fabric.dogfood_evidence import (
     build_controlled_capture_corpus_report,
     build_dogfood_evidence_report,
@@ -72,10 +73,8 @@ def _self_test() -> None:
         root = Path(tmp)
         capture_path = root / "capture-manifest.json"
         out_path = root / "dogfood-evidence.json"
-        capture = _read_object(
-            Path("depone/fixtures/agent_fabric/capture_manifest_shell.json"),
-            "capture manifest fixture",
-        )
+        with resource_path("fixtures/agent_fabric/capture_manifest_shell.json") as fixture_path:
+            capture = _read_object(fixture_path, "capture manifest fixture")
         capture_path.write_text(json.dumps(capture))
         args = argparse.Namespace(
             self_test=False,

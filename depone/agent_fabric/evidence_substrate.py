@@ -10,8 +10,13 @@ import base64
 import hashlib
 import json
 from pathlib import Path
+import sys
 from typing import Any
 
+if __package__ in (None, ""):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+from depone._resources import resource_text
 from depone.agent_fabric.capture_bridge import validate_capture_manifest
 from depone.agent_fabric.claim_gate import canonical_hash
 
@@ -555,12 +560,12 @@ def evaluate_external_statement_subjects(
 
 def _self_test() -> None:
     from copy import deepcopy
-    from pathlib import Path
 
-    fixture_path = Path(
-        "depone/fixtures/agent_fabric/capture_manifest_v126_governed_utf8.json"
+    capture = json.loads(
+        resource_text(
+            "fixtures/agent_fabric/capture_manifest_v126_governed_utf8.json"
+        )
     )
-    capture = json.loads(fixture_path.read_text(encoding="utf-8"))
     bundle = build_evidence_bundle(capture)
     statement = bundle["statement"]
     if validate_statement_for_capture(statement, capture):

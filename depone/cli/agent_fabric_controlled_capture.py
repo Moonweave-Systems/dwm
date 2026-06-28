@@ -8,6 +8,7 @@ import sys
 import tempfile
 from pathlib import Path
 
+from depone._resources import resource_path
 from depone.agent_fabric.controlled_capture import (
     build_controlled_capture_corpus_report,
 )
@@ -58,15 +59,14 @@ def _self_test() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
         out_path = root / "controlled-capture-corpus.json"
-        args = argparse.Namespace(
-            self_test=False,
-            capture_manifest=[
-                "depone/fixtures/agent_fabric/capture_manifest_shell.json",
-                "depone/fixtures/agent_fabric/capture_manifest_shell_docs.json",
-            ],
-            out=str(out_path),
-        )
-        run(args)
+        with resource_path("fixtures/agent_fabric/capture_manifest_shell.json") as shell_path:
+            with resource_path("fixtures/agent_fabric/capture_manifest_shell_docs.json") as docs_path:
+                args = argparse.Namespace(
+                    self_test=False,
+                    capture_manifest=[str(shell_path), str(docs_path)],
+                    out=str(out_path),
+                )
+                run(args)
         report = json.loads(out_path.read_text())
         if report.get("decision") != "controlled-capture-corpus-ready-source-only":
             print("  [FAIL] expected controlled capture corpus ready", file=sys.stderr)

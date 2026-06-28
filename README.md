@@ -17,33 +17,34 @@ evidence. It does not execute agents — it makes runs from other frameworks
 # Installation from source. PyPI publishing is not active yet.
 git clone https://github.com/Moonweave-Systems/keelplane
 cd keelplane
+python3 -m pip install .
+cd /tmp
 
 # Run the full design → compile → verify cycle
-python3 -m depone demo --out out/depone-quickstart
+depone demo --out depone-quickstart
 
 # Or step by step:
-python3 -m depone design "audit all API routes for authentication" --surface . --out plan.json
-python3 -m depone validate plan.json
-python3 -m depone compile plan.json --target conductor --out workflow.yaml
-python3 -m depone verify plan.json --evidence ./evidence/ --out report.json --operator-view-out operator-view.md
+depone design "audit all API routes for authentication" --surface . --out plan.json
+depone validate plan.json
+depone compile plan.json --target conductor --out workflow.yaml
+depone verify plan.json --evidence ./evidence/ --out report.json --operator-view-out operator-view.md
 ```
 
 ## Installation
 
 ```bash
-pip install depone
+python3 -m pip install .
 ```
 
 No external dependencies required — the core uses Python stdlib only.
-Optional extras such as `depone[conductor]` are currently empty placeholders;
-they install no additional runtime dependencies.
 > **Note:** `pip install depone` is not yet available on PyPI.
-> Clone from GitHub and use `python -m depone` for now (V104.1 target).
+> Clone from GitHub and install from the checkout for now. The installed
+> `depone` command resolves shipped fixtures from the package and can run from
+> any working directory.
 
 ## What Exists Today
 Depone ships the stdlib-only CLI, a strict plan validator, a Conductor YAML
 emitter, a generic evidence adapter, and the bounded verification engine.
-
 Run model: a `slice` is one atomic worker task, a `wave` is a gated group of
 one or more slices, and a `run` is one or more waves verified by receipts and
 evidence gates.
@@ -151,18 +152,17 @@ python scripts/check_readme_quality.py README.md
 
 All CLI commands include built-in `--self-test`:
 ```bash
-python3 -m depone design --self-test              # 4/4 passed
-python3 -m depone compile --self-test             # conductor 4/4, agent_fabric 6/6 passed
-python3 -m depone validate --self-test            # 4/4 passed
-python3 -m depone verify --self-test              # 12/12 passed
-python3 -m depone validate-contracts --self-test  # 22/22 passed
-python3 -m depone agent-fabric-smoke --self-test # source-only smoke export passed
-python3 -m depone agent-fabric-harness-snapshot --self-test # harness snapshot export passed
-python3 -m depone agent-fabric-adapter-smoke --self-test # adapter smoke export passed
-python3 -m depone agent-fabric-claim-gate --self-test # claim gate export passed
-python3 -m depone demo --self-test                # full cycle passed
+depone design --self-test              # 4/4 passed
+depone compile --self-test             # conductor 4/4, agent_fabric 6/6 passed
+depone validate --self-test            # 4/4 passed
+depone verify --self-test              # 12/12 passed
+depone validate-contracts --self-test  # 22/22 passed
+depone agent-fabric-smoke --self-test # source-only smoke export passed
+depone agent-fabric-harness-snapshot --self-test # harness snapshot export passed
+depone agent-fabric-adapter-smoke --self-test # adapter smoke export passed
+depone agent-fabric-claim-gate --self-test # claim gate export passed
+depone demo --self-test                # full cycle passed
 ```
-Run the release contract before publishing changes:
 
 ```bash
 python scripts/check_contract.py --tier changed

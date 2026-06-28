@@ -8,6 +8,7 @@ import sys
 import tempfile
 from pathlib import Path
 
+from depone._resources import resource_path
 from depone.agent_fabric.adapter_smoke import build_adapter_smoke_report
 from depone.agent_fabric.harness_snapshot import build_harness_snapshot
 from depone.agent_fabric.paired_evidence import build_paired_evidence_report
@@ -63,10 +64,8 @@ def _self_test() -> None:
         smoke_path = root / "adapter-smoke.json"
         dogfood_path = root / "dogfood-evidence.json"
         out_path = root / "paired-evidence.json"
-        fixture = _read_object(
-            Path("depone/fixtures/agent_fabric/reference_adapter_shell.json"),
-            "adapter fixture",
-        )
+        with resource_path("fixtures/agent_fabric/reference_adapter_shell.json") as fixture_path:
+            fixture = _read_object(fixture_path, "adapter fixture")
         smoke = build_adapter_smoke_report(fixture, build_harness_snapshot(["shell"]))
         dogfood = {
             "kind": "agent-fabric-dogfood-evidence",

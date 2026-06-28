@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from depone._resources import resource_text
 from depone.agent_fabric.claim_gate import canonical_hash
 
 REPORT_KIND = "agent-fabric-paired-evidence-report"
@@ -105,22 +106,18 @@ def _append_dogfood_blockers(
 
 
 def _self_test() -> None:
-    from pathlib import Path
-
     from depone.agent_fabric.adapter_smoke import build_adapter_smoke_report
     from depone.agent_fabric.dogfood_evidence import build_dogfood_evidence_report
     from depone.agent_fabric.harness_snapshot import build_harness_snapshot
 
     fixture = json.loads(
-        Path("depone/fixtures/agent_fabric/reference_adapter_shell.json").read_text(
-            encoding="utf-8"
-        )
+        resource_text("fixtures/agent_fabric/reference_adapter_shell.json")
     )
     smoke = build_adapter_smoke_report(fixture, build_harness_snapshot(["shell"]))
     capture = json.loads(
-        Path(
-            "depone/fixtures/agent_fabric/capture_manifest_v126_governed_utf8.json"
-        ).read_text(encoding="utf-8")
+        resource_text(
+            "fixtures/agent_fabric/capture_manifest_v126_governed_utf8.json"
+        )
     )
     dogfood = build_dogfood_evidence_report(capture)
     report = build_paired_evidence_report(smoke, dogfood)

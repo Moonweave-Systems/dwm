@@ -7,6 +7,7 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from depone._resources import resource_path, resource_text
 from depone.agent_fabric.evidence_substrate import (
     build_evidence_bundle,
     DIGEST_MODE_CANONICAL_JSON,
@@ -122,9 +123,9 @@ def _self_test() -> None:
     # from artifacts written to a temp dir, so the self-test never depends on
     # gitignored out/ artifacts and stays reproducible on a fresh clone.
     capture = json.loads(
-        Path(
-            "depone/fixtures/agent_fabric/capture_manifest_v126_governed_utf8.json"
-        ).read_text(encoding="utf-8")
+        resource_text(
+            "fixtures/agent_fabric/capture_manifest_v126_governed_utf8.json"
+        )
     )
     bundle = build_evidence_bundle(capture)
 
@@ -135,82 +136,82 @@ def _self_test() -> None:
         observer_path.write_text(
             json.dumps(capture["observer_capture"]), encoding="utf-8"
         )
-        artifact_paths = {
-            "source_fixture": "depone/fixtures/agent_fabric/reference_adapter_shell.json",
-            "depone-capture-manifest": str(manifest_path),
-            "observer_capture": str(observer_path),
-        }
-        artifact_digest_modes = {
-            "source_fixture": DIGEST_MODE_CANONICAL_JSON,
-            "depone-capture-manifest": DIGEST_MODE_CANONICAL_JSON,
-            "observer_capture": DIGEST_MODE_CANONICAL_JSON,
-        }
+        with resource_path("fixtures/agent_fabric/reference_adapter_shell.json") as source_fixture_path:
+            artifact_paths = {
+                "source_fixture": str(source_fixture_path),
+                "depone-capture-manifest": str(manifest_path),
+                "observer_capture": str(observer_path),
+            }
+            artifact_digest_modes = {
+                "source_fixture": DIGEST_MODE_CANONICAL_JSON,
+                "depone-capture-manifest": DIGEST_MODE_CANONICAL_JSON,
+                "observer_capture": DIGEST_MODE_CANONICAL_JSON,
+            }
 
-        pass_verdict = ingest_external_evidence(
-            bundle["dsse_envelope"],
-            artifact_paths,
-            artifact_digest_modes=artifact_digest_modes,
-            otel_spans=bundle["otel_spans"],
-        )
-        if pass_verdict["decision"] != "pass":
-            raise AssertionError("V128 bundle should pass with present artifacts")
+            pass_verdict = ingest_external_evidence(
+                bundle["dsse_envelope"],
+                artifact_paths,
+                artifact_digest_modes=artifact_digest_modes,
+                otel_spans=bundle["otel_spans"],
+            )
+            if pass_verdict["decision"] != "pass":
+                raise AssertionError("V128 bundle should pass with present artifacts")
 
-        missing = ingest_external_evidence(
-            bundle["dsse_envelope"],
-            {"source_fixture": artifact_paths["source_fixture"]},
-            artifact_digest_modes={"source_fixture": DIGEST_MODE_CANONICAL_JSON},
-        )
-        if missing["decision"] != "inconclusive":
-            raise AssertionError("missing subjects should be inconclusive")
+            missing = ingest_external_evidence(
+                bundle["dsse_envelope"],
+                {"source_fixture": artifact_paths["source_fixture"]},
+                artifact_digest_modes={"source_fixture": DIGEST_MODE_CANONICAL_JSON},
+            )
+            if missing["decision"] != "inconclusive":
+                raise AssertionError("missing subjects should be inconclusive")
 
-        tampered_path = Path(temp_dir) / "tampered.json"
-        tampered_path.write_text('{"tampered": true}\n', encoding="utf-8")
-        tampered_paths = dict(artifact_paths)
-        tampered_paths["source_fixture"] = str(tampered_path)
-        tampered = ingest_external_evidence(
-            bundle["dsse_envelope"],
-            tampered_paths,
-            artifact_digest_modes=artifact_digest_modes,
-        )
-        if tampered["decision"] != "blocked":
-            raise AssertionError("present digest mismatch should be blocked")
+            tampered_path = Path(temp_dir) / "tampered.json"
+            tampered_path.write_text('{"tampered": true}\n', encoding="utf-8")
+            tampered_paths = dict(artifact_paths)
+            tampered_paths["source_fixture"] = str(tampered_path)
+            tampered = ingest_external_evidence(
+                bundle["dsse_envelope"],
+                tampered_paths,
+                artifact_digest_modes=artifact_digest_modes,
+            )
+            if tampered["decision"] != "blocked":
+                raise AssertionError("present digest mismatch should be blocked")
 
-        signed = dict(bundle["dsse_envelope"])
-        signed["signatures"] = [{"keyid": "unverified", "sig": "claim"}]
-        signed_verdict = ingest_external_evidence(
-            signed,
-            artifact_paths,
-            artifact_digest_modes=artifact_digest_modes,
-        )
-        if signed_verdict["decision"] != "blocked":
-            raise AssertionError("unverifiable signatures should be blocked")
+            signed = dict(bundle["dsse_envelope"])
+            signed["signatures"] = [{"keyid": "unverified", "sig": "claim"}]
+            signed_verdict = ingest_external_evidence(
+                signed,
+                artifact_paths,
+                artifact_digest_modes=artifact_digest_modes,
+            )
+            if signed_verdict["decision"] != "blocked":
+                raise AssertionError("unverifiable signatures should be blocked")
 
-        malformed = {
-            "payloadType": "application/vnd.in-toto+json",
-            "payload": "!!",
-            "signatures": [],
-        }
-        malformed_verdict = ingest_external_evidence(
-            malformed,
-            artifact_paths,
-            artifact_digest_modes=artifact_digest_modes,
-        )
-        if malformed_verdict["decision"] != "blocked":
-            raise AssertionError("malformed DSSE should be blocked")
+            malformed = {
+                "payloadType": "application/vnd.in-toto+json",
+                "payload": "!!",
+                "signatures": [],
+            }
+            malformed_verdict = ingest_external_evidence(
+                malformed,
+                artifact_paths,
+                artifact_digest_modes=artifact_digest_modes,
+            )
+            if malformed_verdict["decision"] != "blocked":
+                raise AssertionError("malformed DSSE should be blocked")
 
-        bad_spans = ingest_external_evidence(
-            bundle["dsse_envelope"],
-            artifact_paths,
-            artifact_digest_modes=artifact_digest_modes,
-            otel_spans=[{"trace_id": "trace"}],
-        )
-        if bad_spans["decision"] == "pass":
-            raise AssertionError("OTel structural errors must not pass")
+            bad_spans = ingest_external_evidence(
+                bundle["dsse_envelope"],
+                artifact_paths,
+                artifact_digest_modes=artifact_digest_modes,
+                otel_spans=[{"trace_id": "trace"}],
+            )
+            if bad_spans["decision"] == "pass":
+                raise AssertionError("OTel structural errors must not pass")
 
-    external_dir = Path("depone/fixtures/agent_fabric/external")
     foreign_statement = json.loads(
-        (external_dir / "external_intoto_statement_real.json").read_text(
-            encoding="utf-8"
+        resource_text(
+            "fixtures/agent_fabric/external/external_intoto_statement_real.json"
         )
     )
     foreign_missing = ingest_external_evidence(foreign_statement, {})
@@ -220,20 +221,21 @@ def _self_test() -> None:
         raise AssertionError("foreign predicate must remain unrecognized")
 
     bound_statement = json.loads(
-        (external_dir / "external_slsa_statement_bound.json").read_text(
-            encoding="utf-8"
+        resource_text(
+            "fixtures/agent_fabric/external/external_slsa_statement_bound.json"
         )
     )
-    bound_pass = ingest_external_evidence(
-        bound_statement,
-        {"external_artifact.bin": str(external_dir / "external_artifact.bin")},
-    )
+    with resource_path("fixtures/agent_fabric/external/external_artifact.bin") as artifact_path:
+        bound_pass = ingest_external_evidence(
+            bound_statement,
+            {"external_artifact.bin": str(artifact_path)},
+        )
     if bound_pass["decision"] != "pass":
         raise AssertionError("foreign raw-byte subject should pass")
 
     signed_fixture = json.loads(
-        (external_dir / "external_signed_dsse_nonempty.json").read_text(
-            encoding="utf-8"
+        resource_text(
+            "fixtures/agent_fabric/external/external_signed_dsse_nonempty.json"
         )
     )
     signed_external = ingest_external_evidence(signed_fixture, {})

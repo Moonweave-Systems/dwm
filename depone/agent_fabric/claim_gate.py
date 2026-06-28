@@ -6,6 +6,8 @@ import hashlib
 import json
 from typing import Any
 
+from depone._resources import resource_text
+
 REPORT_KIND = "agent-fabric-claim-gate-report"
 REPORT_SCHEMA_VERSION = "1.0"
 DEFAULT_CLAIM_SCOPE = "public-benefit"
@@ -136,13 +138,12 @@ def _paired_evidence_decision(
 
 
 def _self_test() -> None:
-    from pathlib import Path
-
     from depone.agent_fabric.adapter_smoke import build_adapter_smoke_report
     from depone.agent_fabric.harness_snapshot import build_harness_snapshot
 
-    fixture_path = Path("depone/fixtures/agent_fabric/reference_adapter_shell.json")
-    fixture = json.loads(fixture_path.read_text())
+    fixture = json.loads(
+        resource_text("fixtures/agent_fabric/reference_adapter_shell.json")
+    )
     smoke = build_adapter_smoke_report(fixture, build_harness_snapshot(["shell"]))
     report = build_claim_gate_report(smoke)
     if report["decision"] != "blocked-missing-paired-evidence":

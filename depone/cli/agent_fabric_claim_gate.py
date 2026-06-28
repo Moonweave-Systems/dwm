@@ -8,6 +8,7 @@ import sys
 import tempfile
 from pathlib import Path
 
+from depone._resources import resource_path
 from depone.agent_fabric.adapter_smoke import build_adapter_smoke_report
 from depone.agent_fabric.claim_gate import build_claim_gate_report
 from depone.agent_fabric.harness_snapshot import build_harness_snapshot
@@ -62,10 +63,8 @@ def _self_test() -> None:
         root = Path(tmp)
         smoke_path = root / "adapter-smoke.json"
         out_path = root / "claim-gate.json"
-        fixture = _read_object(
-            Path("depone/fixtures/agent_fabric/reference_adapter_shell.json"),
-            "adapter fixture",
-        )
+        with resource_path("fixtures/agent_fabric/reference_adapter_shell.json") as fixture_path:
+            fixture = _read_object(fixture_path, "adapter fixture")
         smoke = build_adapter_smoke_report(fixture, build_harness_snapshot(["shell"]))
         smoke_path.write_text(json.dumps(smoke))
         args = argparse.Namespace(

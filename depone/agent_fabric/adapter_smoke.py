@@ -6,6 +6,7 @@ import hashlib
 import json
 from typing import Any
 
+from depone._resources import resource_text
 from depone.agent_fabric.reference_adapter import validate_reference_adapter_fixture
 
 REPORT_KIND = "agent-fabric-adapter-smoke-report"
@@ -109,12 +110,11 @@ def _find_harness_entry(
 
 
 def _self_test() -> None:
-    from pathlib import Path
-
     from depone.agent_fabric.harness_snapshot import build_harness_snapshot
 
-    fixture_path = Path("depone/fixtures/agent_fabric/reference_adapter_shell.json")
-    fixture = json.loads(fixture_path.read_text())
+    fixture = json.loads(
+        resource_text("fixtures/agent_fabric/reference_adapter_shell.json")
+    )
     report = build_adapter_smoke_report(fixture, build_harness_snapshot(["shell"]))
     if report["decision"] != "ready-source-only":
         raise AssertionError("expected shell reference fixture to be source-ready")

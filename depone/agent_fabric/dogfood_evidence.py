@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from depone._resources import resource_text
 from depone.agent_fabric.capture_bridge import validate_capture_manifest
 from depone.agent_fabric.claim_gate import canonical_hash
 
@@ -168,17 +169,13 @@ def build_controlled_capture_corpus_report(
 
 
 def _self_test() -> None:
-    from pathlib import Path
-
     capture = json.loads(
-        Path("depone/fixtures/agent_fabric/capture_manifest_shell.json").read_text(
-            encoding="utf-8"
-        )
+        resource_text("fixtures/agent_fabric/capture_manifest_shell.json")
     )
     docs_capture = json.loads(
-        Path(
-            "depone/fixtures/agent_fabric/capture_manifest_docs_source_only.json"
-        ).read_text(encoding="utf-8")
+        resource_text(
+            "fixtures/agent_fabric/capture_manifest_docs_source_only.json"
+        )
     )
     report = build_dogfood_evidence_report(capture)
     if report["decision"] != READY_DECISION:

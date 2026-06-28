@@ -39,3 +39,10 @@ depone = "depone.__main__:main"
 
 [tool.setuptools.packages.find]
 include = ["depone*"]
+
+[tool.setuptools.package-data]
+depone = [
+    "fixtures/**/*.json",
+    "fixtures/**/*.bin",
+    "fixtures/**/*.md",
+]

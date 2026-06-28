@@ -8,6 +8,7 @@ import sys
 import tempfile
 from pathlib import Path
 
+from depone._resources import resource_path
 from depone.agent_fabric.adapter_smoke import build_adapter_smoke_report
 from depone.agent_fabric.harness_snapshot import build_harness_snapshot
 
@@ -57,13 +58,14 @@ def _self_test() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
         out_path = root / "adapter-smoke.json"
-        args = argparse.Namespace(
-            self_test=False,
-            adapter_fixture="depone/fixtures/agent_fabric/reference_adapter_shell.json",
-            harness_snapshot=None,
-            out=str(out_path),
-        )
-        run(args)
+        with resource_path("fixtures/agent_fabric/reference_adapter_shell.json") as fixture_path:
+            args = argparse.Namespace(
+                self_test=False,
+                adapter_fixture=str(fixture_path),
+                harness_snapshot=None,
+                out=str(out_path),
+            )
+            run(args)
         report = json.loads(out_path.read_text())
         if report.get("decision") != "ready-source-only":
             print("  [FAIL] expected ready-source-only", file=sys.stderr)
