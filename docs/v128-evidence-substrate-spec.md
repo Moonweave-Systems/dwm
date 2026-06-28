@@ -1,7 +1,7 @@
 # V128 Consensus Evidence Substrate Spec
 
-Status: implemented as first stdlib-only derived evidence bundle. Decision
-recorded in `docs/v128-decision.md`.
+Status: implemented as first stdlib-only derived evidence bundle plus external
+ingest hardening. Decision recorded in `docs/v128-decision.md`.
 Date: 2026-06-24.
 
 Parent direction: `docs/v125-direction-check-roadmap.md` (Section 6.3, "next").
@@ -93,7 +93,10 @@ capture manifest (A1, hash-bound)            paired/dogfood evidence report
    migration; mark the standard shapes authoritative once consumers move.
 5. Add an ingest path: accept an externally produced in-toto/DSSE statement or an
    OTel GenAI span set as a verifier input, so Depone can verify evidence
-   captured by any harness, not only its own capture step.
+   captured by any harness, not only its own capture step. Ingest re-hashes
+   present subject artifacts from disk and treats a present digest mismatch as
+   `blocked`, an absent subject artifact as `inconclusive`, and full digest
+   agreement across at least one verified subject as `pass`.
 
 ## 5. Safety and verification gates
 
@@ -107,6 +110,9 @@ capture manifest (A1, hash-bound)            paired/dogfood evidence report
 - Ingested external statements are untrusted until their digests are verified
   against present artifacts; unknown security-relevant fields do not satisfy
   policy (monotonic extension rule).
+- Claimed DSSE signatures are not trusted in V128. A non-empty `signatures`
+  array is `blocked` as `unverifiable-signature`; an empty array remains
+  `unsigned-content-addressed`.
 
 ## 6. Evaluation fixtures
 
@@ -118,7 +124,11 @@ capture manifest (A1, hash-bound)            paired/dogfood evidence report
   `execute_tool` spans and omits `gen_ai.usage.*` when not observed;
 - a tampered Statement (a subject digest altered) fails round-trip verification;
 - an ingested external in-toto statement whose digest does not match a present
-  artifact yields `inconclusive`, not `pass`.
+  artifact yields `blocked`, not `pass`;
+- an ingested external in-toto statement whose subject artifact is absent from
+  disk yields `inconclusive`;
+- a malformed DSSE envelope or one that claims unverifiable signatures yields
+  `blocked` without raising out of the ingest wrapper.
 
 ## 7. Implementation plan
 
@@ -126,8 +136,8 @@ capture manifest (A1, hash-bound)            paired/dogfood evidence report
   (stdlib `json` + `base64` + `hashlib` only), with round-trip fixtures.
 - Phase 2: OTel GenAI span serializer with semconv field mapping and
   observed-only usage fields.
-- Phase 3: ingest path for externally produced statements/spans as verifier
-  inputs.
+- Phase 3: implemented ingest path for externally produced statements/spans as
+  verifier inputs through `depone agent-fabric-evidence-ingest`.
 - Phase 4: write `docs/v128-decision.md` recording the predicate type, the
   unsigned-envelope caveat, and the A3 signing item deferred to a later
   milestone.

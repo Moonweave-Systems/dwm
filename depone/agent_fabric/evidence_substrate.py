@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import base64
 import json
+from pathlib import Path
 from typing import Any
 
 from depone.agent_fabric.capture_bridge import validate_capture_manifest
@@ -112,6 +113,277 @@ def decode_dsse_payload(envelope: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise ValueError("DSSE payload must decode to an object")
     return value
+
+
+def _subject_names(statement: dict[str, Any]) -> list[str]:
+    subjects = statement.get("subject")
+    if not isinstance(subjects, list):
+        return []
+    names: list[str] = []
+    for item in subjects:
+        if isinstance(item, dict) and isinstance(item.get("name"), str):
+            names.append(item["name"])
+    return names
+
+
+def resolve_present_artifact_digests(
+    subject_names: list[str],
+    artifact_paths: dict[str, str],
+) -> dict[str, str]:
+    """Recompute subject digests from present on-disk JSON artifacts."""
+
+    digests: dict[str, str] = {}
+    for name in subject_names:
+        path_text = artifact_paths.get(name)
+        if not path_text:
+            continue
+        path = Path(path_text)
+        if not path.exists() or not path.is_file():
+            continue
+        try:
+            value = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+            continue
+        digests[name] = canonical_hash(value)
+    return digests
+
+
+def _blocked_verdict(reason: str, *, signing_status: str | None = None) -> dict[str, Any]:
+    verdict: dict[str, Any] = {
+        "decision": "blocked",
+        "subject_results": [],
+        "reasons": [reason],
+    }
+    if signing_status is not None:
+        verdict["signing_status"] = signing_status
+    return verdict
+
+
+def ingest_external_statement(
+    statement: dict[str, Any],
+    present_digests: dict[str, str],
+) -> dict[str, Any]:
+    """Evaluate an untrusted in-toto Statement against recomputed digests."""
+
+    reasons: list[str] = []
+    subject_results: list[dict[str, Any]] = []
+    blocked = False
+
+    if statement.get("_type") != INTOTO_STATEMENT_TYPE:
+        reasons.append("statement._type is not in-toto Statement v1")
+        blocked = True
+    if statement.get("predicateType") != DEPONE_PREDICATE_TYPE:
+        reasons.append("statement.predicateType is not Depone evidence v1")
+        blocked = True
+
+    subjects = statement.get("subject")
+    if not isinstance(subjects, list):
+        reasons.append("statement.subject must be a list")
+        return {
+            "decision": "blocked",
+            "subject_results": subject_results,
+            "reasons": reasons,
+        }
+    if not subjects:
+        reasons.append("statement has no subjects to verify")
+
+    verified_count = 0
+    for item in subjects:
+        if not isinstance(item, dict):
+            reasons.append("statement.subject contains a non-object item")
+            blocked = True
+            continue
+        name = item.get("name")
+        digest = item.get("digest")
+        expected = digest.get("sha256") if isinstance(digest, dict) else None
+        if not isinstance(name, str) or not isinstance(expected, str) or not expected:
+            reasons.append("statement.subject item lacks name or digest.sha256")
+            blocked = True
+            subject_results.append(
+                {
+                    "name": str(name),
+                    "expected": str(expected),
+                    "actual": None,
+                    "status": "mismatch",
+                }
+            )
+            continue
+        actual = present_digests.get(name)
+        if actual is None:
+            subject_results.append(
+                {
+                    "name": name,
+                    "expected": expected,
+                    "actual": None,
+                    "status": "missing",
+                }
+            )
+            reasons.append(f"subject artifact not present on disk: {name}")
+        elif actual == expected:
+            verified_count += 1
+            subject_results.append(
+                {
+                    "name": name,
+                    "expected": expected,
+                    "actual": actual,
+                    "status": "verified",
+                }
+            )
+        else:
+            blocked = True
+            subject_results.append(
+                {
+                    "name": name,
+                    "expected": expected,
+                    "actual": actual,
+                    "status": "mismatch",
+                }
+            )
+            reasons.append(f"subject digest mismatch: {name}")
+
+    if blocked:
+        decision = "blocked"
+    elif verified_count > 0 and all(
+        result.get("status") == "verified" for result in subject_results
+    ):
+        decision = "pass"
+    else:
+        decision = "inconclusive"
+    return {
+        "decision": decision,
+        "subject_results": subject_results,
+        "reasons": reasons,
+        "verified_subject_count": verified_count,
+    }
+
+
+def ingest_dsse_envelope(
+    envelope: dict[str, Any],
+    present_digests: dict[str, str],
+) -> dict[str, Any]:
+    """Safely ingest an untrusted DSSE envelope without raising."""
+
+    if not isinstance(envelope, dict):
+        return _blocked_verdict("DSSE envelope must be an object")
+    if envelope.get("payloadType") != DSSE_PAYLOAD_TYPE:
+        return _blocked_verdict("unsupported DSSE payloadType")
+    signatures = envelope.get("signatures")
+    if signatures != []:
+        return _blocked_verdict(
+            "DSSE envelope contains unverifiable signatures",
+            signing_status="unverifiable-signature",
+        )
+    payload = envelope.get("payload")
+    if not isinstance(payload, str):
+        return _blocked_verdict(
+            "DSSE payload must be a base64 string",
+            signing_status="unsigned-content-addressed",
+        )
+    try:
+        decoded = base64.b64decode(payload.encode("ascii"), validate=True).decode(
+            "utf-8"
+        )
+        value = json.loads(decoded)
+    except (UnicodeEncodeError, UnicodeDecodeError, ValueError, json.JSONDecodeError):
+        return _blocked_verdict(
+            "DSSE payload is not decodable in-toto JSON",
+            signing_status="unsigned-content-addressed",
+        )
+    if not isinstance(value, dict):
+        return _blocked_verdict(
+            "DSSE payload must decode to an object",
+            signing_status="unsigned-content-addressed",
+        )
+    verdict = ingest_external_statement(value, present_digests)
+    verdict["signing_status"] = "unsigned-content-addressed"
+    return verdict
+
+
+def validate_external_otel_spans(spans: Any) -> list[str]:
+    """Return structural errors for externally supplied static OTel spans."""
+
+    if not isinstance(spans, list):
+        return ["otel_spans must be a list"]
+    errors: list[str] = []
+    for index, span in enumerate(spans):
+        prefix = f"otel_spans[{index}]"
+        if not isinstance(span, dict):
+            errors.append(f"{prefix} must be an object")
+            continue
+        for key in ("trace_id", "span_id", "name"):
+            if not isinstance(span.get(key), str) or not span.get(key):
+                errors.append(f"{prefix}.{key} must be a non-empty string")
+        parent = span.get("parent_span_id")
+        if parent is not None and not isinstance(parent, str):
+            errors.append(f"{prefix}.parent_span_id must be a string or null")
+        attributes = span.get("attributes")
+        if not isinstance(attributes, dict):
+            errors.append(f"{prefix}.attributes must be an object")
+            continue
+        operation = attributes.get("gen_ai.operation.name")
+        if operation is not None and not isinstance(operation, str):
+            errors.append(
+                f"{prefix}.attributes.gen_ai.operation.name must be a string"
+            )
+    return errors
+
+
+def _safe_decoded_dsse_statement(payload: dict[str, Any]) -> dict[str, Any] | None:
+    if payload.get("payloadType") != DSSE_PAYLOAD_TYPE:
+        return None
+    dsse_payload = payload.get("payload")
+    if not isinstance(dsse_payload, str):
+        return None
+    try:
+        decoded = base64.b64decode(
+            dsse_payload.encode("ascii"),
+            validate=True,
+        ).decode("utf-8")
+        value = json.loads(decoded)
+    except (UnicodeEncodeError, UnicodeDecodeError, ValueError, json.JSONDecodeError):
+        return None
+    return value if isinstance(value, dict) else None
+
+
+def ingest_external_evidence(
+    payload: dict[str, Any],
+    artifact_paths: dict[str, str],
+    *,
+    otel_spans: Any = None,
+) -> dict[str, Any]:
+    """Ingest external evidence as untrusted input and fail closed."""
+
+    if not isinstance(payload, dict):
+        verdict = _blocked_verdict("external evidence payload must be an object")
+    else:
+        statement = payload if payload.get("_type") == INTOTO_STATEMENT_TYPE else None
+        if statement is None and "payloadType" in payload:
+            statement = _safe_decoded_dsse_statement(payload)
+        subject_names = _subject_names(statement) if isinstance(statement, dict) else []
+        present_digests = resolve_present_artifact_digests(
+            subject_names,
+            artifact_paths,
+        )
+        if "payloadType" in payload:
+            verdict = ingest_dsse_envelope(payload, present_digests)
+        elif payload.get("_type") == INTOTO_STATEMENT_TYPE:
+            verdict = ingest_external_statement(payload, present_digests)
+        else:
+            verdict = _blocked_verdict(
+                "external evidence must be a DSSE envelope or in-toto Statement"
+            )
+
+    otel_errors = validate_external_otel_spans(otel_spans) if otel_spans is not None else []
+    if otel_errors:
+        verdict["reasons"] = list(verdict.get("reasons", [])) + otel_errors
+        if verdict.get("decision") == "pass":
+            verdict["decision"] = "blocked"
+    verdict["otel_errors"] = otel_errors
+    verdict["boundary"] = {
+        "raises_assurance": False,
+        "trusts_external_signature": False,
+    }
+    return verdict
 
 
 def build_otel_genai_spans(
@@ -240,30 +512,18 @@ def evaluate_external_statement_subjects(
 ) -> dict[str, Any]:
     """Evaluate externally supplied subjects against present artifact digests."""
 
-    subjects = statement.get("subject")
-    mismatches: list[dict[str, str]] = []
-    if not isinstance(subjects, list):
-        return {
-            "decision": "inconclusive",
-            "mismatches": [{"name": "subject", "reason": "missing subject list"}],
+    verdict = ingest_external_statement(statement, artifact_digests)
+    mismatches = [
+        {
+            "name": str(result.get("name")),
+            "expected": str(result.get("expected")),
+            "actual": str(result.get("actual")),
         }
-    for item in subjects:
-        if not isinstance(item, dict):
-            continue
-        name = item.get("name")
-        digest = item.get("digest", {})
-        expected = digest.get("sha256") if isinstance(digest, dict) else None
-        actual = artifact_digests.get(str(name))
-        if not expected or actual != expected:
-            mismatches.append(
-                {
-                    "name": str(name),
-                    "expected": str(expected),
-                    "actual": str(actual),
-                }
-            )
+        for result in verdict.get("subject_results", [])
+        if result.get("status") != "verified"
+    ]
     return {
-        "decision": "pass" if not mismatches else "inconclusive",
+        "decision": verdict["decision"],
         "mismatches": mismatches,
     }
 
@@ -307,8 +567,8 @@ def _self_test() -> None:
         tampered,
         {"depone-capture-manifest": canonical_hash(capture)},
     )
-    if external["decision"] != "inconclusive":
-        raise AssertionError("digest mismatch must be inconclusive, not pass")
+    if external["decision"] != "blocked":
+        raise AssertionError("digest mismatch must be blocked, not pass")
 
 
 if __name__ == "__main__":

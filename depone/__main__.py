@@ -10,6 +10,7 @@ from depone.cli import (
     agent_fabric_claim_gate,
     agent_fabric_controlled_capture,
     agent_fabric_dogfood_evidence,
+    agent_fabric_evidence_ingest,
     agent_fabric_evidence_substrate,
     agent_fabric_harness_snapshot,
     agent_fabric_paired_evidence,
@@ -403,6 +404,40 @@ def main() -> None:
         "--self-test", action="store_true", help="Run self-test and exit"
     )
 
+    # agent-fabric-evidence-ingest
+    evidence_ingest_parser = sub.add_parser(
+        "agent-fabric-evidence-ingest",
+        help="Ingest external in-toto/DSSE and OTel evidence as untrusted input",
+    )
+    evidence_ingest_group = evidence_ingest_parser.add_mutually_exclusive_group()
+    evidence_ingest_group.add_argument(
+        "--statement",
+        help="Input in-toto Statement JSON or bundle JSON containing statement",
+    )
+    evidence_ingest_group.add_argument(
+        "--dsse",
+        help="Input DSSE envelope JSON or bundle JSON containing dsse_envelope",
+    )
+    evidence_ingest_parser.add_argument(
+        "--otel-spans",
+        default=None,
+        help="Optional OTel span JSON or bundle JSON containing otel_spans",
+    )
+    evidence_ingest_parser.add_argument(
+        "--artifact",
+        action="append",
+        default=[],
+        help="Subject artifact locator as name=path; repeat for each artifact",
+    )
+    evidence_ingest_parser.add_argument(
+        "--out",
+        default="evidence-ingest-verdict.json",
+        help="Output evidence ingest verdict JSON",
+    )
+    evidence_ingest_parser.add_argument(
+        "--self-test", action="store_true", help="Run self-test and exit"
+    )
+
     # agent-fabric-claim-gate
     claim_gate_parser = sub.add_parser(
         "agent-fabric-claim-gate",
@@ -469,6 +504,8 @@ def main() -> None:
         agent_fabric_paired_run.run(args)
     elif args.command == "agent-fabric-evidence-substrate":
         agent_fabric_evidence_substrate.run(args)
+    elif args.command == "agent-fabric-evidence-ingest":
+        agent_fabric_evidence_ingest.run(args)
     elif args.command == "agent-fabric-claim-gate":
         agent_fabric_claim_gate.run(args)
     elif args.command == "demo":

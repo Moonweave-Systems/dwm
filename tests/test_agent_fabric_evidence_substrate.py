@@ -10,6 +10,7 @@ from depone.agent_fabric.evidence_substrate import (
     build_evidence_bundle,
     decode_dsse_payload,
     evaluate_external_statement_subjects,
+    ingest_external_evidence,
     validate_statement_for_capture,
 )
 
@@ -56,7 +57,30 @@ class AgentFabricEvidenceSubstrateTests(unittest.TestCase):
             tampered,
             {"depone-capture-manifest": canonical_hash(capture)},
         )
-        self.assertEqual(external["decision"], "inconclusive")
+        self.assertEqual(external["decision"], "blocked")
+
+    def test_real_bundle_ingest_passes_with_rehashed_disk_artifacts(self) -> None:
+        bundle = json.loads(
+            Path("out/v128-real-dogfood/evidence-substrate-bundle.json").read_text(
+                encoding="utf-8"
+            )
+        )
+
+        verdict = ingest_external_evidence(
+            bundle["dsse_envelope"],
+            {
+                "source_fixture": "depone/fixtures/agent_fabric/reference_adapter_shell.json",
+                "depone-capture-manifest": "out/v128-real-dogfood/capture-manifest.json",
+                "observer_capture": "out/v128-real-dogfood/observer-capture.json",
+            },
+            otel_spans=bundle["otel_spans"],
+        )
+
+        self.assertEqual(verdict["decision"], "pass")
+        self.assertEqual(
+            {result["status"] for result in verdict["subject_results"]},
+            {"verified"},
+        )
 
 
 if __name__ == "__main__":

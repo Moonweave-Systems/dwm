@@ -1,0 +1,153 @@
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+import tempfile
+from pathlib import Path
+from typing import Any
+
+from depone.agent_fabric.evidence_substrate import ingest_external_evidence
+
+
+def run(args: argparse.Namespace) -> None:
+    if getattr(args, "self_test", False):
+        _self_test()
+        return
+
+    statement_arg = getattr(args, "statement", None)
+    dsse_arg = getattr(args, "dsse", None)
+    if bool(statement_arg) == bool(dsse_arg):
+        print("Error: provide exactly one of --statement or --dsse", file=sys.stderr)
+        sys.exit(1)
+
+    try:
+        payload = (
+            _load_json_selector(str(statement_arg), "statement")
+            if statement_arg
+            else _load_json_selector(str(dsse_arg), "dsse_envelope")
+        )
+        artifact_paths = _parse_artifacts(getattr(args, "artifact", []) or [])
+        otel_spans = None
+        if getattr(args, "otel_spans", None):
+            otel_spans = _load_json_selector(str(args.otel_spans), "otel_spans")
+    except (OSError, json.JSONDecodeError, ValueError) as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        sys.exit(1)
+
+    verdict = ingest_external_evidence(
+        payload,
+        artifact_paths,
+        otel_spans=otel_spans,
+    )
+    out_path = Path(str(getattr(args, "out", "evidence-ingest-verdict.json")))
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(
+        json.dumps(verdict, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    print(f"Evidence ingest decision: {verdict['decision']}")
+    print(f"Evidence ingest verdict written to {out_path}")
+    if verdict["decision"] == "blocked":
+        sys.exit(1)
+
+
+def _load_json_selector(spec: str, default_key: str) -> Any:
+    path_text, selector = _split_selector(spec)
+    value = json.loads(Path(path_text).read_text(encoding="utf-8"))
+    key = selector or default_key
+    if selector:
+        if not isinstance(value, dict) or key not in value:
+            raise ValueError(f"JSON selector not found: {key}")
+        return value[key]
+    if default_key == "dsse_envelope":
+        if isinstance(value, dict) and value.get("payloadType"):
+            return value
+        if isinstance(value, dict) and "dsse_envelope" in value:
+            return value["dsse_envelope"]
+    if default_key == "statement":
+        if isinstance(value, dict) and value.get("_type"):
+            return value
+        if isinstance(value, dict) and "statement" in value:
+            return value["statement"]
+    if default_key == "otel_spans":
+        if isinstance(value, dict) and "otel_spans" in value:
+            return value["otel_spans"]
+        return value
+    raise ValueError(f"JSON does not contain {default_key}")
+
+
+def _split_selector(spec: str) -> tuple[str, str | None]:
+    if Path(spec).exists():
+        return spec, None
+    if ":" not in spec:
+        return spec, None
+    path_text, selector = spec.rsplit(":", 1)
+    if Path(path_text).exists():
+        return path_text, selector
+    return spec, None
+
+
+def _parse_artifacts(items: list[str]) -> dict[str, str]:
+    artifacts: dict[str, str] = {}
+    for item in items:
+        if "=" not in item:
+            raise ValueError(f"--artifact must be name=path: {item}")
+        name, path_text = item.split("=", 1)
+        if not name or not path_text:
+            raise ValueError(f"--artifact must be name=path: {item}")
+        artifacts[name] = path_text
+    return artifacts
+
+
+def _self_test() -> None:
+    bundle_path = Path("out/v128-real-dogfood/evidence-substrate-bundle.json")
+    artifact_paths = {
+        "source_fixture": "depone/fixtures/agent_fabric/reference_adapter_shell.json",
+        "depone-capture-manifest": "out/v128-real-dogfood/capture-manifest.json",
+        "observer_capture": "out/v128-real-dogfood/observer-capture.json",
+    }
+    bundle = json.loads(bundle_path.read_text(encoding="utf-8"))
+    pass_verdict = ingest_external_evidence(
+        bundle["dsse_envelope"],
+        artifact_paths,
+        otel_spans=bundle["otel_spans"],
+    )
+    if pass_verdict["decision"] != "pass":
+        raise AssertionError("real V128 bundle should pass with present artifacts")
+
+    missing = ingest_external_evidence(
+        bundle["dsse_envelope"],
+        {"source_fixture": artifact_paths["source_fixture"]},
+    )
+    if missing["decision"] != "inconclusive":
+        raise AssertionError("missing subjects should be inconclusive")
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        tampered_path = Path(temp_dir) / "source.json"
+        tampered_path.write_text('{"tampered": true}\n', encoding="utf-8")
+        tampered_paths = dict(artifact_paths)
+        tampered_paths["source_fixture"] = str(tampered_path)
+        tampered = ingest_external_evidence(bundle["dsse_envelope"], tampered_paths)
+    if tampered["decision"] != "blocked":
+        raise AssertionError("present digest mismatch should be blocked")
+
+    signed = dict(bundle["dsse_envelope"])
+    signed["signatures"] = [{"keyid": "unverified", "sig": "claim"}]
+    signed_verdict = ingest_external_evidence(signed, artifact_paths)
+    if signed_verdict["decision"] != "blocked":
+        raise AssertionError("unverifiable signatures should be blocked")
+
+    malformed = {"payloadType": "application/vnd.in-toto+json", "payload": "!!", "signatures": []}
+    malformed_verdict = ingest_external_evidence(malformed, artifact_paths)
+    if malformed_verdict["decision"] != "blocked":
+        raise AssertionError("malformed DSSE should be blocked")
+
+    bad_spans = ingest_external_evidence(
+        bundle["dsse_envelope"],
+        artifact_paths,
+        otel_spans=[{"trace_id": "trace"}],
+    )
+    if bad_spans["decision"] == "pass":
+        raise AssertionError("OTel structural errors must not pass")
+    print("depone agent-fabric-evidence-ingest --self-test: pass")
