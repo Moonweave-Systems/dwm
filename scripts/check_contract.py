@@ -1683,6 +1683,8 @@ def require_v36_readme_graph_decision_summary_consistency() -> None:
 
 def require_release_commands_pass() -> None:
     commands = [
+        [sys.executable, "scripts/seed_contract_workspace.py", "--self-test"],
+        [sys.executable, "scripts/seed_contract_workspace.py"],
         [sys.executable, "scripts/quick_validate_skill.py", "."],
         [sys.executable, "scripts/quick_validate_skill.py", "--self-test"],
         [sys.executable, "scripts/evaluate_plan.py", "--self-test"],
