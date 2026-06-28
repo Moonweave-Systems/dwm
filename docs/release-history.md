@@ -236,6 +236,12 @@ promotion requires real release history.
   observed capture manifests.
 - V123: `docs/v123-agent-fabric-controlled-capture-corpus-spec.md` added a
   source-only controlled capture corpus over distinct observed manifests.
+- V126: `docs/v126-paired-dogfood-evidence-spec.md` captured one real Codex
+  direct-vs-governed dogfood run with no superiority claim.
+- V127: `docs/v127-verify-claim-honesty-spec.md` made required-but-unevaluated
+  verify claims inconclusive instead of passing.
+- V128: `docs/v128-evidence-substrate-spec.md` emitted the first stdlib-only
+  in-toto Statement, unsigned DSSE envelope, and OTel GenAI-shaped span bundle.
 
 ## Current Public Boundaries
 
@@ -311,3 +317,12 @@ promotion requires real release history.
 - V123 controlled capture corpus reports summarize multiple distinct observed
   manifests only; they do not execute commands, call live models, approve public
   claims, or upgrade trust.
+- V126 records one real Codex direct-vs-governed dogfood run. It proves the
+  paired capture path can observe a real task, but it is still n=1 local
+  evidence and makes no direct-agent superiority claim.
+- V127 makes verify claim evaluation honest: unevaluated required claims are
+  inconclusive, deterministic support can pass, deterministic refutation fails,
+  and unsupported evaluators do not pass.
+- V128 emits an in-toto Statement, unsigned DSSE envelope, and OTel GenAI-shaped
+  span bundle from observed evidence. The DSSE envelope is unsigned and
+  content-addressed; it does not raise assurance to A3.

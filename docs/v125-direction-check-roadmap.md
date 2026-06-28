@@ -1,14 +1,15 @@
 # V125 Direction Check And Forward Roadmap
 
-Status: direction checkpoint written after V124 (Agent Fabric operating-system
-contract). Date: 2026-06-24.
+Status: direction checkpoint refreshed after V126-V128 execution evidence.
+Original date: 2026-06-24. Refreshed: 2026-06-28.
 
 > Read this first. This document is the current product-direction source of
 > truth for Depone / DWM Core. It records an external evaluation of where the
 > project stands against the mid-2026 global consensus on agent team systems and
 > agent operating/control planes, and it locks the next roadmap. It supersedes
 > the directional framing of `docs/v43-direction-check-roadmap.md` for everything
-> after V124.
+> after V124, and was refreshed after V126-V128 converted the immediate roadmap
+> from planned specs into executed evidence.
 
 ## 0. How this document was produced
 
@@ -200,80 +201,80 @@ and the chain is theater.
 
 ## 6. Forward roadmap
 
-The ordering principle: the next real milestone is a **run**, not a document.
-V126 must produce real captured evidence before V127-V129 are treated as more
-than specs.
+The ordering principle is unchanged: the next real milestone is executed
+evidence, not another document. The state changed on 2026-06-28: V126, V127, and
+the first V128 slice are now implemented and recorded in `docs/v126-decision.md`,
+`docs/v127-decision.md`, and `docs/v128-decision.md`.
 
-### 6.1 Now
+### 6.1 Done enough to move
 
-- **V126 — Real paired dogfood evidence.** Spec: `docs/v126-paired-dogfood-evidence-spec.md`.
-  Run one localized coding task once directly under a harness and once through an
-  Agent Fabric profile; capture both; run capture -> verify on the real
-  artifacts; record escaped-defect / review-precision / missing-evidence /
-  elapsed deltas, even at n=1. Replace the inline-fabricated dogfood input in the
-  paired-evidence self-test with this captured fixture. Requires zero change to
-  "Core does not execute": a human or harness runs the agent; Depone verifies the
-  capture.
-- **V127 — Verify-claim honesty.** Spec: `docs/v127-verify-claim-honesty-spec.md`.
-  Demote the Adversarial Check to an advisory, calibrated signal (or rename it a
-  ground-truth presence check); implement claim-evaluation states so a
-  required-but-unevaluated claim yields inconclusive; correct README/SKILL so
-  "verify" means the three deterministic checks; stop "hash-signed" language for
-  content-addressing; correct the regulatory thesis (see 6.2).
+- **V126 — Real paired dogfood evidence.** A real Codex direct-vs-governed run
+  was captured for `v126-utf8-dogfood-evidence`. Both arms touched only
+  `depone/agent_fabric/dogfood_evidence.py`; both observer verifications passed;
+  the paired-run report reached `paired-run-observed`. The governed arm was
+  promoted to `depone/fixtures/agent_fabric/capture_manifest_v126_governed_utf8.json`,
+  and paired-evidence self-test input now comes from that observed capture
+  rather than an inline fabricated dogfood dict.
+- **V127 — Verify-claim honesty.** Required unevaluated claims now resolve to
+  `inconclusive`, declared deterministic support resolves to `pass`, refutation
+  resolves to `fail`, unknown evaluators stay inconclusive, and budget
+  `max_agents` is counted from invocation records instead of filenames. README
+  and V104 wording no longer call content-addressing "hash-signed".
+- **V128 — First evidence substrate.** Depone can emit the V126 A1 capture as an
+  in-toto Statement, unsigned DSSE envelope, and static OTel GenAI-shaped span
+  set. The envelope is explicitly `unsigned-content-addressed`; this does not
+  raise assurance or approve public claims.
 
-### 6.2 Now (documentation correction folded into V127)
+### 6.2 Now
 
-The V104 regulatory forcing function is stale and must be corrected everywhere it
-appears. The EU AI Act high-risk obligations were postponed (Annex III to late
-2027, Annex I to 2028) and the Colorado AI Act was repealed/replaced and pushed
-to early 2027. The live anchors are GPAI obligations (in force since 2025-08),
-EU AI Act Article 12 logging plus Article 19 six-month retention (Article 19, not
-Article 12, carries the retention floor), and ISO/IEC 42001 plus procurement
-diligence. Message 2026 demand as a voluntary/procurement-driven pull, not a
-deadline sprint.
+Do not revive the V124 Agent OS draft as a product milestone. It is another
+source-only operating-model layer, and its current CLI surface is intentionally
+not wired into the product. Keep it parked unless a later change directly helps
+one of: capture a real run, ingest external evidence, verify digests, expose
+honest assurance, or reduce install/runtime friction.
 
-### 6.3 Next
+The next actual product work is:
 
-- **V128 — Consensus evidence substrate.** Spec:
-  `docs/v128-evidence-substrate-spec.md`. Map A0-A3 and the capture manifest to
-  in-toto/ITE-6 Statements in DSSE envelopes (Sigstore/Rekor-able), and add OTel
-  GenAI `gen_ai.*` span fields to the evidence/scoring schema. Stay stdlib-only by
-  emitting the JSON shapes; do not add a dependency.
-- **V129 — Runner as independent observer.** (Spec to be written when V126/V128
-  land.) Promote the Runner to capture A1+ evidence outside agent reach, and make
-  every report state which component produced each observation. This is what turns
-  "A0 until observed" from a limitation into the product's core value.
-- **Consolidation (no new number required).** Execute the unmet V104 promise:
-  collapse the 100+ scripts to the small command surface, decouple package SemVer
-  from the milestone count, make the package the single schema authority, and
-  publish to PyPI.
+1. Harden V128 ingest. Accept external in-toto/DSSE statements and OTel span
+   bundles as untrusted inputs, verify their subject digests against present
+   artifacts, and return `inconclusive` on mismatch or missing artifacts.
+2. Dogfood the installed `depone` command on one more real local maintenance
+   task. The output should be another runner receipt, observer capture, evidence
+   substrate bundle, and decision note.
+3. Keep local installation working. The package can be installed from source via
+   `python -m pip install --no-deps .`; PyPI publication remains a later
+   packaging decision, not part of the evidence proof.
+4. Consolidate only where it removes friction from the real loop. Do not add a
+   new milestone number just to name a report, role, gate, or profile.
 
-### 6.4 Later
+### 6.3 Later
 
+- Promote the runner/observer separation so every report states which component
+  produced each observation and whether the agent could have modified it.
 - Define A3 as a DSSE-wrapped in-toto attestation signed via Sigstore (Fulcio
   keyless + Rekor transparency log).
 - Build the static multi-hop / recursive delegation-chain invariant checker
-  (who authorized which agent for which action at which hop) — a differentiator
-  precisely because runtime protocols cannot yet prove it.
+  (who authorized which agent for which action at which hop).
 - Compile-time MCP tool-definition pinning/over-privilege flagging.
 - Strengthen the Adversarial Check toward an independent ground-truth refutation
   protocol, kept strictly advisory and never overriding deterministic checks.
 
-### 6.5 Frozen until measured benefit
+### 6.4 Frozen until measured benefit
 
 New Agent Fabric profile/role/toolbelt milestones (no further gate-on-gate work)
-are frozen until V126 produces a measured benefit for at least one task class.
-The Fabric's own agent-team-spec already says profiles are retired when benefit
-is absent; honor that by gating investment on measurement.
+remain frozen. V126 proved the capture path exists, not that a richer Agent
+Fabric taxonomy improves coding outcomes. The Fabric's own agent-team-spec
+already says profiles are retired when benefit is absent; honor that by gating
+investment on measured task-class benefit.
 
 ## 7. Meta-discipline (for the next agent)
 
 Do not let this roadmap become more scaffolding. If you are an agent reading this
-and you are about to write `docs/v130-*-spec.md` instead of executing V126,
-stop. The project does not need another contract layer; it needs one real
-captured run that tests whether governed beats direct. Source-only milestones
-that "add no execution and no trust upgrade" are the failure mode this document
-exists to break.
+and you are about to write `docs/v130-*-spec.md` instead of hardening V128 ingest
+or running another real dogfood loop, stop. The project does not need another
+contract layer; it needs evidence that survives outside the agent's self-report.
+Source-only milestones that "add no execution and no trust upgrade" are the
+failure mode this document exists to break.
 
 A new milestone is justified only if it increases one of: real runs captured as
 evidence, portability/audit-grade of that evidence, fewer over-claims in

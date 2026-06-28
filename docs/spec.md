@@ -1,6 +1,6 @@
 # Depone / DWM Core Spec
 
-Status: V1 implemented, V2 release candidate, V2.5 first loop implemented, V3 entry runtime implemented, V12-V20 product slices implemented, V87 brand boundary audit implemented, V88 roadmap reconciliation, V89 command safety, V90 activation v2, V91 contract tiering, V92 evidence oracle, V93 workflow narrative, V94 control deck score, V95 score history, V96 metric ladder, V97 benchmark readiness, V98 wave operator, V99 wave receipt, V100 promotion evidence, V101 promotion route, V102 deterministic live-proof recorder, V103 live-proof comparison schema, V104 product direction, V105 verify wedge, V106 multi-wave validation, V107 Agent Fabric compiler, V108 reference adapter fixture, V109 capture bridge, V110 report assurance, V111 operator view, V112 lifecycle smoke, V116 Agent Fabric smoke CLI, V117 Agent Fabric harness snapshot, V118 Agent Fabric adapter smoke, V119 Agent Fabric claim gate, V120 paired evidence gate, V121 paired evidence CLI, V122 dogfood evidence CLI, V123 controlled capture corpus, Last updated: 2026-06-24
+Status: V1 implemented, V2 release candidate, V2.5 first loop implemented, V3 entry runtime implemented, V12-V20 product slices implemented, V87 brand boundary audit implemented, V88 roadmap reconciliation, V89 command safety, V90 activation v2, V91 contract tiering, V92 evidence oracle, V93 workflow narrative, V94 control deck score, V95 score history, V96 metric ladder, V97 benchmark readiness, V98 wave operator, V99 wave receipt, V100 promotion evidence, V101 promotion route, V102 deterministic live-proof recorder, V103 live-proof comparison schema, V104 product direction, V105 verify wedge, V106 multi-wave validation, V107 Agent Fabric compiler, V108 reference adapter fixture, V109 capture bridge, V110 report assurance, V111 operator view, V112 lifecycle smoke, V116 Agent Fabric smoke CLI, V117 Agent Fabric harness snapshot, V118 Agent Fabric adapter smoke, V119 Agent Fabric claim gate, V120 paired evidence gate, V121 paired evidence CLI, V122 dogfood evidence CLI, V123 controlled capture corpus, V126 real paired Codex capture, V127 verify-claim honesty, V128 first evidence substrate, Last updated: 2026-06-28
 
 ## Purpose
 
@@ -333,9 +333,9 @@ when promotion evidence is not ready, or emits a human gate when README graph
 publication can enter review. It does not execute commands, publish assets, or
 approve public benchmark publication.
 
-### V107-V122: Agent Fabric Compiler, Capture, Report, Operator View, Lifecycle Smoke, Smoke CLI, Harness Snapshot, Adapter Smoke, Claim Gate, Paired Evidence, Paired Evidence CLI, And Dogfood Evidence CLI
+### V107-V128: Agent Fabric Compiler, Capture, Real Run, Claim Honesty, And Evidence Substrate
 
-V107-V122 add the first implemented Agent Fabric control-plane layer without
+V107-V123 add the first implemented Agent Fabric control-plane layer without
 turning Depone into an agent runtime. V107 validates role, toolbelt, profile,
 harness, compile-report, invocation, and result contracts, then compiles
 profile roles into deterministic invocation packets and compile reports. V108
@@ -345,13 +345,23 @@ assurance labels. V110 surfaces capture checks in verification reports. V111
 renders those report fields as a deterministic operator Markdown view. V112
 threads the V107-V111 path together as a source-only lifecycle smoke helper. V116 exposes that source-only smoke as `depone agent-fabric-smoke` so operators can export the JSON summary and optional Markdown view without writing Python. V117 exports static harness capability snapshots from shipped fixtures and tool mappings through `depone agent-fabric-harness-snapshot`. V118 binds the shell reference adapter fixture to a harness snapshot through `depone agent-fabric-adapter-smoke` so adapter readiness is source-hash-bound before live adapter work. V119 adds `depone agent-fabric-claim-gate`, which blocks public benefit claims until paired dogfood or explicitly approved live adapter-smoke evidence exists. V120 lets that same claim gate consume source-only paired evidence and move to `ready-for-public-claim-review` while still refusing automatic public-claim approval. V121 adds `depone agent-fabric-paired-evidence`, a source-only producer for that hash-bound paired evidence input. V122 adds `depone agent-fabric-dogfood-evidence`, which turns validated A1 local observed capture manifests into the dogfood evidence consumed by V121. V123 lets that command accept repeated capture manifests and emit a source-only controlled capture corpus over distinct observed captures without executing commands or upgrading trust.
 
+V126 breaks the source-only loop by capturing one real Codex direct-vs-governed
+dogfood run. The governed arm becomes an A1 observed capture fixture and the
+paired-evidence self-test consumes that observed capture rather than fabricated
+dogfood input. V127 makes verify claim evaluation fail closed: required
+unevaluated claims are inconclusive, declared deterministic support passes,
+refutation fails, and unsupported evaluators stay inconclusive. V128 emits the
+first standards-shaped evidence bundle from that capture: an in-toto Statement,
+an unsigned DSSE envelope, and static OTel GenAI-shaped spans. The substrate is
+`unsigned-content-addressed` and does not raise assurance.
+
 These slices do not call live models, execute arbitrary commands, hide harness
 permission limitations, or claim direct-agent superiority. Unsupported critical
 controls still block compilation, approximations stay visible in compile
-reports, and Depone verification remains evidence-contract based. The next
-Agent Fabric product step should focus on expanding controlled-run capture
-coverage beyond the shell fixture before any public benefit, live adapter, or
-superiority claim.
+reports, and Depone verification remains evidence-contract based. The next Agent
+Fabric product step is not another role/profile layer. It is to harden V128
+external evidence ingest and run another real installed-`depone` dogfood loop
+with runner receipt, observer capture, and substrate bundle.
 
 ### Harness Strategy
 
@@ -774,25 +784,12 @@ and verifies that `docs/v0.5-decision.md` matches the freshly generated summary.
 - Whether forward-testing should use live subagents or fixture-only review for
   the first release.
 
-## Current Direction (V125)
+## Current Direction
 
 `docs/v125-direction-check-roadmap.md` is the current product-direction source of
-truth after V124. It records an external evaluation against the mid-2026 global
-consensus on agent team systems and agent control planes, and locks the forward
-roadmap. The verdict: keep the non-executing design + verify plane (the one
-structurally defensible moat) and narrow hard.
-
-The next real milestone is a run, not another source-only contract layer:
-
-- V126 (`docs/v126-paired-dogfood-evidence-spec.md`): capture one real
-  direct-vs-governed run and feed it through capture -> verify, replacing the
-  synthetic seeds in the paired-evidence path.
-- V127 (`docs/v127-verify-claim-honesty-spec.md`): demote the Adversarial Check
-  to an advisory ground-truth presence signal, make a required-but-unevaluated
-  claim resolve to `inconclusive` rather than `pass`, stop calling SHA-256
-  content-addressing "hash-signed", and correct the stale regulatory thesis.
-- V128 (`docs/v128-evidence-substrate-spec.md`): emit evidence as in-toto/DSSE
-  statements and OpenTelemetry GenAI spans, stdlib-only.
-
-New Agent Fabric profile/role/toolbelt milestones are frozen until V126 produces
-a measured benefit for at least one task class.
+truth. V126, V127, and the first V128 slice are implemented. The forward move is
+not to add another source-only Agent OS or profile milestone; it is to make the
+evidence substrate ingest real external statements/spans, verify digests against
+present artifacts, and dogfood the installed `depone` command on another real
+task. Agent Fabric profile/role/toolbelt expansion remains frozen until measured
+task-class benefit exists.

@@ -12,22 +12,22 @@ knows how to work here. Keep it short and current.
 ## Current direction (read first)
 
 `docs/v125-direction-check-roadmap.md` is the current product-direction source of
-truth (post-V124). Bottom line: keep the non-executing design+verify plane (the
-one defensible moat) and narrow hard. The next real milestone is a run, not
-another source-only contract layer:
+truth. Bottom line: Depone should be the independent evidence and control plane
+for increasingly automated agent-team work. Keep the non-executing design+verify
+plane, but move by executed evidence, not by adding source-only control layers.
 
-- V126 (`docs/v126-paired-dogfood-evidence-spec.md`): capture one real
-  direct-vs-governed run; stop pointing the paired-evidence path at synthetic
-  seeds.
-- V127 (`docs/v127-verify-claim-honesty-spec.md`): demote the Adversarial Check
-  to advisory; a required-but-unevaluated claim must be `inconclusive`, never
-  `pass`; correct "hash-signed" wording and the stale regulatory thesis.
-- V128 (`docs/v128-evidence-substrate-spec.md`): emit evidence as in-toto/DSSE
-  plus OTel GenAI shapes, stdlib-only.
+Current state:
 
-Do not add another `vNNN` source-only meta layer instead of executing V126. New
-Agent Fabric profile/role/toolbelt milestones are frozen until V126 shows a
-measured benefit for at least one task class.
+- V126 captured a real Codex direct-vs-governed run and promoted the governed
+  arm into an observed A1 capture fixture.
+- V127 made claim evaluation honest: required unevaluated claims are
+  `inconclusive`, not `pass`; "hash-signed" wording was corrected.
+- V128 emits the first stdlib-only in-toto/DSSE plus OTel GenAI evidence bundle.
+
+Next work: harden the V128 ingest path and run another real dogfood loop through
+the installed `depone` command. Do not revive the V124 Agent OS draft as a
+product milestone now; it is a source-only meta layer and remains parked unless
+it directly helps capture, ingest, verify, or trust real evidence.
 
 ## Verify after any change
 
