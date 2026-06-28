@@ -18,7 +18,9 @@ They are committed so tests remain hermetic and never fetch the network.
 - Upstream source URL: local Depone test fixture, committed in this repository.
 - Retrieved: 2026-06-28
 - License: project license for this repository.
-- Raw SHA-256: `f971cd3caff6d49287b56c8168db0f6a174f79a621b87fc1d26d6f65ee12574b`
+- Raw SHA-256: `fd9532f6eddd9fbefc0f854b997adbf90c36f8e4f90062a6b83109439f242ac8`
+- Newline-free content + `*.bin binary` in `.gitattributes` so git never
+  line-ending-normalizes it; the raw digest is identical on every clone.
 - Notes: Small binary fixture used to prove vendor-neutral subject verification
   with the in-toto convention: SHA-256 over raw file bytes.
 
