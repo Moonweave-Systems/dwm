@@ -139,10 +139,20 @@ def resolve_present_artifact_digests(
     subject_names: list[str],
     artifact_paths: dict[str, str],
     artifact_digest_modes: dict[str, str] | None = None,
-) -> dict[str, str]:
-    """Recompute subject digests from present on-disk artifacts."""
+) -> tuple[dict[str, str], set[str]]:
+    """Recompute subject digests from present on-disk artifacts.
+
+    Returns ``(digests, unreadable)``. ``unreadable`` names a subject whose
+    artifact is present on disk but could not be hashed (corrupt JSON in
+    canonical mode, an I/O error, or an unknown digest mode). Keeping these
+    separate from absent subjects matters for honesty (the verdict must not
+    claim a present file is missing) and for safety: an artifact whose real
+    bytes would mismatch must not be downgradable to ``inconclusive`` by
+    corrupting it on disk.
+    """
 
     digests: dict[str, str] = {}
+    unreadable: set[str] = set()
     for name in subject_names:
         path_text = artifact_paths.get(name)
         if not path_text:
@@ -157,9 +167,13 @@ def resolve_present_artifact_digests(
             elif mode == DIGEST_MODE_CANONICAL_JSON:
                 value = json.loads(path.read_text(encoding="utf-8"))
                 digests[name] = canonical_hash(value)
+            else:
+                # Present artifact with an unrecognized mode: cannot verify, so
+                # fail closed rather than silently treat the subject as absent.
+                unreadable.add(name)
         except (OSError, UnicodeDecodeError, json.JSONDecodeError):
-            continue
-    return digests
+            unreadable.add(name)
+    return digests, unreadable
 
 
 def _blocked_verdict(reason: str, *, signing_status: str | None = None) -> dict[str, Any]:
@@ -181,9 +195,11 @@ def _blocked_verdict(reason: str, *, signing_status: str | None = None) -> dict[
 def ingest_external_statement(
     statement: dict[str, Any],
     present_digests: dict[str, str],
+    unreadable: set[str] | None = None,
 ) -> dict[str, Any]:
     """Evaluate an untrusted in-toto Statement against recomputed digests."""
 
+    unreadable = unreadable or set()
     reasons: list[str] = []
     subject_results: list[dict[str, Any]] = []
     blocked = False
@@ -236,7 +252,18 @@ def ingest_external_statement(
             )
             continue
         actual = present_digests.get(name)
-        if actual is None:
+        if actual is None and name in unreadable:
+            blocked = True
+            subject_results.append(
+                {
+                    "name": name,
+                    "expected": expected,
+                    "actual": None,
+                    "status": "unreadable",
+                }
+            )
+            reasons.append(f"subject artifact present but could not be hashed: {name}")
+        elif actual is None:
             subject_results.append(
                 {
                     "name": name,
@@ -289,6 +316,7 @@ def ingest_external_statement(
 def ingest_dsse_envelope(
     envelope: dict[str, Any],
     present_digests: dict[str, str],
+    unreadable: set[str] | None = None,
 ) -> dict[str, Any]:
     """Safely ingest an untrusted DSSE envelope without raising."""
 
@@ -323,7 +351,7 @@ def ingest_dsse_envelope(
             "DSSE payload must decode to an object",
             signing_status="unsigned-content-addressed",
         )
-    verdict = ingest_external_statement(value, present_digests)
+    verdict = ingest_external_statement(value, present_digests, unreadable)
     verdict["signing_status"] = "unsigned-content-addressed"
     return verdict
 
@@ -394,15 +422,15 @@ def ingest_external_evidence(
         if statement is None and "payloadType" in payload:
             statement = _safe_decoded_dsse_statement(payload)
         subject_names = _subject_names(statement) if isinstance(statement, dict) else []
-        present_digests = resolve_present_artifact_digests(
+        present_digests, unreadable = resolve_present_artifact_digests(
             subject_names,
             artifact_paths,
             artifact_digest_modes,
         )
         if "payloadType" in payload:
-            verdict = ingest_dsse_envelope(payload, present_digests)
+            verdict = ingest_dsse_envelope(payload, present_digests, unreadable)
         elif payload.get("_type") in (INTOTO_STATEMENT_TYPE, INTOTO_STATEMENT_TYPE_V01):
-            verdict = ingest_external_statement(payload, present_digests)
+            verdict = ingest_external_statement(payload, present_digests, unreadable)
         else:
             verdict = _blocked_verdict(
                 "external evidence must be a DSSE envelope or in-toto Statement"

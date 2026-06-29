@@ -187,6 +187,30 @@ def _self_test() -> None:
             if signed_verdict["decision"] != "blocked":
                 raise AssertionError("unverifiable signatures should be blocked")
 
+            # A subject artifact that is present on disk but cannot be hashed
+            # (corrupt JSON in canonical mode) must fail closed as blocked, not
+            # be reported as an absent subject and downgraded to inconclusive.
+            corrupt_path = Path(temp_dir) / "corrupt.json"
+            corrupt_path.write_text("this is present but not json", encoding="utf-8")
+            corrupt_paths = dict(artifact_paths)
+            corrupt_paths["depone-capture-manifest"] = str(corrupt_path)
+            corrupt = ingest_external_evidence(
+                bundle["dsse_envelope"],
+                corrupt_paths,
+                artifact_digest_modes=artifact_digest_modes,
+            )
+            if corrupt["decision"] != "blocked":
+                raise AssertionError(
+                    "present but unhashable subject should be blocked"
+                )
+            if not any(
+                result.get("status") == "unreadable"
+                for result in corrupt["subject_results"]
+            ):
+                raise AssertionError(
+                    "present but unhashable subject should report unreadable"
+                )
+
             malformed = {
                 "payloadType": "application/vnd.in-toto+json",
                 "payload": "!!",

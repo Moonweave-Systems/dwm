@@ -103,6 +103,35 @@ class AgentFabricEvidenceIngestTests(unittest.TestCase):
             {result["status"] for result in verdict["subject_results"]},
         )
 
+    def test_blocked_when_present_artifact_is_unreadable(self) -> None:
+        # A present-but-corrupt artifact must not be reported as absent and
+        # downgraded to inconclusive: that would let an artifact whose real
+        # bytes would mismatch be softened by corrupting it on disk.
+        bundle = self._bundle()
+        artifact_paths = self._artifact_paths()
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            corrupt_path = Path(temp_dir) / "capture-manifest.json"
+            corrupt_path.write_text("present but not valid json", encoding="utf-8")
+            artifact_paths["depone-capture-manifest"] = str(corrupt_path)
+            verdict = ingest_external_evidence(
+                bundle["dsse_envelope"],
+                artifact_paths,
+                artifact_digest_modes=self._artifact_digest_modes(),
+            )
+
+        self.assertEqual(verdict["decision"], "blocked")
+        self.assertIn(
+            "unreadable",
+            {result["status"] for result in verdict["subject_results"]},
+        )
+        self.assertTrue(
+            any(
+                "could not be hashed" in reason
+                for reason in verdict["reasons"]
+            )
+        )
+
     def test_blocked_when_dsse_claims_unverifiable_signatures(self) -> None:
         bundle = self._bundle()
         envelope = dict(bundle["dsse_envelope"])
