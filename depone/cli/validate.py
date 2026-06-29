@@ -8,6 +8,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+from depone.cli._response import emit_error, emit_result
 from depone.core.plan_schema import (
     load_plan,
     validate_plan,
@@ -23,22 +24,41 @@ def run(args: argparse.Namespace) -> None:
 
     plan_path = args.plan
     if not plan_path:
-        print("Usage: depone validate <plan.json>")
-        sys.exit(1)
+        emit_error(
+            args,
+            code="ERR_VALIDATE_USAGE",
+            message="Usage: depone validate <plan.json>",
+        )
 
     path = Path(plan_path)
     if not path.exists():
-        print(f"Error: file not found: {path}")
-        sys.exit(1)
+        emit_error(
+            args,
+            code="ERR_VALIDATE_FILE_NOT_FOUND",
+            message=f"file not found: {path}",
+            path=path,
+        )
 
     try:
         plan = load_plan(str(path))
     except (FileNotFoundError, json.JSONDecodeError) as e:
-        print(f"Error: cannot load plan: {e}")
-        sys.exit(1)
+        emit_error(
+            args,
+            code="ERR_VALIDATE_LOAD_FAILED",
+            message=f"cannot load plan: {e}",
+            path=path,
+        )
 
     errors = validate_plan_strict(plan)
-    print(format_errors(errors))
+    payload = {
+        "command": "validate",
+        "decision": "fail" if errors else "pass",
+        "valid": not errors,
+        "error_count": len(errors),
+        "errors": errors,
+        "plan": str(path),
+    }
+    emit_result(args, payload, human=[format_errors(errors)])
     sys.exit(1 if errors else 0)
 
 

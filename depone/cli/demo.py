@@ -1,4 +1,4 @@
-"""depone demo — run a complete design→compile→verify cycle.
+"""depone demo - run a complete design -> compile -> verify cycle.
 
 The demo works entirely offline with Python stdlib only. It:
 1. Generates a plan using depone design
@@ -19,6 +19,7 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
+from depone.cli._response import EXIT_INTERNAL, emit_error, emit_result
 from depone.compile.conductor import emit_yaml
 from depone.core.plan_schema import validate_plan_strict
 from depone.verify.adapters.generic import read_evidence
@@ -35,64 +36,97 @@ def run(args: argparse.Namespace) -> None:
     )
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    print("=" * 56)
-    print("  Depone Demo — Design → Compile → Verify")
-    print("=" * 56)
+    human_lines: list[str] = []
+
+    def say(line: str = "") -> None:
+        if getattr(args, "json", False):
+            human_lines.append(line)
+        else:
+            print(line)
+
+    say("=" * 56)
+    say("  Depone Demo - Design -> Compile -> Verify")
+    say("=" * 56)
 
     # Step 1: Design
-    print("\n[1/4] Designing workflow...")
+    say("\n[1/4] Designing workflow...")
     plan = _generate_demo_plan()
     plan_path = out_dir / "plan.json"
-    with open(plan_path, "w") as f:
+    with open(plan_path, "w", encoding="utf-8") as f:
         json.dump(plan, f, indent=2)
         f.write("\n")
-    print(f"  Plan: {plan_path}")
-    print(f"  Objective: {plan['objective']}")
-    print(f"  Pattern: {plan['patterns'][0]}")
+    say(f"  Plan: {plan_path}")
+    say(f"  Objective: {plan['objective']}")
+    say(f"  Pattern: {plan['patterns'][0]}")
 
     # Step 2: Validate
-    print("\n[2/4] Validating plan...")
+    say("\n[2/4] Validating plan...")
     errors = validate_plan_strict(plan)
     if errors:
-        print(f"  [FAIL] Plan validation: {len(errors)} error(s)")
+        say(f"  [FAIL] Plan validation: {len(errors)} error(s)")
         for e in errors:
-            print(f"    - {e}")
-        sys.exit(1)
-    print("  [PASS] Plan is valid")
+            say(f"    - {e}")
+        emit_error(
+            args,
+            code="ERR_DEMO_INTERNAL_PLAN_INVALID",
+            message=f"generated demo plan failed validation with {len(errors)} issue(s)",
+            exit_code=EXIT_INTERNAL,
+        )
+    say("  [PASS] Plan is valid")
 
     # Step 3: Compile
-    print("\n[3/4] Compiling to Conductor YAML...")
+    say("\n[3/4] Compiling to Conductor YAML...")
     yaml_path = out_dir / "workflow.yaml"
     yaml_content = emit_yaml(plan)
-    yaml_path.write_text(yaml_content + "\n")
-    print(f"  [PASS] Conductor YAML: {yaml_path}")
+    yaml_path.write_text(yaml_content + "\n", encoding="utf-8")
+    say(f"  [PASS] Conductor YAML: {yaml_path}")
 
     # Step 4: Verify
-    print("\n[4/4] Verifying execution evidence...")
+    say("\n[4/4] Verifying execution evidence...")
     evidence_dir = out_dir / "evidence"
     _generate_synthetic_evidence(plan, evidence_dir)
     evidence = read_evidence(str(evidence_dir))
     report = run_verification(plan, evidence)
     report_path = out_dir / "verification-report.json"
-    with open(report_path, "w") as f:
+    with open(report_path, "w", encoding="utf-8") as f:
         json.dump(asdict(report), f, indent=2)
         f.write("\n")
 
     if report.verdict == "verified":
-        print(f"  [PASS] Evidence verified: {report_path}")
+        say(f"  [PASS] Evidence verified: {report_path}")
         for p in report.phases:
-            status_icon = "✓" if p.status == "passed" else "✗"
-            print(f"    {status_icon} Phase '{p.phase_id}': {p.status}")
+            status_icon = "[OK]" if p.status == "passed" else "[FAIL]"
+            say(f"    {status_icon} Phase '{p.phase_id}': {p.status}")
     else:
-        print(f"  [FAIL] Evidence refuted ({report.verdict}): {report_path}")
-        sys.exit(1)
+        say(f"  [FAIL] Evidence refuted ({report.verdict}): {report_path}")
+        emit_error(
+            args,
+            code="ERR_DEMO_INTERNAL_EVIDENCE_REFUTED",
+            message=f"generated demo evidence was not verified: {report.verdict}",
+            exit_code=EXIT_INTERNAL,
+        )
 
     # Summary
-    print("\n" + "=" * 56)
-    print("  Demo Complete")
-    print(f"  Output: {out_dir}")
-    print(f"  Files: {len(list(out_dir.iterdir()))}")
-    print("=" * 56)
+    say("\n" + "=" * 56)
+    say("  Demo Complete")
+    say(f"  Output: {out_dir}")
+    say(f"  Files: {len(list(out_dir.iterdir()))}")
+    say("=" * 56)
+    emit_result(
+        args,
+        {
+            "command": "demo",
+            "decision": "pass",
+            "verdict": report.verdict,
+            "out": str(out_dir),
+            "plan": str(plan_path),
+            "workflow": str(yaml_path),
+            "evidence": str(evidence_dir),
+            "report": str(report_path),
+            "file_count": len(list(out_dir.iterdir())),
+        },
+        human=[],
+    )
 
 
 def _generate_demo_plan() -> dict[str, Any]:
@@ -263,21 +297,33 @@ def _generate_synthetic_evidence(plan: dict[str, Any], evidence_dir: Path) -> No
         "Reviewed README.md content. Structure: clear. "
         "Suggestion: add installation instructions."
     )
-    (evidence_dir / "handoffs" / "phase-2-input.md").write_text(handoff_content)
+    (evidence_dir / "handoffs" / "phase-2-input.md").write_text(
+        handoff_content,
+        encoding="utf-8",
+    )
 
     # Gate approval
     (evidence_dir / "gates" / "write").mkdir(parents=True, exist_ok=True)
-    (evidence_dir / "gates" / "write" / "approved").write_text("approved")
+    (evidence_dir / "gates" / "write" / "approved").write_text(
+        "approved",
+        encoding="utf-8",
+    )
 
     # Run metadata
     meta = {"run_id": "demo-run-001", "num_rounds": 2}
-    (evidence_dir / "run-metadata.json").write_text(json.dumps(meta))
+    (evidence_dir / "run-metadata.json").write_text(
+        json.dumps(meta),
+        encoding="utf-8",
+    )
 
     contract = {
         "schema_version": "v105.verify_wedge",
         "required_evidence": ["run-metadata.json"],
     }
-    (evidence_dir / "evidence-contract.json").write_text(json.dumps(contract))
+    (evidence_dir / "evidence-contract.json").write_text(
+        json.dumps(contract),
+        encoding="utf-8",
+    )
 
 
 def _self_test() -> None:
@@ -292,11 +338,12 @@ def _self_test() -> None:
         class FakeArgs:
             out = tmp
             self_test = False
+            json = False
 
         try:
             run(FakeArgs())  # type: ignore[arg-type]
             print("\n  [PASS] Demo completed successfully")
-            sys.exit(0)
+            return
         except SystemExit as e:
             if e.code == 0:
                 print("\n  [PASS] Demo completed successfully")

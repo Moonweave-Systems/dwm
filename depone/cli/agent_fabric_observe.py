@@ -13,6 +13,7 @@ from depone.agent_fabric.observe import (
     enforce_path_outside_runner_sandbox,
     write_observer_capture,
 )
+from depone.cli._response import EXIT_INTERNAL, emit_error, emit_result
 from depone.agent_fabric.paired_run import PairedRunError
 from depone.agent_fabric.seal import seal_capture
 
@@ -53,19 +54,27 @@ def run(args: argparse.Namespace) -> None:
     if command and command[0] == "--":
         command = command[1:]
     if not command:
-        print(
-            "Usage: depone agent-fabric-observe --runner-sandbox <dir> "
-            "--source-fixture-hash <hash> --out <observer-capture.json> "
-            "--log <verify-log.json> -- <verification command>",
-            file=sys.stderr,
+        emit_error(
+            args,
+            code="ERR_OBSERVE_USAGE",
+            message=(
+                "Usage: depone observe --runner-sandbox <dir> "
+                "--source-fixture-hash <hash> --out <observer-capture.json> "
+                "--log <verify-log.json> -- <verification command>"
+            ),
         )
-        sys.exit(1)
     if not str(getattr(args, "runner_sandbox", "")):
-        print("Error: --runner-sandbox is required", file=sys.stderr)
-        sys.exit(1)
+        emit_error(
+            args,
+            code="ERR_OBSERVE_RUNNER_SANDBOX_REQUIRED",
+            message="--runner-sandbox is required",
+        )
     if not str(getattr(args, "source_fixture_hash", "")):
-        print("Error: --source-fixture-hash is required", file=sys.stderr)
-        sys.exit(1)
+        emit_error(
+            args,
+            code="ERR_OBSERVE_SOURCE_FIXTURE_HASH_REQUIRED",
+            message="--source-fixture-hash is required",
+        )
 
     try:
         seal_config = _observer_seal_config(args)
@@ -87,29 +96,43 @@ def run(args: argparse.Namespace) -> None:
             seal_path = _seal_path_for_capture(out_path)
             seal_path.write_text(canonical_json_pretty(seal), encoding="utf-8")
     except PairedRunError as exc:
-        print(json.dumps({"error": exc.to_record()}, sort_keys=True), file=sys.stderr)
-        sys.exit(1)
-    except Exception as exc:
-        print(
-            json.dumps(
-                {
-                    "error": {
-                        "code": "ERR_OBSERVER_CAPTURE_FAILED",
-                        "message": str(exc),
-                    }
-                },
-                sort_keys=True,
-            ),
-            file=sys.stderr,
+        record = exc.to_record()
+        emit_error(
+            args,
+            code=str(record.get("code", "ERR_OBSERVER_CAPTURE_FAILED")),
+            message=str(record.get("message", exc)),
+            path=record.get("path"),
         )
-        sys.exit(1)
+    except Exception as exc:
+        emit_error(
+            args,
+            code="ERR_OBSERVER_CAPTURE_FAILED",
+            message=str(exc),
+            exit_code=EXIT_INTERNAL,
+        )
 
-    print(f"Observer capture written to {Path(str(getattr(args, 'out')))}")
-    print(f"  observer_capture_hash: {capture_hash}")
-    print(f"  canonical_hash: {canonical_hash(capture)}")
+    payload = {
+        "command": "observe",
+        "decision": "pass",
+        "out": str(Path(str(getattr(args, "out")))),
+        "log": str(Path(str(getattr(args, "log")))),
+        "observer_capture_hash": capture_hash,
+        "canonical_hash": canonical_hash(capture),
+        "seal": str(seal_path) if seal_path is not None else None,
+    }
+    human = [
+        f"Observer capture written to {Path(str(getattr(args, 'out')))}",
+        f"  observer_capture_hash: {capture_hash}",
+        f"  canonical_hash: {canonical_hash(capture)}",
+    ]
     if seal is not None and seal_path is not None:
-        print(f"  observer_capture_seal: {seal_path}")
-        print(f"  seal_value: {seal['value']}")
+        human.extend(
+            [
+                f"  observer_capture_seal: {seal_path}",
+                f"  seal_value: {seal['value']}",
+            ]
+        )
+    emit_result(args, payload, human=human)
 
 
 def _self_test() -> None:

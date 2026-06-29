@@ -7,9 +7,10 @@
 
 ![Depone hero](assets/dwm-hero.svg)
 
-**Depone** designs multi-agent workflows and verifies their execution
-evidence. It does not execute agents — it makes runs from other frameworks
-(Conductor, LangGraph) trustworthy.
+**Depone** generates safe workflow contracts and verifies agent-session
+execution evidence. It does not execute agents - it makes runs from other
+frameworks and agent sessions (Codex, Claude, Conductor, LangGraph)
+trustworthy.
 
 ## Quickstart
 
@@ -17,11 +18,13 @@ evidence. It does not execute agents — it makes runs from other frameworks
 # Installation from source. PyPI publishing is not active yet.
 git clone https://github.com/Moonweave-Systems/keelplane
 cd keelplane
-python3 -m pip install .
-cd /tmp
+python -m pip install --no-deps .
 
-# Run the full design → compile → verify cycle
-depone demo --out depone-quickstart
+# Check the agent-safe tool surface.
+depone doctor --json
+
+# Run the offline design -> compile -> verify demo.
+depone demo --json --out depone-quickstart
 
 # Or step by step:
 depone design "audit all API routes for authentication" --surface . --out plan.json
@@ -29,16 +32,18 @@ depone validate plan.json
 depone compile plan.json --target conductor --out workflow.yaml
 depone verify plan.json --evidence ./evidence/ --out report.json --operator-view-out operator-view.md
 
-# MCP stdio server for MCP-capable agents: python3 -m depone mcp
+# MCP stdio server for MCP-capable agents: python -m depone mcp
 ```
 
-## Installation
+Agent-session evidence loop:
 
 ```bash
-python3 -m pip install .
+depone evidence-run --runner-sandbox ./runner-worktree \
+  --source-fixture depone/fixtures/agent_fabric/reference_adapter_shell.json \
+  --out ../observer/evidence-run --allow-touched-file sample.txt \
+  --verify-plan plan.json --verify-evidence ./evidence \
+  --json -- python -m unittest
 ```
-
-No external dependencies required. PyPI is not active; install from checkout.
 
 ## What Exists Today
 Depone ships the stdlib-only CLI, a strict plan validator, a Conductor YAML
@@ -47,44 +52,57 @@ Run model: a `slice` is one atomic worker task, a `wave` is a gated group of
 one or more slices, and a `run` is one or more waves verified by receipts and
 evidence gates.
 
+## System Map
+
+```mermaid
+flowchart LR
+    Agent["Codex / Claude session"] --> CLI["Depone CLI JSON surface"]
+    CLI --> Plan["Design plane"]
+    CLI --> Evidence["Evidence plane"]
+    Plan --> Contract["plan.json"]
+    Contract --> Compile["compile artifacts"]
+    Evidence --> Run["evidence-run"]
+    Run --> Capture["observer capture"]
+    Capture --> Bundle["in-toto / DSSE / OTel"]
+    Bundle --> Verdict["pass / blocked / inconclusive"]
+```
+
 ## Command Reference
 
 | Command | Description |
 |---|---|
-| `depone design` | Decompose a broad objective into a structured workflow plan |
+| `depone doctor` | Check package-local readiness for agent-session use |
+| `depone design` | Generate a safe workflow contract from a broad objective |
 | `depone validate` | Validate a plan.json against the schema v0.5 |
 | `depone compile` | Translate a plan into a target framework format (Conductor YAML) |
 | `depone verify` | Verify execution evidence against a plan |
-| `depone validate-contracts` | Validate Agent Fabric contracts and fixtures |
+| `depone observe` | Capture observer-owned evidence for a runner sandbox |
+| `depone evidence-substrate` | Emit in-toto/DSSE and OTel GenAI-shaped evidence |
+| `depone evidence-ingest` | Verify external evidence subject digests as untrusted input |
+| `depone evidence-run` | Run the common observe -> substrate -> ingest -> verify loop |
 | `depone mcp` | Serve the same evidence/verify capabilities over MCP stdio |
-| `depone agent-fabric-observe` | Capture and optionally HMAC-seal observer evidence; still A1 |
-| `depone agent-fabric-sign` | Ed25519-sign DSSE bundles via openssl operator keys |
-| `depone agent-fabric-smoke` | Export the source-only Agent Fabric lifecycle smoke summary |
-| `depone agent-fabric-harness-snapshot` | Export source-only harness capability snapshots |
-| `depone agent-fabric-adapter-smoke` | Export source-only adapter smoke reports |
-| `depone agent-fabric-claim-gate` | Gate public Agent Fabric claims on paired evidence |
-| `depone demo` | Run a complete design → compile → verify cycle |
+| `depone demo` | Run a complete design -> compile -> verify cycle |
 
-### Verify: Deterministic Checks Plus Advisory Signal
-
-1. **Gate Compliance** — Were declared risk_gates respected? (write, network, approval gates)
-2. **Handoff Integrity** — Do declared handoff artifacts exist with matching SHA-256 hashes?
-3. **Budget Adherence** — Did execution stay within max_agents, max_rounds, and budget limits?
-4. **Ground-Truth Presence Signal** — Advisory only; a present file is not proof that a claim is supported.
+Internal compatibility commands remain available for existing automation:
+`validate-contracts` and the `agent-fabric-*` command family.
 
 ## Normal Loop
 
-```
-depone design "audit all API routes" --out plan.json
-       │
-       ▼  compile --target conductor
-    workflow.yaml
-       │
-       ▼  conductor run workflow.yaml     ← NOT Depone (execution)
-    ./run-output/
-       │
-       ▼  verify plan.json --evidence ./run-output/
-    verification-report.json              ← Depone (evidence)
+```mermaid
+sequenceDiagram
+    participant A as Agent session
+    participant R as Runner sandbox
+    participant D as Depone
+    participant O as Observer-owned output
+    A->>R: perform task
+    A->>D: depone evidence-run --json
+    D->>R: run verifier command
+    D->>O: observer-capture.json
+    D->>O: capture-manifest.json
+    D->>O: evidence-bundle.json
+    D->>O: ingest-verdict.json
+    D->>O: verify-report.json
+    D-->>A: one JSON verdict
 ```
 
 ## Product Thesis
@@ -92,53 +110,46 @@ depone design "audit all API routes" --out plan.json
 > Depone designs multi-agent workflows and verifies their execution evidence.
 > It does not execute agents. It makes runs from other frameworks trustworthy.
 
-- **design**: decompose broad objectives into the workflow plan schema (phases,
-  workers, handoffs, gates, budgets).
-- **compile**: translate plans into target framework formats (Conductor YAML
-  first; LangGraph Python later).
-- **verify**: consume raw execution evidence from any framework, check it
-  against the plan, and produce content-addressed verification reports.
+`design` makes safe workflow contracts, `compile` emits target artifacts, and
+`verify` checks execution evidence against the plan.
 
 ## Safety Model
 
-Depone treats artifacts, not model claims, as the source of truth. A
-workflow is trusted only when the relevant plan, packet, prompt, evidence,
-review, approval, and status artifacts match their hash ledgers.
+Depone treats artifacts, not model claims, as the source of truth.
 Generated `out/` directories are verification evidence, not source of truth.
-They are never hand-edited; artifacts and source hashes are the source of truth.
+Destructive actions, network access, dependency installation, secret access,
+production deployment, and history rewrite require explicit gates.
 
-Depone does not claim unrestricted autonomous execution. Destructive actions,
-network access, dependency installation, secret access, external messaging,
-database migration, production deployment, and history rewrite require explicit
-gates with a safe default.
+## Roadmap
+
+```mermaid
+flowchart TD
+    A["Agent-safe CLI"] --> B["Evidence substrate"]
+    B --> C["evidence-run wrapper"]
+    C --> D["Session receipt adapters"]
+    D --> E["Operator signing policy"]
+    E --> F["A2 isolation path"]
+    C --> C1["Current: A1 local observed"]
+    D --> D1["Next: Codex / Claude receipts"]
+    E --> E1["Later: signed trust policy"]
+```
 
 ## What Is Still Honest
-Depone claims **no direct-agent superiority** — it is a design + verification layer, not an agent runtime.
-
-It does not claim upward performance.
-It is not a public benchmark graph.
-For that reason, public trend promotion requires real release history and measured improvements over established baselines.
+Depone claims **no direct-agent superiority** - it is a design + verification layer, not an agent runtime.
+It does not claim upward performance. It is not a public benchmark graph.
+public trend promotion requires real release history and measured improvements
+over established baselines; it is blocked until release history supports it.
 Trend promotion is blocked until release history supports the claim.
 The skill is named `depone`.
 
 ### Inspection & diagnostics
 
 ```bash
-# Quickstart demo evidence
-python scripts/dwm_demo.py run --out out/demo/quickstart
-python scripts/dwm_demo.py inspect --demo out/demo/quickstart
-
-# Operator-state inspection
-python scripts/dwm.py status --run out/v9/v32-semantic-dogfood
-python scripts/dwm.py next --run out/v9/v32-semantic-dogfood
-
-# Available commands
+python scripts/dwm.py doctor
 python scripts/dwm.py commands --kind product
-python scripts/dwm.py commands --kind release
-
-# README quality gate
 python scripts/check_readme_quality.py README.md
 ```
+Legacy diagnostics: `python scripts/dwm_demo.py run --out out/demo/quickstart`, `python scripts/dwm_demo.py inspect --demo out/demo/quickstart`, `python scripts/dwm.py status --run out/v9/v32-semantic-dogfood`, `python scripts/dwm.py next --run out/v9/v32-semantic-dogfood`, `python scripts/dwm.py commands --kind release`.
 
 ## Evidence Graphs
 
@@ -146,23 +157,12 @@ python scripts/check_readme_quality.py README.md
 *Dogfood benchmark progression across attempts.*
 
 ![Live benchmark](assets/dwm-live-benchmark.svg)
-*Live benchmark history — not a public benchmark graph. Benchmark visuals are source-bound.*
+*Live benchmark history - not a public benchmark graph. Benchmark visuals are source-bound.*
 
 ## Quality
 
-All CLI commands include built-in `--self-test`:
-```bash
-depone design --self-test              # 4/4 passed
-depone compile --self-test             # conductor 4/4, agent_fabric 6/6 passed
-depone validate --self-test            # 4/4 passed
-depone verify --self-test              # 12/12 passed
-depone validate-contracts --self-test  # 22/22 passed
-depone agent-fabric-smoke --self-test # source-only smoke export passed
-depone agent-fabric-harness-snapshot --self-test # harness snapshot export passed
-depone agent-fabric-adapter-smoke --self-test # adapter smoke export passed
-depone agent-fabric-claim-gate --self-test # claim gate export passed
-depone demo --self-test                # full cycle passed
-```
+Core CLI commands include built-in `--self-test`, including `verify`,
+`observe`, `evidence-substrate`, `evidence-ingest`, `evidence-run`, and `demo`.
 
 ```bash
 python scripts/check_contract.py --tier changed
@@ -175,14 +175,10 @@ runtime. It is a design + verification layer above existing execution engines.
 DWM Core keeps agentic work inspectable, reproducible, resumable, and honest
 about what has actually been executed.
 ## Documentation
-
-- [`docs/v107-agent-fabric-control-plane-spec.md`](docs/v107-agent-fabric-control-plane-spec.md): Agent Fabric control-plane contract/compiler spec.
-- [`docs/v104-product-direction-spec.md`](docs/v104-product-direction-spec.md): V104 product direction and CLI spec.
-- [`docs/spec.md`](docs/spec.md): product spec and release criteria.
-- [`docs/command-reference.md`](docs/command-reference.md): full command and artifact reference.
+- [`docs/agent-tool-contract.md`](docs/agent-tool-contract.md): agent-facing CLI and evidence contract.
+- [`docs/command-reference.md`](docs/command-reference.md) and [`docs/spec.md`](docs/spec.md): command reference and product spec.
 - [`docs/release-history.md`](docs/release-history.md): versioned implementation history.
 - [`references/workflow-plan-schema.md`](references/workflow-plan-schema.md): plan schema v0.5 reference.
-- [`references/workflow-patterns.md`](references/workflow-patterns.md): canonical workflow patterns.
 - [`SKILL.md`](SKILL.md): installed agent skill for Codex environments.
 
 ## License

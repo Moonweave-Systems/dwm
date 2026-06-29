@@ -5,6 +5,7 @@ import json
 import sys
 from pathlib import Path
 
+from depone.cli._response import EXIT_INTERNAL, emit_error, emit_result
 from depone.agent_fabric.evidence_substrate import (
     build_evidence_bundle,
     validate_statement_for_capture,
@@ -18,13 +19,20 @@ def run(args: argparse.Namespace) -> None:
 
     capture_path = Path(str(getattr(args, "capture_manifest", "")))
     if not str(capture_path):
-        print("Error: --capture-manifest is required", file=sys.stderr)
-        sys.exit(1)
+        emit_error(
+            args,
+            code="ERR_EVIDENCE_SUBSTRATE_CAPTURE_REQUIRED",
+            message="--capture-manifest is required",
+        )
     try:
         capture = _read_json(capture_path)
     except (OSError, json.JSONDecodeError) as exc:
-        print(f"Error: cannot read capture manifest: {exc}", file=sys.stderr)
-        sys.exit(1)
+        emit_error(
+            args,
+            code="ERR_EVIDENCE_SUBSTRATE_READ_CAPTURE",
+            message=f"cannot read capture manifest: {exc}",
+            path=capture_path,
+        )
 
     runner_receipt = None
     runner_path = getattr(args, "runner_receipt", None)
@@ -32,32 +40,43 @@ def run(args: argparse.Namespace) -> None:
         try:
             runner_receipt = _read_json(Path(str(runner_path)))
         except (OSError, json.JSONDecodeError) as exc:
-            print(f"Error: cannot read runner receipt: {exc}", file=sys.stderr)
-            sys.exit(1)
+            emit_error(
+                args,
+                code="ERR_EVIDENCE_SUBSTRATE_READ_RUNNER",
+                message=f"cannot read runner receipt: {exc}",
+                path=runner_path,
+            )
 
     bundle = build_evidence_bundle(capture, runner_receipt=runner_receipt)
     errors = validate_statement_for_capture(bundle["statement"], capture)
     if errors:
-        print(
-            json.dumps(
-                {
-                    "error": {
-                        "code": "ERR_EVIDENCE_SUBSTRATE_INVALID",
-                        "validation_errors": errors,
-                    }
-                },
-                sort_keys=True,
-            ),
-            file=sys.stderr,
+        emit_error(
+            args,
+            code="ERR_EVIDENCE_SUBSTRATE_INVALID",
+            message="generated evidence substrate did not validate",
+            exit_code=EXIT_INTERNAL,
         )
-        sys.exit(1)
 
     out_path = Path(str(getattr(args, "out", "evidence-substrate-bundle.json")))
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(bundle, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    print(f"Evidence substrate bundle written to {out_path}")
-    print(f"  Signing status: {bundle['signing_status']}")
-    print(f"  Assurance: {bundle['assurance']}")
+    emit_result(
+        args,
+        {
+            "command": "evidence-substrate",
+            "decision": "pass",
+            "out": str(out_path),
+            "assurance": bundle["assurance"],
+            "signing_status": bundle["signing_status"],
+            "subject_count": len(bundle["statement"].get("subject", [])),
+            "otel_span_count": len(bundle["otel_spans"]),
+        },
+        human=[
+            f"Evidence substrate bundle written to {out_path}",
+            f"  Signing status: {bundle['signing_status']}",
+            f"  Assurance: {bundle['assurance']}",
+        ],
+    )
 
 
 def _read_json(path: Path) -> dict[str, object]:

@@ -28,6 +28,7 @@ REQUIRED_SECTIONS = [
 REQUIRED_TERMS = [
     "assets/dwm-dogfood-progress.svg",
     "assets/dwm-live-benchmark.svg",
+    "docs/agent-tool-contract.md",
     "docs/command-reference.md",
     "docs/release-history.md",
     "not a public benchmark graph",
@@ -61,8 +62,11 @@ def check_text(text: str, *, max_lines: int = MAX_LINES, root: Path = ROOT) -> N
         problems.append(f"too many version mentions: {mentions} > {MAX_VERSION_MENTIONS}")
     if "V36 README graph artifacts" in text or "V67 adds" in text:
         problems.append("README appears to contain release-history prose")
+    agent_tool_contract = root / "docs" / "agent-tool-contract.md"
     command_reference = root / "docs" / "command-reference.md"
     release_history = root / "docs" / "release-history.md"
+    if not agent_tool_contract.is_file():
+        problems.append("docs/agent-tool-contract.md is missing")
     if not command_reference.is_file():
         problems.append("docs/command-reference.md is missing")
     if not release_history.is_file():
@@ -95,6 +99,7 @@ def self_test() -> None:
             "public trend promotion requires real release history",
             "Generated `out/` directories are verification evidence, not source of truth.",
             "## Command Reference",
+            "docs/agent-tool-contract.md",
             "docs/command-reference.md",
             "docs/release-history.md",
             "## Documentation",
@@ -112,7 +117,7 @@ def self_test() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
         path = root / "README.md"
-        path.write_text(good)
+        path.write_text(good, encoding="utf-8")
         try:
             check_readme(path)
         except ReadmeQualityError:
@@ -120,8 +125,9 @@ def self_test() -> None:
         else:
             raise ReadmeQualityError("self-test failed: missing reference docs passed")
         (root / "docs").mkdir()
-        (root / "docs" / "command-reference.md").write_text("# commands\n")
-        (root / "docs" / "release-history.md").write_text("# history\n")
+        (root / "docs" / "agent-tool-contract.md").write_text("# agent contract\n", encoding="utf-8")
+        (root / "docs" / "command-reference.md").write_text("# commands\n", encoding="utf-8")
+        (root / "docs" / "release-history.md").write_text("# history\n", encoding="utf-8")
         check_readme(path)
     print("readme quality self-test: pass")
 

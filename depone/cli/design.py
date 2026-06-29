@@ -14,6 +14,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from depone.cli._response import emit_error, emit_result
 from depone.cli.design_contract import apply_minimal_contract
 from depone.core.plan_schema import validate_plan_strict
 
@@ -221,11 +222,11 @@ def run(args: argparse.Namespace) -> None:
 
     objective = args.objective
     if not objective:
-        print(
-            "Usage: depone design <objective> [--surface PATH] [--out plan.json]",
-            file=sys.stderr,
+        emit_error(
+            args,
+            code="ERR_DESIGN_USAGE",
+            message="Usage: depone design <objective> [--surface PATH] [--out plan.json]",
         )
-        sys.exit(1)
     pattern_name = _detect_pattern(objective)
     template = _PLAN_TEMPLATES.get(pattern_name, _PLAN_TEMPLATES["sequential"])
     plan_id = _generate_plan_id(objective)
@@ -239,24 +240,35 @@ def run(args: argparse.Namespace) -> None:
 
     errors = validate_plan_strict(plan)
     if errors:
-        print(
-            f"Error: generated plan failed validation with {len(errors)} issue(s):",
-            file=sys.stderr,
+        emit_error(
+            args,
+            code="ERR_DESIGN_INVALID_PLAN",
+            message=f"generated plan failed validation with {len(errors)} issue(s)",
         )
-        for e in errors:
-            print(f"  - {e}", file=sys.stderr)
-        sys.exit(1)
 
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(out_path, "w") as f:
+    with open(out_path, "w", encoding="utf-8") as f:
         json.dump(plan, f, indent=2)
         f.write("\n")
 
-    print(f"Plan written to {out_path}")
-    print(f"  Pattern: {pattern_name}")
-    print(f"  Plan ID: {plan_id}")
-    print(f"  Objective: {objective}")
+    emit_result(
+        args,
+        {
+            "command": "design",
+            "decision": "pass",
+            "plan_id": plan_id,
+            "pattern": pattern_name,
+            "objective": objective,
+            "out": str(out_path),
+        },
+        human=[
+            f"Plan written to {out_path}",
+            f"  Pattern: {pattern_name}",
+            f"  Plan ID: {plan_id}",
+            f"  Objective: {objective}",
+        ],
+    )
 
 
 def _self_test() -> None:
@@ -302,9 +314,10 @@ def _self_test() -> None:
             out=str(out_path),
             surface=".",
             self_test=False,
+            json=False,
         )
         run(fake_args)
-        generated = json.loads(out_path.read_text())
+        generated = json.loads(out_path.read_text(encoding="utf-8"))
         errors = validate_plan_strict(generated)
         if out_path.exists() and not errors:
             passed += 1

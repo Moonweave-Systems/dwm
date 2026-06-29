@@ -3,22 +3,74 @@
 This file keeps the full CLI and artifact reference out of the README. The
 README should explain the product; this page preserves operator detail.
 
-## Product Shell
+## Agent-Facing Surface
+
+These commands are the supported surface for Codex, Claude, and other
+agent-session callers. They are stdlib-only, support source installs, and use
+`--json` for a single machine-readable stdout object. Prefer `python -m depone`
+so the same prompt works on Windows PowerShell, macOS shells, and Linux.
+
+Core commands:
 
 ```bash
-python3 -m depone design "<objective>" --surface . --out plan.json
-python3 -m depone validate plan.json
-python3 -m depone compile plan.json --target conductor --out workflow.yaml
-python3 -m depone verify plan.json --evidence ./evidence --out report.json --operator-view-out operator-view.md
-python3 -m depone validate-contracts --all
-python3 -m depone agent-fabric-smoke --profile profile.json --roles role.json --plan plan.json --out agent-fabric-smoke.json --operator-view-out operator-view.md
-python3 -m depone agent-fabric-harness-snapshot --harness shell --harness codex --out agent-fabric-harness-snapshot.json
-python3 -m depone agent-fabric-adapter-smoke --adapter-fixture depone/fixtures/agent_fabric/reference_adapter_shell.json --out agent-fabric-adapter-smoke.json
-python3 -m depone agent-fabric-dogfood-evidence --capture-manifest depone/fixtures/agent_fabric/capture_manifest_shell.json --out dogfood-evidence.json
-python3 -m depone agent-fabric-dogfood-evidence --capture-manifest depone/fixtures/agent_fabric/capture_manifest_shell.json --capture-manifest depone/fixtures/agent_fabric/capture_manifest_docs_source_only.json --out controlled-capture-corpus.json
-python3 -m depone agent-fabric-paired-evidence --adapter-smoke agent-fabric-adapter-smoke.json --dogfood-evidence dogfood-evidence.json --out paired-evidence.json
-python3 -m depone agent-fabric-claim-gate --adapter-smoke agent-fabric-adapter-smoke.json --paired-evidence paired-evidence.json --out agent-fabric-claim-gate.json
-python3 -m depone demo --out out/depone-quickstart
+python -m depone doctor --json
+python -m depone design "<objective>" --surface . --out plan.json --json
+python -m depone validate plan.json --json
+python -m depone compile plan.json --target conductor --out workflow.yaml --json
+python -m depone verify plan.json --evidence ./evidence --out report.json --operator-view-out operator-view.md --json
+python -m depone observe --runner-sandbox ./runner-worktree --source-fixture-hash <sha256> --out ../observer/observer-capture.json --log ../observer/verify-log.json -- python -m unittest
+python -m depone evidence-substrate --capture-manifest capture-manifest.json --out evidence-bundle.json --json
+python -m depone evidence-ingest --dsse evidence-bundle.json:dsse_envelope --artifact depone-capture-manifest=capture-manifest.json:json --out ingest-verdict.json --json
+python -m depone mcp
+python -m depone demo --out out/depone-quickstart --json
+```
+
+Convenience wrapper for the full local evidence loop:
+
+```bash
+python -m depone evidence-run --runner-sandbox ./runner-worktree --source-fixture depone/fixtures/agent_fabric/reference_adapter_shell.json --out ../observer/evidence-run --allow-touched-file sample.txt --verify-plan plan.json --verify-evidence ./evidence --json -- python -m unittest
+```
+
+Exit codes: `0` pass/success, `1` fail/blocked/refuted, `2`
+inconclusive/insufficient evidence, `3` usage/config/input error, and `4`
+internal/runtime error.
+
+JSON errors use `{"error":{"code":"ERR_EXAMPLE","message":"what failed","path":null}}`.
+When `--json` is present, stdout is a single JSON object and human-readable logs
+belong on stderr. A result of `2` is an honest evidence verdict, not an internal
+runtime failure.
+
+## Human Demo
+
+```bash
+python -m depone doctor
+python -m depone demo --out out/depone-quickstart
+python -m depone design "<objective>" --surface . --out plan.json
+python -m depone validate plan.json
+python -m depone compile plan.json --target conductor --out workflow.yaml
+python -m depone verify plan.json --evidence ./evidence --out report.json --operator-view-out operator-view.md
+```
+
+The human demo is offline and deterministic. It demonstrates the design,
+compile, and verify shape; it does not execute an external agent.
+
+## Compatibility/Internal Shell
+
+The older Agent Fabric and release commands remain available for existing
+automation, but new agent integrations should prefer the agent-facing aliases.
+These commands are useful for release gates, fixture regeneration, and operator
+inspection; they are not the small contract a Codex or Claude session should
+learn first.
+
+```bash
+python -m depone validate-contracts --all
+python -m depone agent-fabric-smoke --profile profile.json --roles role.json --plan plan.json --out agent-fabric-smoke.json --operator-view-out operator-view.md
+python -m depone agent-fabric-harness-snapshot --harness shell --harness codex --out agent-fabric-harness-snapshot.json
+python -m depone agent-fabric-adapter-smoke --adapter-fixture depone/fixtures/agent_fabric/reference_adapter_shell.json --out agent-fabric-adapter-smoke.json
+python -m depone agent-fabric-dogfood-evidence --capture-manifest depone/fixtures/agent_fabric/capture_manifest_shell.json --out dogfood-evidence.json
+python -m depone agent-fabric-dogfood-evidence --capture-manifest depone/fixtures/agent_fabric/capture_manifest_shell.json --capture-manifest depone/fixtures/agent_fabric/capture_manifest_docs_source_only.json --out controlled-capture-corpus.json
+python -m depone agent-fabric-paired-evidence --adapter-smoke agent-fabric-adapter-smoke.json --dogfood-evidence dogfood-evidence.json --out paired-evidence.json
+python -m depone agent-fabric-claim-gate --adapter-smoke agent-fabric-adapter-smoke.json --paired-evidence paired-evidence.json --out agent-fabric-claim-gate.json
 
 python scripts/dwm.py plan "<objective>" --out out/v21/<run_id>
 python scripts/dwm.py run "<objective>" --out out/v21/<run_id>
@@ -260,6 +312,7 @@ Release artifacts include `operator-loop.json`, `today.md`,
 | `docs/automation-roadmap.md` | Implementation roadmap and completed slices. |
 | `docs/github-research.md` | Prior-art survey. |
 | `docs/v12-to-v20-final-roadmap.md` | Final-product roadmap. |
+| `docs/agent-tool-contract.md` | Agent-facing CLI, JSON, exit-code, and evidence folder contract. |
 | `docs/command-reference.md` | Full command and artifact reference. |
 | `docs/release-history.md` | Versioned implementation history. |
 | `fixtures/` | Deterministic manifests used by release gates. |

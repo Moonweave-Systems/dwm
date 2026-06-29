@@ -8,6 +8,7 @@ import tempfile
 from dataclasses import asdict
 from pathlib import Path
 
+from depone.cli._response import emit_error, emit_result, exit_code_for_decision
 from depone.core.plan_schema import load_plan
 from depone.verify.adapters import generic, resolve
 from depone.verify.engine import run_verification
@@ -20,56 +21,88 @@ def run(args: argparse.Namespace) -> None:
         return
 
     if not args.plan:
-        print(
-            "Usage: depone verify <plan.json> --evidence <evidence-dir>",
-            file=sys.stderr,
+        emit_error(
+            args,
+            code="ERR_VERIFY_USAGE",
+            message="Usage: depone verify <plan.json> --evidence <evidence-dir>",
         )
-        sys.exit(1)
     if not args.evidence:
-        print("Error: --evidence is required", file=sys.stderr)
-        sys.exit(1)
+        emit_error(
+            args,
+            code="ERR_VERIFY_EVIDENCE_REQUIRED",
+            message="--evidence is required",
+        )
 
     try:
         plan = load_plan(args.plan)
     except (FileNotFoundError, json.JSONDecodeError) as exc:
-        print(f"Error: cannot load plan: {exc}", file=sys.stderr)
-        sys.exit(1)
+        emit_error(
+            args,
+            code="ERR_VERIFY_LOAD_PLAN",
+            message=f"cannot load plan: {exc}",
+            path=args.plan,
+        )
 
     try:
         adapter_mod = resolve(args.adapter)
     except ValueError as exc:
-        print(f"Error: {exc}", file=sys.stderr)
-        sys.exit(1)
+        emit_error(args, code="ERR_VERIFY_ADAPTER", message=str(exc))
 
     mod = importlib.import_module(adapter_mod)
     try:
         evidence = mod.read_evidence(args.evidence)
     except NotADirectoryError as exc:
-        print(f"Error: {exc}", file=sys.stderr)
-        sys.exit(1)
+        emit_error(
+            args,
+            code="ERR_VERIFY_EVIDENCE_DIR",
+            message=str(exc),
+            path=args.evidence,
+        )
 
     report = run_verification(plan, evidence, framework=args.adapter)
 
     report_dict = asdict(report)
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(out_path, "w") as f:
+    with open(out_path, "w", encoding="utf-8") as f:
         json.dump(report_dict, f, indent=2)
         f.write("\n")
 
     verdict = report_dict["verdict"]
-    print(f"Verification report written to {out_path}")
-    print(f"  Verdict: {verdict}")
-    print(f"  Decision: {report_dict['decision']}")
-    print(f"  Assurance: {report_dict['assurance']}")
-    print(f"  Phases: {len(report_dict['phases'])}")
 
+    operator_view_path = None
     if args.operator_view_out:
         view_path = write_operator_view(report, args.operator_view_out)
-        print(f"Operator view written to {view_path}")
+        operator_view_path = str(view_path)
 
-    if verdict != "verified":
-        sys.exit(1)
+    emit_result(
+        args,
+        {
+            "command": "verify",
+            "decision": report_dict["decision"],
+            "verdict": verdict,
+            "assurance": report_dict["assurance"],
+            "out": str(out_path),
+            "operator_view_out": operator_view_path,
+            "phase_count": len(report_dict["phases"]),
+        },
+        human=[
+            f"Verification report written to {out_path}",
+            f"  Verdict: {verdict}",
+            f"  Decision: {report_dict['decision']}",
+            f"  Assurance: {report_dict['assurance']}",
+            f"  Phases: {len(report_dict['phases'])}",
+            *(
+                [f"Operator view written to {operator_view_path}"]
+                if operator_view_path
+                else []
+            ),
+        ],
+    )
+
+    exit_code = exit_code_for_decision(str(report_dict["decision"]))
+    if exit_code:
+        sys.exit(exit_code)
 
 
 def _self_test() -> None:
@@ -83,7 +116,9 @@ def _self_test() -> None:
             "schema_version": "v105.verify_wedge",
             "required_evidence": ["run-metadata.json"],
         }
-        (path / "evidence-contract.json").write_text(json.dumps(contract))
+        (path / "evidence-contract.json").write_text(
+            json.dumps(contract), encoding="utf-8"
+        )
 
     def _create_evidence_dir(tmp: str, *, tamper: bool = False) -> dict:
         """Create a sample evidence dir. If tamper=True, corrupt the handoff hash."""
@@ -97,15 +132,19 @@ def _self_test() -> None:
             else "TAMPERED DATA"
         )
         (d / "handoffs").mkdir(parents=True, exist_ok=True)
-        (d / "handoffs" / "phase-1-report.md").write_text(handoff_content)
+        (d / "handoffs" / "phase-1-report.md").write_text(
+            handoff_content, encoding="utf-8"
+        )
 
         # Gate approval
         (d / "gates" / "write").mkdir(parents=True, exist_ok=True)
-        (d / "gates" / "write" / "approved").write_text("approved")
+        (d / "gates" / "write" / "approved").write_text(
+            "approved", encoding="utf-8"
+        )
 
         # Run metadata
         meta = {"run_id": "test-run-001", "num_rounds": 3}
-        (d / "run-metadata.json").write_text(json.dumps(meta))
+        (d / "run-metadata.json").write_text(json.dumps(meta), encoding="utf-8")
         _write_evidence_contract(d)
 
         # Plan that expects the handoff
@@ -199,12 +238,12 @@ def _self_test() -> None:
         }
 
         plan_path = Path(tmp) / "plan.json"
-        with open(plan_path, "w") as f:
+        with open(plan_path, "w", encoding="utf-8") as f:
             json.dump(plan, f, indent=2)
 
         return {"plan": plan, "plan_path": str(plan_path), "evidence_dir": str(d)}
 
-    # Test 1: Known-good evidence → verified
+    # Test 1: Known-good evidence -> verified
     tests += 1
     with tempfile.TemporaryDirectory() as tmp:
         ctx = _create_evidence_dir(tmp, tamper=False)
@@ -213,11 +252,11 @@ def _self_test() -> None:
         report = run_verification(plan, evidence)
         if report.verdict == "verified":
             passed += 1
-            print(f"  [PASS] Test {tests}: known-good evidence → verified")
+            print(f"  [PASS] Test {tests}: known-good evidence -> verified")
         else:
             print(f"  [FAIL] Test {tests}: expected verified, got {report.verdict}")
 
-    # Test 2: Tampered evidence → refuted
+    # Test 2: Tampered evidence -> refuted
     tests += 1
     with tempfile.TemporaryDirectory() as tmp:
         ctx = _create_evidence_dir(tmp, tamper=True)
@@ -226,16 +265,18 @@ def _self_test() -> None:
         report = run_verification(plan, evidence)
         if report.verdict == "refuted":
             passed += 1
-            print(f"  [PASS] Test {tests}: tampered evidence → refuted")
+            print(f"  [PASS] Test {tests}: tampered evidence -> refuted")
         else:
             print(f"  [FAIL] Test {tests}: expected refuted, got {report.verdict}")
 
-    # Test 3: Missing description-only handoff (no expected_hash) → insufficient-evidence
+    # Test 3: Missing description-only handoff (no expected_hash) -> insufficient-evidence
     tests += 1
     with tempfile.TemporaryDirectory() as tmp:
         d = Path(tmp) / "evidence"
         d.mkdir(parents=True)
-        (d / "run-metadata.json").write_text('{"run_id": "empty-run"}')
+        (d / "run-metadata.json").write_text(
+            '{"run_id": "empty-run"}', encoding="utf-8"
+        )
         _write_evidence_contract(d)
         empty_plan = {
             "schema_version": "0.5",
@@ -303,28 +344,32 @@ def _self_test() -> None:
             },
         }
         plan_path = Path(tmp) / "plan.json"
-        with open(plan_path, "w") as f:
+        with open(plan_path, "w", encoding="utf-8") as f:
             json.dump(empty_plan, f, indent=2)
         evidence = generic.read_evidence(str(d))
         report = run_verification(empty_plan, evidence)
         if report.verdict == "insufficient-evidence":
             passed += 1
             print(
-                f"  [PASS] Test {tests}: description-only handoff → insufficient-evidence"
+                f"  [PASS] Test {tests}: description-only handoff -> insufficient-evidence"
             )
         else:
             print(
                 f"  [FAIL] Test {tests}: expected insufficient-evidence, got {report.verdict}"
             )
 
-    # Test 4: Canonical handoff with evidence_path + good evidence → verified
+    # Test 4: Canonical handoff with evidence_path + good evidence -> verified
     tests += 1
     with tempfile.TemporaryDirectory() as tmp:
         d = Path(tmp) / "evidence"
         d.mkdir(parents=True)
         (d / "reports").mkdir(parents=True, exist_ok=True)
-        (d / "reports" / "analysis.md").write_text("analysis ok")
-        (d / "run-metadata.json").write_text('{"run_id": "canon-test"}')
+        (d / "reports" / "analysis.md").write_text(
+            "analysis ok", encoding="utf-8"
+        )
+        (d / "run-metadata.json").write_text(
+            '{"run_id": "canon-test"}', encoding="utf-8"
+        )
         _write_evidence_contract(d)
         plan_canon_good = {
             "schema_version": "0.5",
@@ -395,18 +440,20 @@ def _self_test() -> None:
         report = run_verification(plan_canon_good, evidence)
         if report.verdict == "verified":
             passed += 1
-            print(f"  [PASS] Test {tests}: canonical evidence_path + good → verified")
+            print(f"  [PASS] Test {tests}: canonical evidence_path + good -> verified")
         else:
             print(f"  [FAIL] Test {tests}: expected verified, got {report.verdict}")
 
-    # Test 5: Description artifact, no path/hash, good rest → insufficient-evidence
+    # Test 5: Description artifact, no path/hash, good rest -> insufficient-evidence
     tests += 1
     with tempfile.TemporaryDirectory() as tmp:
         d = Path(tmp) / "evidence"
         d.mkdir(parents=True)
         (d / "gates" / "write").mkdir(parents=True, exist_ok=True)
-        (d / "gates" / "write" / "approved").write_text("ok")
-        (d / "run-metadata.json").write_text('{"run_id": "no-handoff-evidence"}')
+        (d / "gates" / "write" / "approved").write_text("ok", encoding="utf-8")
+        (d / "run-metadata.json").write_text(
+            '{"run_id": "no-handoff-evidence"}', encoding="utf-8"
+        )
         _write_evidence_contract(d)
         plan_canon_desc = {
             "schema_version": "0.5",
@@ -483,21 +530,25 @@ def _self_test() -> None:
         if report.verdict == "insufficient-evidence":
             passed += 1
             print(
-                f"  [PASS] Test {tests}: description artifact, no path/hash → insufficient-evidence"
+                f"  [PASS] Test {tests}: description artifact, no path/hash -> insufficient-evidence"
             )
         else:
             print(
                 f"  [FAIL] Test {tests}: expected insufficient-evidence, got {report.verdict}"
             )
 
-    # Test 6: Hash tamper → refuted (canonical keys)
+    # Test 6: Hash tamper -> refuted (canonical keys)
     tests += 1
     with tempfile.TemporaryDirectory() as tmp:
         d = Path(tmp) / "evidence"
         d.mkdir(parents=True)
         (d / "handoffs").mkdir(parents=True, exist_ok=True)
-        (d / "handoffs" / "output.json").write_text("TAMPERED")
-        (d / "run-metadata.json").write_text('{"run_id": "tamper-test"}')
+        (d / "handoffs" / "output.json").write_text(
+            "TAMPERED", encoding="utf-8"
+        )
+        (d / "run-metadata.json").write_text(
+            '{"run_id": "tamper-test"}', encoding="utf-8"
+        )
         _write_evidence_contract(d)
         plan_canon_tamper = {
             "schema_version": "0.5",
@@ -568,7 +619,7 @@ def _self_test() -> None:
         report = run_verification(plan_canon_tamper, evidence)
         if report.verdict == "refuted":
             passed += 1
-            print(f"  [PASS] Test {tests}: hash tamper (canonical) → refuted")
+            print(f"  [PASS] Test {tests}: hash tamper (canonical) -> refuted")
         else:
             print(f"  [FAIL] Test {tests}: expected refuted, got {report.verdict}")
 
@@ -582,7 +633,7 @@ def _self_test() -> None:
         if report.verdict == "insufficient-evidence":
             passed += 1
             print(
-                f"  [PASS] Test {tests}: missing required gate evidence → insufficient-evidence"
+                f"  [PASS] Test {tests}: missing required gate evidence -> insufficient-evidence"
             )
         else:
             print(
@@ -609,13 +660,15 @@ def _self_test() -> None:
     def _claim_evidence(tmp: str, *, gt_content: str = "ok"):
         d = Path(tmp) / "evidence"
         d.mkdir(parents=True, exist_ok=True)
-        (d / "gt.md").write_text(gt_content)
-        (d / "run-metadata.json").write_text('{"run_id": "v127"}')
+        (d / "gt.md").write_text(gt_content, encoding="utf-8")
+        (d / "run-metadata.json").write_text(
+            '{"run_id": "v127"}', encoding="utf-8"
+        )
         _write_evidence_contract(d)
         return generic.read_evidence(str(d))
 
     # Test 8 (gap-map regression): required claim, ground truth present, NO
-    # evaluator -> inconclusive, never pass.
+        # evaluator -> inconclusive, never pass.
     tests += 1
     with tempfile.TemporaryDirectory() as tmp:
         plan = _claim_plan({"claim_or_output": "X holds", "ground_truth": "gt.md"})

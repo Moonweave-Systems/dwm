@@ -7,6 +7,7 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from depone.cli._response import emit_error, emit_result, exit_code_for_decision
 from depone._resources import resource_path, resource_text
 from depone.agent_fabric.evidence_substrate import (
     build_evidence_bundle,
@@ -24,8 +25,11 @@ def run(args: argparse.Namespace) -> None:
     statement_arg = getattr(args, "statement", None)
     dsse_arg = getattr(args, "dsse", None)
     if bool(statement_arg) == bool(dsse_arg):
-        print("Error: provide exactly one of --statement or --dsse", file=sys.stderr)
-        sys.exit(1)
+        emit_error(
+            args,
+            code="ERR_EVIDENCE_INGEST_INPUT_REQUIRED",
+            message="provide exactly one of --statement or --dsse",
+        )
 
     try:
         payload = (
@@ -40,8 +44,11 @@ def run(args: argparse.Namespace) -> None:
         if getattr(args, "otel_spans", None):
             otel_spans = _load_json_selector(str(args.otel_spans), "otel_spans")
     except (OSError, json.JSONDecodeError, ValueError) as exc:
-        print(f"Error: {exc}", file=sys.stderr)
-        sys.exit(1)
+        emit_error(
+            args,
+            code="ERR_EVIDENCE_INGEST_LOAD_FAILED",
+            message=str(exc),
+        )
 
     verdict = ingest_external_evidence(
         payload,
@@ -55,10 +62,24 @@ def run(args: argparse.Namespace) -> None:
         json.dumps(verdict, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
-    print(f"Evidence ingest decision: {verdict['decision']}")
-    print(f"Evidence ingest verdict written to {out_path}")
-    if verdict["decision"] == "blocked":
-        sys.exit(1)
+    subject_results = verdict.get("subject_results", [])
+    emit_result(
+        args,
+        {
+            "command": "evidence-ingest",
+            "decision": verdict["decision"],
+            "out": str(out_path),
+            "subject_count": len(subject_results) if isinstance(subject_results, list) else 0,
+            "verified_subject_count": verdict.get("verified_subject_count", 0),
+            "predicate_recognized": verdict.get("predicate_recognized", False),
+            "signing_status": verdict.get("signing_status"),
+        },
+        human=[
+            f"Evidence ingest decision: {verdict['decision']}",
+            f"Evidence ingest verdict written to {out_path}",
+        ],
+    )
+    sys.exit(exit_code_for_decision(str(verdict["decision"])))
 
 
 def _load_json_selector(spec: str, default_key: str) -> Any:

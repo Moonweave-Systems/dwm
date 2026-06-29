@@ -10,6 +10,7 @@ import shutil
 import signal
 import subprocess
 import sys
+import tempfile
 import threading
 
 import evaluate_plan
@@ -2455,6 +2456,184 @@ def require_changed_surface_commands_pass() -> None:
         run_contract_command(command, timeout_seconds=release_command_timeout(command))
 
 
+def require_agent_surface_contract_pass() -> None:
+    with tempfile.TemporaryDirectory(prefix="depone-agent-contract-") as tmp:
+        temp = Path(tmp)
+
+        doctor = run_contract_command(
+            [sys.executable, "-m", "depone", "doctor", "--json"]
+        )
+        doctor_payload = json.loads(doctor.stdout)
+        if doctor_payload.get("decision") != "pass":
+            raise SystemExit("depone doctor --json did not pass")
+
+        demo_out = temp / "demo"
+        demo = run_contract_command(
+            [
+                sys.executable,
+                "-m",
+                "depone",
+                "demo",
+                "--json",
+                "--out",
+                str(demo_out),
+            ]
+        )
+        demo_payload = json.loads(demo.stdout)
+        if demo_payload.get("decision") != "pass" or demo_payload.get("verdict") != "verified":
+            raise SystemExit("depone demo --json did not emit verified pass JSON")
+
+        usage_completed = subprocess.run(
+            [sys.executable, "-m", "depone", "design", "--bad", "--json"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if usage_completed.returncode != 3:
+            raise SystemExit("depone argparse usage errors must exit 3")
+        usage_payload = json.loads(usage_completed.stdout)
+        if usage_payload.get("error", {}).get("code") != "ERR_CLI_USAGE":
+            raise SystemExit("depone argparse usage error did not emit error JSON")
+
+        bad_json_path = temp / "bad-role.json"
+        bad_json_path.write_text("not json\n", encoding="utf-8")
+        compile_completed = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "depone",
+                "compile",
+                str(bad_json_path),
+                "--target",
+                "agent-fabric",
+                "--roles",
+                str(bad_json_path),
+                "--json",
+            ],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if compile_completed.returncode != 3:
+            raise SystemExit("depone compile JSON load errors must exit 3")
+        compile_payload = json.loads(compile_completed.stdout)
+        if compile_payload.get("error", {}).get("code") != "ERR_COMPILE_READ_JSON":
+            raise SystemExit("depone compile JSON load error did not emit error JSON")
+
+        run_contract_command([sys.executable, "-m", "depone", "observe", "--self-test"])
+        run_contract_command(
+            [sys.executable, "-m", "depone", "evidence-substrate", "--self-test"]
+        )
+        run_contract_command(
+            [sys.executable, "-m", "depone", "evidence-ingest", "--self-test"]
+        )
+        run_contract_command(
+            [sys.executable, "-m", "depone", "evidence-run", "--self-test"]
+        )
+
+        capture_fixture = ROOT / "depone" / "fixtures" / "agent_fabric" / "capture_manifest_v126_governed_utf8.json"
+        source_fixture = ROOT / "depone" / "fixtures" / "agent_fabric" / "reference_adapter_shell.json"
+        capture = json.loads(capture_fixture.read_text(encoding="utf-8"))
+        observer_path = temp / "observer-capture.json"
+        observer_path.write_text(
+            json.dumps(capture["observer_capture"]),
+            encoding="utf-8",
+        )
+        bundle_path = temp / "bundle.json"
+        run_contract_command(
+            [
+                sys.executable,
+                "-m",
+                "depone",
+                "evidence-substrate",
+                "--capture-manifest",
+                str(capture_fixture),
+                "--out",
+                str(bundle_path),
+                "--json",
+            ]
+        )
+
+        pass_verdict = temp / "pass-verdict.json"
+        pass_completed = run_contract_command(
+            [
+                sys.executable,
+                "-m",
+                "depone",
+                "evidence-ingest",
+                "--dsse",
+                f"{bundle_path}:dsse_envelope",
+                "--artifact",
+                f"depone-capture-manifest={capture_fixture}:json",
+                "--artifact",
+                f"source_fixture={source_fixture}:json",
+                "--artifact",
+                f"observer_capture={observer_path}:json",
+                "--out",
+                str(pass_verdict),
+                "--json",
+            ]
+        )
+        if json.loads(pass_completed.stdout).get("decision") != "pass":
+            raise SystemExit("evidence-ingest pass case did not pass")
+
+        missing_completed = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "depone",
+                "evidence-ingest",
+                "--dsse",
+                f"{bundle_path}:dsse_envelope",
+                "--artifact",
+                f"source_fixture={source_fixture}:json",
+                "--out",
+                str(temp / "missing-verdict.json"),
+                "--json",
+            ],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if missing_completed.returncode != 2:
+            raise SystemExit("evidence-ingest missing artifact did not exit 2")
+        if json.loads(missing_completed.stdout).get("decision") != "inconclusive":
+            raise SystemExit("evidence-ingest missing artifact was not inconclusive")
+
+        tampered_path = temp / "tampered.json"
+        tampered_path.write_text('{"tampered": true}\n', encoding="utf-8")
+        blocked_completed = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "depone",
+                "evidence-ingest",
+                "--dsse",
+                f"{bundle_path}:dsse_envelope",
+                "--artifact",
+                f"depone-capture-manifest={capture_fixture}:json",
+                "--artifact",
+                f"source_fixture={tampered_path}:json",
+                "--artifact",
+                f"observer_capture={observer_path}:json",
+                "--out",
+                str(temp / "blocked-verdict.json"),
+                "--json",
+            ],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if blocked_completed.returncode != 1:
+            raise SystemExit("evidence-ingest digest mismatch did not exit 1")
+        if json.loads(blocked_completed.stdout).get("decision") != "blocked":
+            raise SystemExit("evidence-ingest digest mismatch was not blocked")
+
+
 def contract_steps_for_tier(tier: str) -> list[tuple[str, object, int]]:
     if tier == "smoke":
         return [
@@ -2465,6 +2644,7 @@ def contract_steps_for_tier(tier: str) -> list[tuple[str, object, int]]:
         return [
             ("fixture smoke", require_fixture_smoke, DEFAULT_STEP_TIMEOUT_SECONDS),
             ("changed-surface command tier", require_changed_surface_commands_pass, 600),
+            ("agent-facing CLI contract", require_agent_surface_contract_pass, 300),
         ]
     if tier != "full":
         raise SystemExit(f"unknown contract tier: {tier}")
@@ -2548,7 +2728,7 @@ Overclaims execution: no
         raise SystemExit("self-test failed: default release command timeout not selected")
     if [label for label, _callback, _timeout in contract_steps_for_tier("smoke")] != ["fixture smoke", "smoke command tier"]:
         raise SystemExit("self-test failed: smoke tier steps changed")
-    if [label for label, _callback, _timeout in contract_steps_for_tier("changed")] != ["fixture smoke", "changed-surface command tier"]:
+    if [label for label, _callback, _timeout in contract_steps_for_tier("changed")] != ["fixture smoke", "changed-surface command tier", "agent-facing CLI contract"]:
         raise SystemExit("self-test failed: changed tier steps changed")
     if "release command corpus" not in [label for label, _callback, _timeout in contract_steps_for_tier("full")]:
         raise SystemExit("self-test failed: full tier does not include release command corpus")
@@ -3778,6 +3958,7 @@ def main() -> None:
             "python scripts/dwm.py commands --kind release",
             "assets/dwm-dogfood-progress.svg",
             "assets/dwm-live-benchmark.svg",
+            "docs/agent-tool-contract.md",
             "docs/command-reference.md",
             "docs/release-history.md",
             "generated `out/` directories are verification evidence, not source of truth",
@@ -3789,6 +3970,12 @@ def main() -> None:
     require_terms(
         "docs/command-reference.md",
         [
+            "agent-facing surface",
+            "python -m depone doctor --json",
+            "python -m depone evidence-run --runner-sandbox",
+            "json errors use",
+            "compatibility/internal shell",
+            "docs/agent-tool-contract.md",
             'python scripts/dwm.py plan "<objective>" --out out/v21/<run_id>',
             'python scripts/dwm.py run "<objective>" --out out/v21/<run_id>',
             "python scripts/dwm.py resume --run out/v21/<run_id>",
@@ -3926,6 +4113,24 @@ def main() -> None:
             "docs/automation-roadmap.md",
             "docs/github-research.md",
             "docs/v12-to-v20-final-roadmap.md",
+        ],
+    )
+    require_terms(
+        "docs/agent-tool-contract.md",
+        [
+            "agent-safe command surface",
+            "python -m pip install --no-deps .",
+            "python -m depone doctor --json",
+            "stdout is exactly one json object",
+            "exit codes",
+            "minimal evidence folder",
+            "run-metadata.json",
+            "agent-final-message.txt",
+            "evidence-contract.json",
+            "convenience wrapper",
+            "python -m depone evidence-run --runner-sandbox",
+            "the final message is never the source of truth by itself",
+            "depone does not execute the agent task",
         ],
     )
     require_terms(

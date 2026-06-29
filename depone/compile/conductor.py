@@ -11,6 +11,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from depone.cli._response import emit_error, emit_result
 from depone.core.plan_schema import load_plan
 
 
@@ -291,15 +292,31 @@ def run(args: argparse.Namespace) -> None:
     try:
         plan = load_plan(str(plan_path))
     except Exception as e:
-        print(f"Error: cannot load plan: {e}", file=sys.stderr)
-        sys.exit(1)
+        emit_error(
+            args,
+            code="ERR_COMPILE_LOAD_PLAN",
+            message=f"cannot load plan: {e}",
+            path=plan_path,
+        )
 
     yaml_content = emit_yaml(plan)
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(yaml_content)
-    print(f"Conductor workflow written to {out_path}")
-    print(f"  Agents: {len(plan.get('phases', []))}")
+    out_path.write_text(yaml_content, encoding="utf-8")
+    emit_result(
+        args,
+        {
+            "command": "compile",
+            "decision": "pass",
+            "target": "conductor",
+            "out": str(out_path),
+            "agents": len(plan.get("phases", [])),
+        },
+        human=[
+            f"Conductor workflow written to {out_path}",
+            f"  Agents: {len(plan.get('phases', []))}",
+        ],
+    )
 
 
 def _self_test() -> None:

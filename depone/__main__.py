@@ -23,16 +23,212 @@ from depone.cli import (
     agent_fabric_verify_signature,
     demo,
     design,
+    doctor,
+    evidence_run,
     validate,
     validate_contracts,
 )
 from depone import compile as compile_mod
+from depone.cli._response import EXIT_INTERNAL, EXIT_USAGE, emit_error, emit_json
 from depone.mcp import server as mcp_server
 from depone import verify as verify_mod
 
 
+class DeponeArgumentParser(argparse.ArgumentParser):
+    def error(self, message: str) -> None:
+        if "--json" in sys.argv[1:]:
+            emit_json(
+                {
+                    "error": {
+                        "code": "ERR_CLI_USAGE",
+                        "message": message,
+                        "path": None,
+                    }
+                }
+            )
+            self.exit(EXIT_USAGE)
+        self.print_usage(sys.stderr)
+        self.exit(EXIT_USAGE, f"{self.prog}: error: {message}\n")
+
+
+def _add_json_arg(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit one machine-readable JSON object on stdout",
+    )
+
+
+def _add_observe_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--runner-sandbox",
+        required=False,
+        default="",
+        help="Runner worktree/sandbox to observe read-only",
+    )
+    parser.add_argument(
+        "--source-fixture-hash",
+        required=False,
+        default="",
+        help="Expected source fixture hash for the observer capture",
+    )
+    parser.add_argument(
+        "--out",
+        default="observer-capture.json",
+        help="Observer-owned output path for observer-capture.json",
+    )
+    parser.add_argument(
+        "--log",
+        default="verify-log.json",
+        help="Observer-owned verification command log path",
+    )
+    parser.add_argument(
+        "--timeout-seconds",
+        type=int,
+        default=120,
+        help="Verification command timeout",
+    )
+    parser.add_argument(
+        "--seal-key-file",
+        default="",
+        help="Optional observer-held HMAC key file outside the runner sandbox",
+    )
+    parser.add_argument(
+        "--seal-key-id",
+        default="",
+        help="Optional non-secret observer HMAC key label",
+    )
+    parser.add_argument(
+        "--self-test", action="store_true", help="Run self-test and exit"
+    )
+    _add_json_arg(parser)
+    parser.add_argument(
+        "verification_command",
+        nargs=argparse.REMAINDER,
+        help="Observer-chosen verification command to run after --",
+    )
+
+
+def _add_evidence_substrate_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--capture-manifest",
+        default="",
+        help="Input Agent Fabric capture manifest JSON",
+    )
+    parser.add_argument(
+        "--runner-receipt",
+        default="",
+        help="Optional V126 runner receipt JSON for OTel runner attributes",
+    )
+    parser.add_argument(
+        "--out",
+        default="evidence-substrate-bundle.json",
+        help="Output evidence substrate bundle JSON",
+    )
+    parser.add_argument(
+        "--self-test", action="store_true", help="Run self-test and exit"
+    )
+    _add_json_arg(parser)
+
+
+def _add_evidence_ingest_args(parser: argparse.ArgumentParser) -> None:
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument(
+        "--statement",
+        help="Input in-toto Statement JSON or bundle JSON containing statement",
+    )
+    group.add_argument(
+        "--dsse",
+        help="Input DSSE envelope JSON or bundle JSON containing dsse_envelope",
+    )
+    parser.add_argument(
+        "--otel-spans",
+        default=None,
+        help="Optional OTel span JSON or bundle JSON containing otel_spans",
+    )
+    parser.add_argument(
+        "--artifact",
+        action="append",
+        default=[],
+        help=(
+            "Subject artifact locator as name=path[:raw|:json]; repeat for "
+            "each artifact. Default digest mode is raw bytes."
+        ),
+    )
+    parser.add_argument(
+        "--out",
+        default="evidence-ingest-verdict.json",
+        help="Output evidence ingest verdict JSON",
+    )
+    parser.add_argument(
+        "--self-test", action="store_true", help="Run self-test and exit"
+    )
+    _add_json_arg(parser)
+
+
+def _add_evidence_run_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--runner-sandbox",
+        required=False,
+        default="",
+        help="Runner worktree/sandbox to observe read-only",
+    )
+    parser.add_argument(
+        "--source-fixture",
+        required=False,
+        default="",
+        help="Reference adapter/source fixture JSON to hash-bind",
+    )
+    parser.add_argument(
+        "--out",
+        default="evidence-run",
+        help="Output directory for all evidence-run artifacts",
+    )
+    parser.add_argument(
+        "--allow-touched-file",
+        action="append",
+        default=[],
+        help="Allowed touched file for capture manifest validation; repeatable",
+    )
+    parser.add_argument(
+        "--verify-plan",
+        default="",
+        help="Optional plan JSON for the final Depone verify step",
+    )
+    parser.add_argument(
+        "--verify-evidence",
+        default="",
+        help="Optional evidence directory for the final Depone verify step",
+    )
+    parser.add_argument(
+        "--verify-adapter",
+        default="generic",
+        help="Evidence adapter for the final Depone verify step",
+    )
+    parser.add_argument(
+        "--operator-view-out",
+        default="",
+        help="Optional operator view path for the final Depone verify step",
+    )
+    parser.add_argument(
+        "--timeout-seconds",
+        type=int,
+        default=120,
+        help="Observer verification command timeout",
+    )
+    parser.add_argument(
+        "--self-test", action="store_true", help="Run self-test and exit"
+    )
+    _add_json_arg(parser)
+    parser.add_argument(
+        "verification_command",
+        nargs=argparse.REMAINDER,
+        help="Observer-chosen verification command to run after --",
+    )
+
+
 def main() -> None:
-    parser = argparse.ArgumentParser(
+    parser = DeponeArgumentParser(
         prog="depone",
         description="Workflow designer + cross-platform evidence verifier.",
     )
@@ -42,7 +238,9 @@ def main() -> None:
         version=f"depone v{__import__('depone').__version__}",
     )
 
-    sub = parser.add_subparsers(dest="command", required=True)
+    sub = parser.add_subparsers(
+        dest="command", required=True, parser_class=DeponeArgumentParser
+    )
 
     # design
     design_parser = sub.add_parser(
@@ -60,6 +258,7 @@ def main() -> None:
     design_parser.add_argument(
         "--self-test", action="store_true", help="Run self-test and exit"
     )
+    _add_json_arg(design_parser)
 
     # validate
     validate_parser = sub.add_parser(
@@ -69,6 +268,7 @@ def main() -> None:
     validate_parser.add_argument(
         "--self-test", action="store_true", help="Run self-test and exit"
     )
+    _add_json_arg(validate_parser)
 
     # compile
     compile_parser = sub.add_parser(
@@ -99,6 +299,7 @@ def main() -> None:
     compile_parser.add_argument(
         "--self-test", action="store_true", help="Run self-test and exit"
     )
+    _add_json_arg(compile_parser)
 
     # verify
     verify_parser = sub.add_parser(
@@ -122,6 +323,7 @@ def main() -> None:
     verify_parser.add_argument(
         "--self-test", action="store_true", help="Run self-test and exit"
     )
+    _add_json_arg(verify_parser)
 
     # validate-contracts
     vc_parser = sub.add_parser(
@@ -144,6 +346,16 @@ def main() -> None:
     mcp_parser.add_argument(
         "--self-test", action="store_true", help="Run self-test and exit"
     )
+
+    # doctor
+    doctor_parser = sub.add_parser(
+        "doctor",
+        help="Check package-local readiness for agent-session use",
+    )
+    doctor_parser.add_argument(
+        "--self-test", action="store_true", help="Run self-test and exit"
+    )
+    _add_json_arg(doctor_parser)
 
     # agent-fabric-smoke
     smoke_parser = sub.add_parser(
@@ -400,52 +612,14 @@ def main() -> None:
         "agent-fabric-observe",
         help="Run a separated observer-owned capture over a runner sandbox",
     )
-    observe_parser.add_argument(
-        "--runner-sandbox",
-        required=False,
-        default="",
-        help="Runner worktree/sandbox to observe read-only",
+    _add_observe_args(observe_parser)
+
+    # observe (agent-facing alias)
+    observe_alias_parser = sub.add_parser(
+        "observe",
+        help="Run a separated observer-owned capture over a runner sandbox",
     )
-    observe_parser.add_argument(
-        "--source-fixture-hash",
-        required=False,
-        default="",
-        help="Expected source fixture hash for the observer capture",
-    )
-    observe_parser.add_argument(
-        "--out",
-        default="observer-capture.json",
-        help="Observer-owned output path for observer-capture.json",
-    )
-    observe_parser.add_argument(
-        "--log",
-        default="verify-log.json",
-        help="Observer-owned verification command log path",
-    )
-    observe_parser.add_argument(
-        "--timeout-seconds",
-        type=int,
-        default=120,
-        help="Verification command timeout",
-    )
-    observe_parser.add_argument(
-        "--seal-key-file",
-        default="",
-        help="Optional observer-held HMAC key file outside the runner sandbox",
-    )
-    observe_parser.add_argument(
-        "--seal-key-id",
-        default="",
-        help="Optional non-secret observer HMAC key label",
-    )
-    observe_parser.add_argument(
-        "--self-test", action="store_true", help="Run self-test and exit"
-    )
-    observe_parser.add_argument(
-        "verification_command",
-        nargs=argparse.REMAINDER,
-        help="Observer-chosen verification command to run after --",
-    )
+    _add_observe_args(observe_alias_parser)
 
     # agent-fabric-seal
     seal_parser = sub.add_parser(
@@ -521,61 +695,35 @@ def main() -> None:
         "agent-fabric-evidence-substrate",
         help="Export V128 in-toto/DSSE and OTel GenAI evidence bundle",
     )
-    evidence_substrate_parser.add_argument(
-        "--capture-manifest",
-        default="",
-        help="Input Agent Fabric capture manifest JSON",
+    _add_evidence_substrate_args(evidence_substrate_parser)
+
+    # evidence-substrate (agent-facing alias)
+    evidence_substrate_alias_parser = sub.add_parser(
+        "evidence-substrate",
+        help="Export V128 in-toto/DSSE and OTel GenAI evidence bundle",
     )
-    evidence_substrate_parser.add_argument(
-        "--runner-receipt",
-        default="",
-        help="Optional V126 runner receipt JSON for OTel runner attributes",
-    )
-    evidence_substrate_parser.add_argument(
-        "--out",
-        default="evidence-substrate-bundle.json",
-        help="Output evidence substrate bundle JSON",
-    )
-    evidence_substrate_parser.add_argument(
-        "--self-test", action="store_true", help="Run self-test and exit"
-    )
+    _add_evidence_substrate_args(evidence_substrate_alias_parser)
 
     # agent-fabric-evidence-ingest
     evidence_ingest_parser = sub.add_parser(
         "agent-fabric-evidence-ingest",
         help="Ingest external in-toto/DSSE and OTel evidence as untrusted input",
     )
-    evidence_ingest_group = evidence_ingest_parser.add_mutually_exclusive_group()
-    evidence_ingest_group.add_argument(
-        "--statement",
-        help="Input in-toto Statement JSON or bundle JSON containing statement",
+    _add_evidence_ingest_args(evidence_ingest_parser)
+
+    # evidence-ingest (agent-facing alias)
+    evidence_ingest_alias_parser = sub.add_parser(
+        "evidence-ingest",
+        help="Ingest external in-toto/DSSE and OTel evidence as untrusted input",
     )
-    evidence_ingest_group.add_argument(
-        "--dsse",
-        help="Input DSSE envelope JSON or bundle JSON containing dsse_envelope",
+    _add_evidence_ingest_args(evidence_ingest_alias_parser)
+
+    # evidence-run
+    evidence_run_parser = sub.add_parser(
+        "evidence-run",
+        help="Run observe -> evidence-substrate -> evidence-ingest -> verify",
     )
-    evidence_ingest_parser.add_argument(
-        "--otel-spans",
-        default=None,
-        help="Optional OTel span JSON or bundle JSON containing otel_spans",
-    )
-    evidence_ingest_parser.add_argument(
-        "--artifact",
-        action="append",
-        default=[],
-        help=(
-            "Subject artifact locator as name=path[:raw|:json]; repeat for "
-            "each artifact. Default digest mode is raw bytes."
-        ),
-    )
-    evidence_ingest_parser.add_argument(
-        "--out",
-        default="evidence-ingest-verdict.json",
-        help="Output evidence ingest verdict JSON",
-    )
-    evidence_ingest_parser.add_argument(
-        "--self-test", action="store_true", help="Run self-test and exit"
-    )
+    _add_evidence_run_args(evidence_run_parser)
 
     # agent-fabric-claim-gate
     claim_gate_parser = sub.add_parser(
@@ -606,7 +754,7 @@ def main() -> None:
 
     # demo
     demo_parser = sub.add_parser(
-        "demo", help="Run a complete design→compile→verify cycle"
+        "demo", help="Run a complete design -> compile -> verify cycle"
     )
     demo_parser.add_argument(
         "--out", default=None, help="Output directory for demo artifacts"
@@ -614,56 +762,71 @@ def main() -> None:
     demo_parser.add_argument(
         "--self-test", action="store_true", help="Run self-test and exit"
     )
+    _add_json_arg(demo_parser)
 
     args = parser.parse_args()
 
-    if args.command == "design":
-        design.run(args)
-    elif args.command == "validate":
-        validate.run(args)
-    elif args.command == "compile":
-        compile_mod.run(args)
-    elif args.command == "verify":
-        verify_mod.run(args)
-    elif args.command == "validate-contracts":
-        validate_contracts.run(args)
-    elif args.command == "mcp":
-        mcp_server.run(args)
-    elif args.command == "agent-fabric-smoke":
-        agent_fabric_smoke.run(args)
-    elif args.command == "agent-fabric-harness-snapshot":
-        agent_fabric_harness_snapshot.run(args)
-    elif args.command == "agent-fabric-adapter-smoke":
-        agent_fabric_adapter_smoke.run(args)
-    elif args.command == "agent-fabric-controlled-capture":
-        agent_fabric_controlled_capture.run(args)
-    elif args.command == "agent-fabric-dogfood-evidence":
-        agent_fabric_dogfood_evidence.run(args)
-    elif args.command == "agent-fabric-paired-evidence":
-        agent_fabric_paired_evidence.run(args)
-    elif args.command == "agent-fabric-paired-run":
-        agent_fabric_paired_run.run(args)
-    elif args.command == "agent-fabric-observe":
-        agent_fabric_observe.run(args)
-    elif args.command == "agent-fabric-seal":
-        agent_fabric_seal.run(args)
-    elif args.command == "agent-fabric-verify-seal":
-        agent_fabric_verify_seal.run(args)
-    elif args.command == "agent-fabric-sign":
-        agent_fabric_sign.run(args)
-    elif args.command == "agent-fabric-verify-signature":
-        agent_fabric_verify_signature.run(args)
-    elif args.command == "agent-fabric-evidence-substrate":
-        agent_fabric_evidence_substrate.run(args)
-    elif args.command == "agent-fabric-evidence-ingest":
-        agent_fabric_evidence_ingest.run(args)
-    elif args.command == "agent-fabric-claim-gate":
-        agent_fabric_claim_gate.run(args)
-    elif args.command == "demo":
-        demo.run(args)
-    else:
-        parser.print_help()
-        sys.exit(1)
+    try:
+        if args.command == "design":
+            design.run(args)
+        elif args.command == "validate":
+            validate.run(args)
+        elif args.command == "compile":
+            compile_mod.run(args)
+        elif args.command == "verify":
+            verify_mod.run(args)
+        elif args.command == "validate-contracts":
+            validate_contracts.run(args)
+        elif args.command == "mcp":
+            mcp_server.run(args)
+        elif args.command == "doctor":
+            doctor.run(args)
+        elif args.command == "agent-fabric-smoke":
+            agent_fabric_smoke.run(args)
+        elif args.command == "agent-fabric-harness-snapshot":
+            agent_fabric_harness_snapshot.run(args)
+        elif args.command == "agent-fabric-adapter-smoke":
+            agent_fabric_adapter_smoke.run(args)
+        elif args.command == "agent-fabric-controlled-capture":
+            agent_fabric_controlled_capture.run(args)
+        elif args.command == "agent-fabric-dogfood-evidence":
+            agent_fabric_dogfood_evidence.run(args)
+        elif args.command == "agent-fabric-paired-evidence":
+            agent_fabric_paired_evidence.run(args)
+        elif args.command == "agent-fabric-paired-run":
+            agent_fabric_paired_run.run(args)
+        elif args.command in ("agent-fabric-observe", "observe"):
+            agent_fabric_observe.run(args)
+        elif args.command == "agent-fabric-seal":
+            agent_fabric_seal.run(args)
+        elif args.command == "agent-fabric-verify-seal":
+            agent_fabric_verify_seal.run(args)
+        elif args.command == "agent-fabric-sign":
+            agent_fabric_sign.run(args)
+        elif args.command == "agent-fabric-verify-signature":
+            agent_fabric_verify_signature.run(args)
+        elif args.command in ("agent-fabric-evidence-substrate", "evidence-substrate"):
+            agent_fabric_evidence_substrate.run(args)
+        elif args.command in ("agent-fabric-evidence-ingest", "evidence-ingest"):
+            agent_fabric_evidence_ingest.run(args)
+        elif args.command == "evidence-run":
+            evidence_run.run(args)
+        elif args.command == "agent-fabric-claim-gate":
+            agent_fabric_claim_gate.run(args)
+        elif args.command == "demo":
+            demo.run(args)
+        else:
+            parser.print_help()
+            sys.exit(EXIT_USAGE)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        emit_error(
+            args,
+            code="ERR_INTERNAL",
+            message=str(exc),
+            exit_code=EXIT_INTERNAL,
+        )
 
 
 if __name__ == "__main__":

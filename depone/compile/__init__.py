@@ -9,10 +9,10 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from pathlib import Path
 from typing import Any
 
+from depone.cli._response import emit_error, emit_result
 from depone.compile import agent_fabric, conductor
 
 
@@ -26,50 +26,60 @@ def run(args: argparse.Namespace) -> None:
 
     target = args.target
     if not args.plan:
-        print(
-            "Usage: depone compile <plan.json> --target conductor [--out workflow.yaml]",
-            file=sys.stderr,
+        emit_error(
+            args,
+            code="ERR_COMPILE_USAGE",
+            message="Usage: depone compile <plan.json> --target conductor [--out workflow.yaml]",
         )
-        sys.exit(1)
 
     if target is None:
-        print(
-            "Error: --target is required (choices: conductor, langgraph)",
-            file=sys.stderr,
+        emit_error(
+            args,
+            code="ERR_COMPILE_TARGET_REQUIRED",
+            message="--target is required (choices: conductor, langgraph, agent-fabric)",
         )
-        sys.exit(1)
 
     if target == "conductor":
         conductor.run(args)
     elif target == "agent-fabric":
         _run_agent_fabric(args)
     elif target == "langgraph":
-        print("Error: langgraph compile is not implemented", file=sys.stderr)
-        sys.exit(1)
+        emit_error(
+            args,
+            code="ERR_COMPILE_TARGET_UNIMPLEMENTED",
+            message="langgraph compile is not implemented",
+        )
     else:
-        print(f"Error: unknown compile target: {target}", file=sys.stderr)
-        sys.exit(1)
+        emit_error(
+            args,
+            code="ERR_COMPILE_TARGET_UNKNOWN",
+            message=f"unknown compile target: {target}",
+        )
 
 
-def _read_json(path: Path) -> Any:
+def _read_json(args: argparse.Namespace, path: Path) -> Any:
     try:
-        return json.loads(path.read_text())
+        return json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
-        print(f"Error: cannot read JSON {path}: {exc}", file=sys.stderr)
-        sys.exit(1)
+        emit_error(
+            args,
+            code="ERR_COMPILE_READ_JSON",
+            message=f"cannot read JSON {path}: {exc}",
+            path=path,
+        )
 
 
-def _load_role_contracts(paths: list[str]) -> list[dict[str, Any]]:
+def _load_role_contracts(args: argparse.Namespace, paths: list[str]) -> list[dict[str, Any]]:
     role_contracts: list[dict[str, Any]] = []
     if not paths:
-        print(
-            "Error: --target agent-fabric requires at least one --roles JSON path",
-            file=sys.stderr,
+        emit_error(
+            args,
+            code="ERR_COMPILE_ROLES_REQUIRED",
+            message="--target agent-fabric requires at least one --roles JSON path",
         )
-        sys.exit(1)
 
     for value in paths:
-        data = _read_json(Path(value))
+        data = _read_json(args, Path(value))
         if isinstance(data, dict) and isinstance(data.get("roles"), list):
             role_contracts.extend(item for item in data["roles"] if isinstance(item, dict))
         elif isinstance(data, list):
@@ -77,19 +87,27 @@ def _load_role_contracts(paths: list[str]) -> list[dict[str, Any]]:
         elif isinstance(data, dict):
             role_contracts.append(data)
         else:
-            print(f"Error: role contract JSON root must be an object or list: {value}", file=sys.stderr)
-            sys.exit(1)
+            emit_error(
+                args,
+                code="ERR_COMPILE_ROLE_CONTRACT_ROOT",
+                message=f"role contract JSON root must be an object or list: {value}",
+                path=value,
+            )
 
     return role_contracts
 
 
 def _run_agent_fabric(args: argparse.Namespace) -> None:
-    profile = _read_json(Path(args.plan))
+    profile = _read_json(args, Path(args.plan))
     if not isinstance(profile, dict):
-        print("Error: Agent Fabric profile JSON root must be an object", file=sys.stderr)
-        sys.exit(1)
+        emit_error(
+            args,
+            code="ERR_COMPILE_AGENT_FABRIC_PROFILE",
+            message="Agent Fabric profile JSON root must be an object",
+            path=args.plan,
+        )
 
-    role_contracts = _load_role_contracts(list(getattr(args, "roles", [])))
+    role_contracts = _load_role_contracts(args, list(getattr(args, "roles", [])))
     bundle = agent_fabric.compile_agent_fabric(
         profile,
         str(getattr(args, "harness", "shell")),
@@ -97,5 +115,17 @@ def _run_agent_fabric(args: argparse.Namespace) -> None:
     )
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(json.dumps(bundle, indent=2, sort_keys=True) + "\n")
-    print(f"Agent Fabric bundle written to {out_path}")
+    out_path.write_text(
+        json.dumps(bundle, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    emit_result(
+        args,
+        {
+            "command": "compile",
+            "decision": "pass",
+            "target": "agent-fabric",
+            "out": str(out_path),
+        },
+        human=[f"Agent Fabric bundle written to {out_path}"],
+    )
