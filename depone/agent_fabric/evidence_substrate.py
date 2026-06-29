@@ -74,6 +74,20 @@ def build_intoto_statement_from_capture(
             }
         )
 
+    prev_capture_hash = capture_manifest.get("prev_capture_hash")
+    if isinstance(prev_capture_hash, str) and prev_capture_hash:
+        # Carry the append-only chain link into the portable statement so an
+        # external verifier that also holds the predecessor manifest can confirm
+        # the link with the existing subject-digest ingest path (prev_capture is
+        # the predecessor's canonical-json hash). A broken link is then a digest
+        # mismatch, which ingest already treats as blocked.
+        subject.append(
+            {
+                "name": "prev_capture",
+                "digest": {"sha256": prev_capture_hash},
+            }
+        )
+
     return {
         "_type": INTOTO_STATEMENT_TYPE,
         "subject": subject,
@@ -598,6 +612,82 @@ def evaluate_external_statement_subjects(
     }
 
 
+def verify_capture_chain(manifests: Any) -> dict[str, Any]:
+    """Verify an ordered append-only chain of capture manifests.
+
+    Each manifest after the genesis must carry ``prev_capture_hash`` equal to the
+    canonical hash of its immediate predecessor. A non-genesis head, a dropped or
+    reordered step (predecessor hash no longer matches), a tampered predecessor,
+    or a structurally invalid manifest all break the chain and yield ``blocked``.
+    An empty list is ``inconclusive`` (nothing to verify). This is the cross-step
+    integrity that per-subject digest checks cannot provide on their own: it makes
+    an omitted intermediate step detectable rather than silent.
+    """
+
+    if not isinstance(manifests, list):
+        return {"decision": "blocked", "links": [], "reasons": ["manifests must be a list"]}
+    if not manifests:
+        return {
+            "decision": "inconclusive",
+            "links": [],
+            "reasons": ["no captures to verify"],
+        }
+
+    links: list[dict[str, Any]] = []
+    reasons: list[str] = []
+    blocked = False
+    prev_hash: str | None = None
+
+    for index, manifest in enumerate(manifests):
+        if not isinstance(manifest, dict):
+            links.append({"index": index, "status": "malformed", "capture_hash": None})
+            reasons.append(f"chain[{index}] is not an object")
+            blocked = True
+            prev_hash = None
+            continue
+
+        capture_hash = canonical_hash(manifest)
+        declared_prev = manifest.get("prev_capture_hash")
+        status = "linked"
+
+        if index == 0:
+            if declared_prev is None:
+                status = "genesis"
+            else:
+                status = "broken"
+                reasons.append("chain head must be genesis (prev_capture_hash=null)")
+                blocked = True
+        elif declared_prev != prev_hash:
+            status = "broken"
+            reasons.append(
+                f"chain[{index}] prev_capture_hash does not match predecessor"
+            )
+            blocked = True
+
+        validation_errors = validate_capture_manifest(manifest)
+        if validation_errors:
+            status = "invalid"
+            reasons.append(f"chain[{index}] manifest invalid: {validation_errors[0]}")
+            blocked = True
+
+        links.append(
+            {
+                "index": index,
+                "capture_hash": capture_hash,
+                "declared_prev": declared_prev,
+                "expected_prev": prev_hash,
+                "status": status,
+            }
+        )
+        prev_hash = capture_hash
+
+    return {
+        "decision": "blocked" if blocked else "pass",
+        "links": links,
+        "reasons": reasons,
+    }
+
+
 def _self_test() -> None:
     from copy import deepcopy
 
@@ -639,6 +729,53 @@ def _self_test() -> None:
     )
     if external["decision"] != "blocked":
         raise AssertionError("digest mismatch must be blocked, not pass")
+
+    # --- Append-only capture chain ---------------------------------------
+    step0 = deepcopy(capture)
+    step0["prev_capture_hash"] = None
+    step1 = deepcopy(capture)
+    step1["prev_capture_hash"] = canonical_hash(step0)
+    step2 = deepcopy(capture)
+    step2["prev_capture_hash"] = canonical_hash(step1)
+    chain = [step0, step1, step2]
+
+    if verify_capture_chain(chain)["decision"] != "pass":
+        raise AssertionError("intact append-only chain must pass")
+
+    if verify_capture_chain([])["decision"] != "inconclusive":
+        raise AssertionError("empty chain must be inconclusive, not pass")
+
+    if verify_capture_chain([step1])["decision"] != "blocked":
+        raise AssertionError("non-genesis head must be blocked")
+
+    dropped_middle = [step0, step2]
+    if verify_capture_chain(dropped_middle)["decision"] != "blocked":
+        raise AssertionError("dropped intermediate step must break the chain")
+
+    reordered = [step0, step2, step1]
+    if verify_capture_chain(reordered)["decision"] != "blocked":
+        raise AssertionError("reordered chain must be blocked")
+
+    tampered_chain = deepcopy(chain)
+    tampered_chain[1]["allowed_touched_files"] = ["smuggled.py"]
+    if verify_capture_chain(tampered_chain)["decision"] != "blocked":
+        raise AssertionError("tampered predecessor must break downstream link")
+
+    # The link travels into the portable statement and re-verifies via ingest.
+    linked_statement = build_intoto_statement_from_capture(step1)
+    if "prev_capture" not in _subject_names(linked_statement):
+        raise AssertionError("statement must carry the prev_capture chain subject")
+    broken_link = evaluate_external_statement_subjects(
+        linked_statement,
+        {
+            "depone-capture-manifest": canonical_hash(step1),
+            "source_fixture": str(step1.get("source_fixture_hash", "")),
+            "observer_capture": str(step1.get("observer_capture_hash", "")),
+            "prev_capture": "0" * 64,
+        },
+    )
+    if broken_link["decision"] != "blocked":
+        raise AssertionError("a broken prev_capture link must be blocked on ingest")
 
 
 if __name__ == "__main__":

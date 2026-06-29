@@ -54,12 +54,20 @@ def build_capture_manifest(
     *,
     observer_capture: dict[str, Any] | None = None,
     allowed_touched_files: list[str] | None = None,
+    prev_capture_hash: str | None = None,
 ) -> dict[str, Any]:
     """Build a Depone-facing capture manifest from an adapter fixture.
 
     ``observer_capture`` is optional. Without it, the manifest is valid but
     remains ``A0-claims-only``. With it, the bridge records an A1 candidate and
     hash-binds the observer payload for validation.
+
+    ``prev_capture_hash`` links this capture to its immediate predecessor in an
+    append-only chain. It is the canonical SHA-256 of the prior manifest (see
+    ``canonical_hash`` / ``_sha256_json``, which agree). ``None`` marks the chain
+    genesis. The link is committed into this manifest's own canonical hash, so a
+    dropped, reordered, or tampered predecessor breaks every downstream link;
+    ``verify_capture_chain`` enforces the chain.
     """
 
     fixture_copy = deepcopy(fixture)
@@ -71,6 +79,7 @@ def build_capture_manifest(
         "source_fixture_hash": fixture_hash,
         "fixture": fixture_copy,
         "allowed_touched_files": allowed,
+        "prev_capture_hash": prev_capture_hash,
         "required_observer_fields": sorted(REQUIRED_OBSERVER_FIELDS),
     }
 
@@ -125,6 +134,19 @@ def validate_capture_manifest(manifest: dict[str, Any]) -> list[str]:
         _check_a1_manifest(manifest, errors)
     elif "assurance" in manifest:
         errors.append("assurance must be 'A0-claims-only' or 'A1-local-observed'")
+
+    # Optional append-only chain link. Absent (pre-chain captures) is valid and
+    # treated as genesis. Present must be null or a 64-char sha256 hex string.
+    if "prev_capture_hash" in manifest:
+        prev = manifest.get("prev_capture_hash")
+        if prev is not None and not (
+            isinstance(prev, str)
+            and len(prev) == 64
+            and all(c in "0123456789abcdef" for c in prev)
+        ):
+            errors.append(
+                "prev_capture_hash must be null or a 64-char sha256 hex string"
+            )
 
     return errors
 
