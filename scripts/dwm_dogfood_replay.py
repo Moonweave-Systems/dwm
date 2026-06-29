@@ -148,7 +148,12 @@ def git_status_text() -> str:
 
 
 def run_shell_command(command: str) -> dict[str, Any]:
-    completed = subprocess.run(shlex.split(command), cwd=ROOT, check=False, text=True, capture_output=True)
+    argv = shlex.split(command)
+    # "python" is a portable token for the interpreter running the contract;
+    # map it to sys.executable so replay works where only python3 exists.
+    if argv and argv[0] in ("python", "python3"):
+        argv[0] = sys.executable
+    completed = subprocess.run(argv, cwd=ROOT, check=False, text=True, capture_output=True)
     return {
         "command": command,
         "returncode": completed.returncode,
