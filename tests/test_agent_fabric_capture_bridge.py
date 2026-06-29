@@ -135,6 +135,55 @@ class CaptureBridgeTests(unittest.TestCase):
         self.assertEqual(manifest["assurance"], "A1-local-observed")
         self.assertEqual(validate_capture_manifest(manifest), [])
 
+    def test_container_isolation_reaches_a2(self) -> None:
+        manifest = build_capture_manifest(
+            _fixture(),
+            observer_capture=_observer_capture(),
+            allowed_touched_files=["depone/example.py"],
+            isolation={
+                "model": "container-boundary-unwritable-observer-dir",
+                "runner_uid": 0,
+                "observer_uid": 1001,
+                "observer_dir_writable_by_runner": False,
+                "container": {
+                    "runtime": "docker",
+                    "container_id": "abc123",
+                    "image": "alpine:3.20",
+                    "running": True,
+                    "observer_dir_mounted_rw": False,
+                    "mounts": [],
+                },
+            },
+        )
+
+        self.assertEqual(manifest["assurance"], "A2-isolated-observed")
+        self.assertEqual(manifest["decision"], "isolated-observed")
+        self.assertEqual(validate_capture_manifest(manifest), [])
+
+    def test_container_observer_rw_mount_does_not_upgrade_past_a1(self) -> None:
+        manifest = build_capture_manifest(
+            _fixture(),
+            observer_capture=_observer_capture(),
+            allowed_touched_files=["depone/example.py"],
+            isolation={
+                "model": "container-boundary-unwritable-observer-dir",
+                "runner_uid": 0,
+                "observer_uid": 1001,
+                "observer_dir_writable_by_runner": False,
+                "container": {
+                    "runtime": "docker",
+                    "container_id": "abc123",
+                    "image": "alpine:3.20",
+                    "running": True,
+                    "observer_dir_mounted_rw": True,
+                    "mounts": [{"destination": "/observer", "rw": True}],
+                },
+            },
+        )
+
+        self.assertEqual(manifest["assurance"], "A1-local-observed")
+        self.assertEqual(validate_capture_manifest(manifest), [])
+
     def test_rejects_live_source_fixture_even_with_observer_capture(self) -> None:
         fixture = _fixture()
         fixture["adapter"]["executes_commands"] = True

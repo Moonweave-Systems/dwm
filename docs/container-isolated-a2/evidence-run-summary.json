@@ -1,0 +1,69 @@
+{
+  "boundary": {
+    "isolation": {
+      "boundary": true,
+      "container": {
+        "container_id": "c0fbe8af13e0ebd9cbea75a0c3f6caf538e5dbd82729c0e5a6df474a171b0d7a",
+        "image": "alpine:3.20",
+        "mounts": [
+          {
+            "destination": "/work",
+            "rw": true,
+            "source": "/srv/depone/sandbox"
+          }
+        ],
+        "observer_dir_mounted_rw": false,
+        "running": true,
+        "runtime": "docker"
+      },
+      "model": "container-boundary-unwritable-observer-dir",
+      "observer_dir_writable_by_runner": false,
+      "observer_uid": 1001,
+      "reasons": [],
+      "runner_uid": 0
+    },
+    "note": "A2 isolated observed: runner ran under a different uid and could not write the observer output.",
+    "observer_assurance": "A2-isolated-observed",
+    "privilege_isolated": true
+  },
+  "capture_manifest": {
+    "assurance": "A2-isolated-observed",
+    "decision": "isolated-observed",
+    "error_count": 0,
+    "errors": [],
+    "path": "/home/ubuntu/observer-owned/container-evidence-run/capture-manifest.json"
+  },
+  "command": "evidence-run",
+  "decision": "inconclusive",
+  "evidence_ingest": {
+    "decision": "pass",
+    "out": "/home/ubuntu/observer-owned/container-evidence-run/ingest-verdict.json",
+    "signing_status": "unsigned-content-addressed",
+    "subject_count": 3,
+    "verified_subject_count": 3
+  },
+  "evidence_substrate": {
+    "assurance": "A2-isolated-observed",
+    "decision": "pass",
+    "error_count": 0,
+    "errors": [],
+    "otel_span_count": 2,
+    "out": "/home/ubuntu/observer-owned/container-evidence-run/evidence-bundle.json",
+    "signing_status": "unsigned-content-addressed",
+    "subject_count": 3
+  },
+  "observe": {
+    "decision": "pass",
+    "log": "/home/ubuntu/observer-owned/container-evidence-run/observer-owned/verify-log.json",
+    "observer_capture_hash": "2cec7c429956a291e7775205d22f6422a002cf55e4169ece4c9f9603d597add8",
+    "out": "/home/ubuntu/observer-owned/container-evidence-run/observer-owned/observer-capture.json",
+    "status": "passed"
+  },
+  "out": "/home/ubuntu/observer-owned/container-evidence-run",
+  "verify": {
+    "decision": "skipped",
+    "operator_view_out": null,
+    "out": null,
+    "verdict": "skipped"
+  }
+}

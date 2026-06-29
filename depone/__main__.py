@@ -209,6 +209,16 @@ def _add_evidence_run_args(parser: argparse.ArgumentParser) -> None:
         ),
     )
     parser.add_argument(
+        "--runner-container-id",
+        default="",
+        help=(
+            "Docker container id the runner work executed in. Enables container "
+            "A2 only when the observer can inspect the container and its output "
+            "dir is not mounted writable into it. Mutually exclusive with "
+            "--runner-uid."
+        ),
+    )
+    parser.add_argument(
         "--out",
         default="evidence-run",
         help="Output directory for all evidence-run artifacts",

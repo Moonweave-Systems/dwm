@@ -15,7 +15,10 @@ from depone.agent_fabric.capture_bridge import (
     build_capture_manifest,
     validate_capture_manifest,
 )
-from depone.agent_fabric.isolation import probe_isolation_facts
+from depone.agent_fabric.isolation import (
+    probe_container_isolation_facts,
+    probe_isolation_facts,
+)
 from depone.agent_fabric.claim_gate import canonical_hash
 from depone.agent_fabric.evidence_substrate import (
     DIGEST_MODE_CANONICAL_JSON,
@@ -128,16 +131,22 @@ def run_evidence_loop(args: argparse.Namespace) -> dict[str, Any]:
     observer_capture_hash = write_observer_capture(observer_path, capture)
 
     allowed_touched_files = list(getattr(args, "allow_touched_file", []) or [])
-    # Isolation facts are observer-attested: the observer supplies the uid it
-    # launched the runner under, and probe_isolation_facts measures whether its
-    # own output dir is writable by a different uid. A2 is reached only when both
-    # hold. Omitting --runner-uid (or a same-uid host) keeps the manifest at A1.
+    # Isolation facts are observer-attested. The uid path records the uid the
+    # operator launched. The container path records host-side Docker inspect facts.
+    # Missing or unverifiable facts keep the manifest at A1.
     runner_uid_arg = getattr(args, "runner_uid", None)
-    isolation_facts = (
-        probe_isolation_facts(observer_dir, runner_uid=int(runner_uid_arg))
-        if runner_uid_arg is not None
-        else None
-    )
+    runner_container_id = str(getattr(args, "runner_container_id", "") or "")
+    if runner_uid_arg is not None and runner_container_id:
+        raise ValueError("--runner-uid and --runner-container-id are mutually exclusive")
+    isolation_facts = None
+    if runner_container_id:
+        isolation_facts = probe_container_isolation_facts(
+            observer_dir, container_id=runner_container_id
+        )
+    elif runner_uid_arg is not None:
+        isolation_facts = probe_isolation_facts(
+            observer_dir, runner_uid=int(runner_uid_arg)
+        )
     capture_manifest = build_capture_manifest(
         source_fixture,
         observer_capture=capture,
@@ -371,6 +380,7 @@ def _self_test() -> None:
             operator_view_out="",
             timeout_seconds=120,
             runner_uid=None,
+            runner_container_id="",
             verification_command=[
                 sys.executable,
                 "-c",
