@@ -116,8 +116,18 @@ lane ids, or a blocked lane without a reason blocks the ledger.
   "leader_objective": "ship one reviewed control-plane slice",
   "leader_id": "leader-fixed",
   "start_commit": "abc123",
+  "end_commit": "def456",
   "stop_rule": "stop after deterministic verification",
   "merge_receipt": "out/team/team-merge-receipt.json",
+  "commit_scope": {
+    "end_commit_semantics": "observed_subject_commit",
+    "subject_commit": "def456",
+    "allowed_post_subject_paths": [
+      "out/team/team-ledger.json",
+      "out/team/team-ledger-verdict.json"
+    ],
+    "rationale": "committed artifact files may advance branch head after capture"
+  },
   "lanes": [
     {
       "lane_id": "worker-1",
@@ -129,6 +139,7 @@ lane ids, or a blocked lane without a reason blocks the ledger.
       "end_commit": "def456",
       "evidence_dir": "out/team/worker-1",
       "evidence_next_verdict": "out/team/worker-1/evidence-next-verdict.json",
+      "worktree_receipt": "out/team/worker-1/worktree-receipt.json",
       "touched_files": ["depone/agent_fabric/team_ledger.py"],
       "pr_url": "https://github.com/example/repo/pull/123",
       "pr_artifact": "out/team/worker-1/pr-artifact.json",
@@ -148,6 +159,42 @@ lane ids, or a blocked lane without a reason blocks the ledger.
       "blocked_reason": "required cloud setup secret unavailable"
     }
   ]
+}
+```
+
+`commit_scope` is optional, but when present it is validated and echoed into the
+verdict. It documents that the ledger `end_commit` is the observed subject
+commit, not necessarily the later git commit that contains the JSON artifacts
+themselves. This avoids overclaiming a self-referential commit hash. Reviewers
+can independently check that any `subject_commit..HEAD` delta is limited to the
+repo-relative `allowed_post_subject_paths`.
+
+When a local lane includes `worktree_receipt`, it points at a machine JSON
+receipt captured from read-only git state. The receipt is optional, but once
+present it must match the lane `start_commit`, `end_commit`, `evidence_dir`, and
+`touched_files`. Dirty receipts fail closed for passed-lane fan-in:
+
+```json
+{
+  "kind": "depone-worktree-lane-receipt",
+  "schema_version": "0.1",
+  "worktree": "/tmp/depone-worker-1",
+  "branch": "codex/lane-docs",
+  "base_commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "head_commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "dirty": false,
+  "dirty_files": [],
+  "changed_files": ["depone/agent_fabric/team_ledger.py"],
+  "evidence_dir": "out/team/worker-1",
+  "command_receipts": [
+    {"command": "python3 -m unittest", "exit_code": 0}
+  ],
+  "boundary": {
+    "executes_commands": false,
+    "launches_agents": false,
+    "mutates_worktree": false,
+    "git_read_only": true
+  }
 }
 ```
 
@@ -199,6 +246,7 @@ Validate with:
 
 ```bash
 python3 -m depone team-ledger-merge-receipt --lane worker-1 --lane worker-2 --file depone/agent_fabric/team_ledger.py --out out/team/team-merge-receipt.json --json
+python3 -m depone worktree-lane-receipt --worktree ./worker-1 --base-commit aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa --evidence-dir out/team/worker-1 --out out/team/worker-1/worktree-receipt.json --json
 python3 -m depone team-ledger --ledger team-ledger.json --out team-ledger-verdict.json
 python3 -m depone team-ledger --self-test
 ```
@@ -210,6 +258,8 @@ python3 -m depone team-ledger --self-test
 - No signing or Sigstore/keyless work.
 - No cloud runner, GitHub App, or full scheduler.
 - No automatic git merge, conflict resolution, or worktree orchestration.
+- No claim that a worktree receipt proves cloud execution, identity, or runtime
+  isolation; it only binds local git facts for a lane.
 - No claim that Team Ledger v0 proves adapter correctness beyond the recorded
   deterministic facts.
 
@@ -217,7 +267,7 @@ python3 -m depone team-ledger --self-test
 
 The current follow-up order is tracked in `docs/depone-next-work-plan.md`.
 
-1. Add optional PR artifact checks for Team Ledger lanes.
-2. Add local worktree lane receipts.
+1. Optional PR artifact checks for Team Ledger lanes are implemented.
+2. Local worktree lane receipts are the current slice.
 3. Only after those artifacts are useful, consider a minimal `depone team`
    command that coordinates lanes under explicit budgets and stop rules.

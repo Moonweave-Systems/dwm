@@ -1,0 +1,37 @@
+{
+  "base_commit": "4ad527d9ee233e3f6a465a5a2399b5a9bcb353d4",
+  "boundary": {
+    "executes_commands": false,
+    "git_read_only": true,
+    "launches_agents": false,
+    "mutates_worktree": false
+  },
+  "branch": "codex/worktree-lane-receipt",
+  "changed_files": [
+    "depone/__main__.py",
+    "depone/agent_fabric/team_ledger.py",
+    "depone/agent_fabric/worktree_receipt.py",
+    "depone/cli/agent_fabric_team_ledger.py",
+    "docs/command-reference.md",
+    "docs/depone-cloud-team-control.md",
+    "docs/worktree-lane-receipt/evidence-next-verdict.json",
+    "docs/worktree-lane-receipt/team-ledger-verdict.json",
+    "docs/worktree-lane-receipt/team-ledger.json",
+    "docs/worktree-lane-receipt/worktree-receipt.json",
+    "tests/test_agent_fabric_team_ledger.py",
+    "tests/test_agent_fabric_worktree_receipt.py"
+  ],
+  "command_receipts": [
+    {
+      "command": "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.test_agent_fabric_team_ledger tests.test_agent_fabric_worktree_receipt -v",
+      "exit_code": 0
+    }
+  ],
+  "dirty": false,
+  "dirty_files": [],
+  "evidence_dir": "docs/worktree-lane-receipt",
+  "head_commit": "6a191ef70e581735ce159585a7554826bd8b83de",
+  "kind": "depone-worktree-lane-receipt",
+  "schema_version": "0.1",
+  "worktree": "/tmp/depone-worktree-lane-receipt"
+}
