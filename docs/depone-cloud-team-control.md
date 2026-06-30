@@ -187,6 +187,9 @@ python3 -m depone team-ledger --self-test
 
 ## Next slices
 
-1. Add optional PR artifact checks for cloud Team Ledger lanes.
-2. Only after the ledger is useful, consider a minimal `depone team` command that
-   coordinates lanes under explicit budgets and stop rules.
+The current follow-up order is tracked in `docs/depone-next-work-plan.md`.
+
+1. Add optional PR artifact checks for Team Ledger lanes.
+2. Add local worktree lane receipts.
+3. Only after those artifacts are useful, consider a minimal `depone team`
+   command that coordinates lanes under explicit budgets and stop rules.
