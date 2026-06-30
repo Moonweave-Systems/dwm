@@ -39,8 +39,8 @@ Expected generated files after the CLI lands:
 
 ## Honest boundary
 
-Team launch preflight does not launch agents, does not create worktrees, does
-not execute lane commands, and does not prove task completion. Planned lanes
+Team launch preflight does not launch agents, does not create worktrees, and
+does not prove task completion. It does not execute lane commands. Planned lanes
 remain blocked until machine evidence exists and Team Ledger fan-in validates
 that evidence.
 
