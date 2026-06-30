@@ -2837,11 +2837,11 @@ def require_team_shell_lane_launch_docs_contract() -> None:
         [
             "python3 -m depone team-shell-lane-launch",
             "allowlist.json",
-            "subprocess.run(..., shell=False)",
+            "subprocess.run(..., shell=false)",
             "does not accept or concatenate arbitrary shell command strings",
-            "does not launch Codex, Claude, OpenCode",
+            "does not launch codex, claude, opencode",
             "does not raise assurance",
-            "does not claim A2/container isolation",
+            "does not claim a2/container isolation",
         ],
     )
 

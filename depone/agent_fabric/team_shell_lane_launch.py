@@ -155,7 +155,7 @@ def _resolve_allowlisted_argv(allowlist: dict[str, object], command_id: str) -> 
     if executable in PROHIBITED_EXECUTABLES:
         raise TeamShellLaneLaunchError(
             "ERR_TEAM_SHELL_LANE_AGENT_EXECUTABLE_BLOCKED",
-            "Codex, Claude, and OpenCode executables are not permitted in shell lane launch",
+            "Codex, Claude, Claude Code, and OpenCode executables are not permitted in shell lane launch",
         )
     return normalized
 
@@ -212,4 +212,5 @@ def _self_test() -> None:
         assert receipt["exit_code"] == 0
         assert receipt["boundary"]["uses_shell"] is False
         assert receipt["boundary"]["allows_arbitrary_shell_string"] is False
+        assert receipt["boundary"]["raises_assurance"] is False
         assert Path(str(receipt["transcript_path"])).exists()

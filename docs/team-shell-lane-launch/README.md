@@ -9,6 +9,8 @@ concatenate arbitrary shell command strings. `receipt.json` records the resolved
 `cwd`, argv, exit code, stdout/stderr SHA-256 hashes, and transcript path/hash;
 `transcript.json` contains the captured stdout/stderr text.
 
+Contract terms: `subprocess.run(..., shell=False)`; does not accept or concatenate arbitrary shell command strings; does not launch Codex, Claude, OpenCode; does not raise assurance; does not claim A2/container isolation.
+
 Regenerate the fixture with:
 
 ```bash
@@ -31,9 +33,8 @@ Generated files:
 
 This is shell-only A1-style local evidence. It executes the allowlisted local
 argv command, but it does not launch Codex, Claude, OpenCode, live models, team
-workers, or a scheduler. It does not prove lane task completion and does not
-raise assurance to A2. It does not raise assurance and does not claim
-A2/container isolation.
+workers, or a scheduler. It does not raise assurance, does not claim
+A2/container isolation, and does not prove lane task completion.
 
 Residual: the committed receipt records the absolute `cwd` of the capture host.
 A fresh clone can revalidate the JSON shape and boundary fields, but should
