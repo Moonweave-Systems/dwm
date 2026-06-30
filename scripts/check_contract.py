@@ -2842,19 +2842,26 @@ def require_team_shell_lane_launch_docs_contract() -> None:
             "does not launch codex, claude, opencode",
             "does not raise assurance",
             "does not claim a2/container isolation",
+            "agent_contract_hash",
+            "packaging/depone-agent-operating-contract.json",
+            "v22 role id",
         ],
     )
 
     allowlist_path = ROOT / "docs" / "team-shell-lane-launch" / "allowlist.json"
     receipt_path = ROOT / "docs" / "team-shell-lane-launch" / "receipt.json"
     transcript_path = ROOT / "docs" / "team-shell-lane-launch" / "transcript.json"
-    for path in (allowlist_path, receipt_path, transcript_path):
+    contract_path = ROOT / "packaging" / "depone-agent-operating-contract.json"
+    role_registry_path = ROOT / "packaging" / "dwm-roles.json"
+    for path in (allowlist_path, receipt_path, transcript_path, contract_path, role_registry_path):
         if not path.exists():
             raise SystemExit(f"{path.relative_to(ROOT)} is required")
 
     allowlist = json.loads(allowlist_path.read_text(encoding="utf-8"))
     receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
     transcript = json.loads(transcript_path.read_text(encoding="utf-8"))
+    contract = json.loads(contract_path.read_text(encoding="utf-8"))
+    role_registry = json.loads(role_registry_path.read_text(encoding="utf-8"))
     if receipt.get("kind") != "depone-team-shell-lane-launch":
         raise SystemExit("team-shell-lane-launch receipt kind mismatch")
     if receipt.get("decision") != "pass":
@@ -2899,6 +2906,51 @@ def require_team_shell_lane_launch_docs_contract() -> None:
     transcript_hash = hashlib.sha256(transcript_path.read_bytes()).hexdigest()
     if receipt.get("transcript_sha256") != transcript_hash:
         raise SystemExit("team-shell-lane-launch transcript_sha256 mismatch")
+
+    def _canonical_hash(value: object) -> str:
+        payload = json.dumps(value, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        return hashlib.sha256(payload).hexdigest()
+
+    if not isinstance(contract, dict):
+        raise SystemExit("agent operating contract must be an object")
+    if contract.get("contract_id") != "depone-agent-operating-contract":
+        raise SystemExit("agent operating contract id mismatch")
+    clauses = contract.get("clauses")
+    if not isinstance(clauses, list) or not clauses:
+        raise SystemExit("agent operating contract clauses must be non-empty")
+    for clause in clauses:
+        if not isinstance(clause, dict):
+            raise SystemExit("agent operating contract clause must be an object")
+        for key in ("id", "level", "validation_note"):
+            if not isinstance(clause.get(key), str) or not clause[key]:
+                raise SystemExit(f"agent operating contract clause {key} is required")
+
+    agent_contract = receipt.get("agent_contract")
+    if not isinstance(agent_contract, dict):
+        raise SystemExit("team-shell-lane-launch receipt agent_contract must be an object")
+    if receipt.get("agent_contract_hash") != agent_contract.get("resolved_contract_hash"):
+        raise SystemExit("team-shell-lane-launch agent_contract_hash mismatch")
+    if agent_contract.get("contract_path") != "packaging/depone-agent-operating-contract.json":
+        raise SystemExit("team-shell-lane-launch agent contract path mismatch")
+    if agent_contract.get("common_contract_hash") != _canonical_hash(contract):
+        raise SystemExit("team-shell-lane-launch common contract hash mismatch")
+    roles = role_registry.get("roles")
+    if not isinstance(roles, list) or not roles:
+        raise SystemExit("V22 role registry roles must be non-empty")
+    role_id = agent_contract.get("role_id")
+    if not isinstance(role_id, str) or not role_id:
+        raise SystemExit("team-shell-lane-launch agent contract role_id is required")
+    matching_roles = [role for role in roles if isinstance(role, dict) and role.get("id") == role_id]
+    if len(matching_roles) != 1:
+        raise SystemExit("team-shell-lane-launch agent contract role_id must bind one V22 role")
+    role = matching_roles[0]
+    if agent_contract.get("role_registry_path") != "packaging/dwm-roles.json":
+        raise SystemExit("team-shell-lane-launch role registry path mismatch")
+    if agent_contract.get("role_hash") != _canonical_hash(role):
+        raise SystemExit("team-shell-lane-launch role hash mismatch")
+    resolved_contract = {"common_contract": contract, "v22_role": role}
+    if agent_contract.get("resolved_contract_hash") != _canonical_hash(resolved_contract):
+        raise SystemExit("team-shell-lane-launch resolved contract hash mismatch")
 
 
 def contract_steps_for_tier(tier: str) -> list[tuple[str, object, int]]:
