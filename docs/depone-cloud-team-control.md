@@ -1,6 +1,6 @@
 # Depone Cloud/Team Control Plane
 
-Status: V130 follow-up direction note and Team Ledger v0 evidence-next slice.
+Status: V130 follow-up direction note and Team Ledger v0 merge-receipt slice.
 Date: 2026-06-30.
 Source context: `.omx/context/cloud-team-control-20260630T043433Z.md`.
 
@@ -15,10 +15,11 @@ claimed, what artifacts they produced, what deterministic checks passed, and
 whether the next step is allowed from verified evidence.
 
 The first implementation slices are deliberately small: Team Ledger v0 validates
-a leader ledger over lane records, and passed lanes must point at a machine
-`evidence-next` verdict that revalidated their evidence directory. It does not
-schedule work, launch cloud agents, merge pull requests, provision containers,
-sign evidence, or replace a team runtime.
+a leader ledger over lane records, passed lanes must point at a machine
+`evidence-next` verdict that revalidated their evidence directory, and
+overlapping passed lanes must point at a passing merge receipt before fan-in can
+pass. It does not schedule work, launch cloud agents, merge pull requests,
+provision containers, sign evidence, or replace a team runtime.
 
 ## External direction to interoperate with
 
@@ -90,6 +91,7 @@ Team Ledger v0 is a fan-in gate. A ledger records:
   a later explicitly modeled adapter),
 - start and end commits,
 - evidence directory and `evidence-next` verdict for passed lanes,
+- optional touched files and a top-level merge receipt when passed lanes overlap,
 - optional PR URL,
 - verification state (`pass` or `blocked`),
 - blocked reason for blocked lanes.
@@ -101,8 +103,9 @@ Fan-in passes only when every lane is either:
 2. `blocked` with an explicit reason.
 
 A lane with prose only cannot pass. Missing evidence, missing or blocked
-`evidence-next` verdicts, unknown environment kind, unknown adapter kind,
-duplicate lane ids, or a blocked lane without a reason blocks the ledger.
+`evidence-next` verdicts, overlapping passed-lane touched files without a
+passing merge receipt, unknown environment kind, unknown adapter kind, duplicate
+lane ids, or a blocked lane without a reason blocks the ledger.
 
 ## Team Ledger v0 schema sketch
 
@@ -114,6 +117,7 @@ duplicate lane ids, or a blocked lane without a reason blocks the ledger.
   "leader_id": "leader-fixed",
   "start_commit": "abc123",
   "stop_rule": "stop after deterministic verification",
+  "merge_receipt": "out/team/team-merge-receipt.json",
   "lanes": [
     {
       "lane_id": "worker-1",
@@ -125,6 +129,7 @@ duplicate lane ids, or a blocked lane without a reason blocks the ledger.
       "end_commit": "def456",
       "evidence_dir": "out/team/worker-1",
       "evidence_next_verdict": "out/team/worker-1/evidence-next-verdict.json",
+      "touched_files": ["depone/agent_fabric/team_ledger.py"],
       "pr_url": "https://github.com/example/repo/pull/123",
       "verification_state": "pass",
       "verification_artifacts": ["unit-tests", "contract"]
@@ -145,6 +150,23 @@ duplicate lane ids, or a blocked lane without a reason blocks the ledger.
 }
 ```
 
+When `merge_receipt` is required, it points at a machine JSON receipt:
+
+```json
+{
+  "command": "team-ledger-merge-receipt",
+  "schema_version": "1.0",
+  "decision": "pass",
+  "lanes": ["worker-1", "worker-2"],
+  "files": ["depone/agent_fabric/team_ledger.py"],
+  "conflict_events": []
+}
+```
+
+Passed lanes must include non-empty `touched_files` so the ledger can decide
+whether a merge receipt is required. Omitted or empty `touched_files` fails
+closed instead of treating the lane as non-overlapping.
+
 Validate with:
 
 ```bash
@@ -158,13 +180,13 @@ python3 -m depone team-ledger --self-test
 - No Docker A2C implementation.
 - No signing or Sigstore/keyless work.
 - No cloud runner, GitHub App, or full scheduler.
+- No automatic git merge, conflict resolution, or worktree orchestration.
 - No claim that Team Ledger v0 proves adapter correctness beyond the recorded
   deterministic facts.
 
 ## Next slices
 
-1. Record conflict events when lanes touch overlapping files, then require a
-   merge receipt before fan-in can pass.
-2. Add optional PR artifact checks for cloud adapters.
+1. Add optional PR artifact checks for cloud adapters.
+2. Add a first-class merge receipt producer after the validator shape has settled.
 3. Only after the ledger is useful, consider a minimal `depone team` command that
    coordinates lanes under explicit budgets and stop rules.

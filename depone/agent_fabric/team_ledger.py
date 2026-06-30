@@ -9,7 +9,7 @@ honest, present evidence before fan-in.
 from __future__ import annotations
 
 import json
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 from depone.agent_fabric.claim_gate import canonical_hash
@@ -82,6 +82,15 @@ def build_team_ledger_verdict(ledger: dict[str, Any], *, base_dir: Path | None =
         lane_results.append(lane_result)
         errors.extend(lane_result["errors"])
 
+    overlapping_touched_files = _find_overlapping_touched_files(lane_results)
+    merge_receipt = _validate_merge_receipt(
+        ledger.get("merge_receipt"),
+        root,
+        errors,
+        required=bool(overlapping_touched_files),
+        overlapping_touched_files=overlapping_touched_files,
+    )
+
     blocked = sum(1 for lane in lane_results if lane["decision"] != "pass")
     passed = len(lane_results) - blocked
     if errors:
@@ -100,6 +109,8 @@ def build_team_ledger_verdict(ledger: dict[str, Any], *, base_dir: Path | None =
         "passed_lane_count": passed,
         "blocked_lane_count": blocked,
         "lane_results": lane_results,
+        "overlapping_touched_files": overlapping_touched_files,
+        "merge_receipt": merge_receipt,
         "errors": errors,
         "source_hashes": {"team_ledger": canonical_hash(ledger)},
         "boundary": {
@@ -247,6 +258,16 @@ def _validate_lane(
             }
         )
 
+    touched_files = _validate_touched_files(lane.get("touched_files"), errors, lane_id=lane_error_id)
+    if state == "pass" and not touched_files:
+        errors.append(
+            {
+                "code": "ERR_TEAM_LEDGER_TOUCHED_FILES_REQUIRED",
+                "message": "passed lane must include at least one touched_files entry",
+                "lane_id": lane_error_id,
+            }
+        )
+
     return {
         "lane_id": lane_error_id,
         "env_kind": lane.get("env_kind"),
@@ -259,6 +280,8 @@ def _validate_lane(
         "evidence_next_verdict": evidence_next_verdict,
         "evidence_next": evidence_next_summary,
         "verification_artifact_count": len(verification_artifacts),
+        "touched_files": touched_files,
+        "touched_file_count": len(touched_files),
         "errors": errors,
     }
 
@@ -405,6 +428,195 @@ def _validate_evidence_next_verdict(
     return summary
 
 
+def _validate_touched_files(
+    touched_files: Any,
+    errors: list[dict[str, str]],
+    *,
+    lane_id: str,
+) -> list[str]:
+    if touched_files is None:
+        return []
+    if not isinstance(touched_files, list):
+        errors.append(
+            {
+                "code": "ERR_TEAM_LEDGER_TOUCHED_FILES_INVALID",
+                "message": "touched_files must be a list of repo-relative file paths",
+                "lane_id": lane_id,
+            }
+        )
+        return []
+
+    normalized: list[str] = []
+    for value in touched_files:
+        if not isinstance(value, str) or not value.strip():
+            errors.append(
+                {
+                    "code": "ERR_TEAM_LEDGER_TOUCHED_FILES_INVALID",
+                    "message": "touched_files entries must be non-empty strings",
+                    "lane_id": lane_id,
+                }
+            )
+            continue
+        path = PurePosixPath(value)
+        if path.is_absolute() or ".." in path.parts:
+            errors.append(
+                {
+                    "code": "ERR_TEAM_LEDGER_TOUCHED_FILES_INVALID",
+                    "message": "touched_files entries must stay repo-relative",
+                    "lane_id": lane_id,
+                }
+            )
+            continue
+        normalized.append(path.as_posix())
+    return sorted(set(normalized))
+
+
+def _find_overlapping_touched_files(lane_results: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    owners_by_file: dict[str, list[str]] = {}
+    for lane in lane_results:
+        if lane["decision"] != "pass":
+            continue
+        lane_id = str(lane["lane_id"])
+        for touched_file in lane.get("touched_files", []):
+            owners_by_file.setdefault(str(touched_file), []).append(lane_id)
+
+    overlaps: list[dict[str, Any]] = []
+    for touched_file, lane_ids in sorted(owners_by_file.items()):
+        unique_lane_ids = sorted(set(lane_ids))
+        if len(unique_lane_ids) > 1:
+            overlaps.append({"path": touched_file, "lane_ids": unique_lane_ids})
+    return overlaps
+
+
+def _validate_merge_receipt(
+    merge_receipt: Any,
+    base_dir: Path,
+    errors: list[dict[str, str]],
+    *,
+    required: bool,
+    overlapping_touched_files: list[dict[str, Any]],
+) -> dict[str, Any]:
+    summary: dict[str, Any] = {
+        "path": merge_receipt if isinstance(merge_receipt, str) else None,
+        "required": required,
+        "decision": None,
+        "overlap_count": len(overlapping_touched_files),
+    }
+    if not isinstance(merge_receipt, str) or not merge_receipt.strip():
+        if required:
+            errors.append(
+                {
+                    "code": "ERR_TEAM_LEDGER_MERGE_RECEIPT_REQUIRED",
+                    "message": "overlapping passed lanes must include merge_receipt",
+                }
+            )
+        return summary
+
+    receipt_path = Path(merge_receipt)
+    if receipt_path.is_absolute():
+        errors.append(
+            {
+                "code": "ERR_TEAM_LEDGER_MERGE_RECEIPT_PATH_INVALID",
+                "message": "merge_receipt must be relative to the ledger base directory",
+            }
+        )
+        return summary
+
+    resolved = (base_dir / receipt_path).resolve(strict=False)
+    base_resolved = base_dir.resolve(strict=False)
+    try:
+        resolved.relative_to(base_resolved)
+    except ValueError:
+        errors.append(
+            {
+                "code": "ERR_TEAM_LEDGER_MERGE_RECEIPT_PATH_INVALID",
+                "message": "merge_receipt must stay under the ledger base directory",
+            }
+        )
+        return summary
+
+    if not resolved.is_file():
+        errors.append(
+            {
+                "code": "ERR_TEAM_LEDGER_MERGE_RECEIPT_MISSING",
+                "message": "merge_receipt file must exist",
+            }
+        )
+        return summary
+
+    try:
+        receipt = json.loads(resolved.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        errors.append(
+            {
+                "code": "ERR_TEAM_LEDGER_MERGE_RECEIPT_INVALID",
+                "message": f"merge_receipt must be readable JSON: {exc}",
+            }
+        )
+        return summary
+    if not isinstance(receipt, dict):
+        errors.append(
+            {
+                "code": "ERR_TEAM_LEDGER_MERGE_RECEIPT_INVALID",
+                "message": "merge_receipt root must be an object",
+            }
+        )
+        return summary
+
+    summary["decision"] = receipt.get("decision")
+    if receipt.get("command") != "team-ledger-merge-receipt":
+        errors.append(
+            {
+                "code": "ERR_TEAM_LEDGER_MERGE_RECEIPT_INVALID",
+                "message": "merge_receipt command must be team-ledger-merge-receipt",
+            }
+        )
+    if receipt.get("decision") != "pass":
+        errors.append(
+            {
+                "code": "ERR_TEAM_LEDGER_MERGE_RECEIPT_NOT_PASS",
+                "message": "merge_receipt must have decision=pass",
+            }
+        )
+    if not isinstance(receipt.get("conflict_events", []), list):
+        errors.append(
+            {
+                "code": "ERR_TEAM_LEDGER_MERGE_RECEIPT_INVALID",
+                "message": "merge_receipt conflict_events must be a list",
+            }
+        )
+    receipt_files = receipt.get("files")
+    receipt_lanes = receipt.get("lanes")
+    if not _is_string_list(receipt_files) or not _is_string_list(receipt_lanes):
+        errors.append(
+            {
+                "code": "ERR_TEAM_LEDGER_MERGE_RECEIPT_INVALID",
+                "message": "merge_receipt files and lanes must be lists of non-empty strings",
+            }
+        )
+        return summary
+
+    required_files = {str(item["path"]) for item in overlapping_touched_files}
+    required_lanes = {
+        lane_id
+        for item in overlapping_touched_files
+        for lane_id in item.get("lane_ids", [])
+        if isinstance(lane_id, str)
+    }
+    if not required_files.issubset(set(receipt_files)) or not required_lanes.issubset(set(receipt_lanes)):
+        errors.append(
+            {
+                "code": "ERR_TEAM_LEDGER_MERGE_RECEIPT_COVERAGE_MISSING",
+                "message": "merge_receipt must cover every overlapping file and lane id",
+            }
+        )
+    return summary
+
+
+def _is_string_list(value: Any) -> bool:
+    return isinstance(value, list) and all(isinstance(item, str) and item for item in value)
+
+
 def build_sample_team_ledger(evidence_dir: str) -> dict[str, Any]:
     """Return a minimal valid Team Ledger v0 object for tests and examples."""
 
@@ -429,6 +641,7 @@ def build_sample_team_ledger(evidence_dir: str) -> dict[str, Any]:
                 "pr_url": "",
                 "verification_state": "pass",
                 "verification_artifacts": ["unittest"],
+                "touched_files": ["docs/depone-cloud-team-control.md"],
             }
         ],
     }
@@ -461,6 +674,43 @@ def _self_test() -> None:
         verdict = build_team_ledger_verdict(ledger, base_dir=root)
         if verdict["decision"] != "pass":
             raise AssertionError("valid ledger must pass")
+
+        second_evidence = root / "lane-evidence-2"
+        second_evidence.mkdir()
+        second_evidence_next = second_evidence / "evidence-next-verdict.json"
+        second_evidence_next.write_text(
+            evidence_next.read_text(encoding="utf-8"),
+            encoding="utf-8",
+        )
+        receipt = root / "team-merge-receipt.json"
+        receipt.write_text(
+            json.dumps(
+                {
+                    "command": "team-ledger-merge-receipt",
+                    "schema_version": "1.0",
+                    "decision": "pass",
+                    "lanes": ["lane-docs", "lane-tests"],
+                    "files": ["depone/agent_fabric/team_ledger.py"],
+                    "conflict_events": [],
+                },
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        merged = build_sample_team_ledger("lane-evidence")
+        merged["merge_receipt"] = "team-merge-receipt.json"
+        merged["lanes"][0]["evidence_next_verdict"] = "lane-evidence/evidence-next-verdict.json"
+        merged["lanes"][0]["touched_files"] = ["depone/agent_fabric/team_ledger.py"]
+        second_lane = dict(merged["lanes"][0])
+        second_lane["lane_id"] = "lane-tests"
+        second_lane["evidence_dir"] = "lane-evidence-2"
+        second_lane["evidence_next_verdict"] = "lane-evidence-2/evidence-next-verdict.json"
+        merged["lanes"].append(second_lane)
+        merged_verdict = build_team_ledger_verdict(merged, base_dir=root)
+        if merged_verdict["decision"] != "pass":
+            raise AssertionError("overlapping passed lanes with a passing merge receipt must pass")
 
         missing = build_sample_team_ledger("missing")
         missing["lanes"][0]["evidence_next_verdict"] = "missing/evidence-next-verdict.json"

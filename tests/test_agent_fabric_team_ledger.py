@@ -50,6 +50,45 @@ class AgentFabricTeamLedgerTests(unittest.TestCase):
         ledger["lanes"][0]["evidence_next_verdict"] = self._write_evidence_next_verdict()
         return ledger
 
+    def _add_second_passing_lane(self, ledger: dict[str, object]) -> None:
+        (self.root / "lane-evidence-2").mkdir()
+        second = dict(ledger["lanes"][0])
+        second["lane_id"] = "lane-tests"
+        second["objective"] = "Run focused tests"
+        second["evidence_dir"] = "lane-evidence-2"
+        second["evidence_next_verdict"] = self._write_evidence_next_verdict(
+            "lane-evidence-2/evidence-next-verdict.json"
+        )
+        ledger["lanes"].append(second)
+
+    def _write_merge_receipt(
+        self,
+        *,
+        decision: str = "pass",
+        files: list[str] | None = None,
+        lanes: list[str] | None = None,
+        relative_path: str = "team-merge-receipt.json",
+    ) -> str:
+        receipt_path = self.root / relative_path
+        receipt_path.parent.mkdir(parents=True, exist_ok=True)
+        receipt_path.write_text(
+            json.dumps(
+                {
+                    "command": "team-ledger-merge-receipt",
+                    "schema_version": "1.0",
+                    "decision": decision,
+                    "lanes": lanes or ["lane-docs", "lane-tests"],
+                    "files": files or ["depone/agent_fabric/team_ledger.py"],
+                    "conflict_events": [],
+                },
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        return relative_path
+
     def test_valid_ledger_passes(self) -> None:
         ledger = self._ledger_with_evidence_next()
 
@@ -268,6 +307,7 @@ class AgentFabricTeamLedgerTests(unittest.TestCase):
         ledger = self._ledger_with_evidence_next()
         second = dict(ledger["lanes"][0])
         second["lane_id"] = "lane-tests"
+        second["touched_files"] = ["tests/test_agent_fabric_team_ledger.py"]
         ledger["lanes"].append(second)
         ledger_path = self.root / "team-ledger.json"
         out_path = self.root / "team-ledger-verdict.json"
@@ -319,6 +359,83 @@ class AgentFabricTeamLedgerTests(unittest.TestCase):
         self.assertEqual(verdict["decision"], "blocked")
         self.assertIn(
             "ERR_TEAM_LEDGER_EVIDENCE_NEXT_NOT_CONTINUE",
+            {error["code"] for error in verdict["errors"]},
+        )
+
+    def test_overlapping_touched_files_require_merge_receipt(self) -> None:
+        ledger = self._ledger_with_evidence_next()
+        self._add_second_passing_lane(ledger)
+        for lane in ledger["lanes"]:
+            lane["touched_files"] = ["depone/agent_fabric/team_ledger.py"]
+
+        verdict = build_team_ledger_verdict(ledger, base_dir=self.root)
+
+        self.assertEqual(verdict["decision"], "blocked")
+        self.assertIn(
+            "ERR_TEAM_LEDGER_MERGE_RECEIPT_REQUIRED",
+            {error["code"] for error in verdict["errors"]},
+        )
+
+    def test_passed_lane_requires_touched_files(self) -> None:
+        for value in (None, []):
+            with self.subTest(value=value):
+                ledger = self._ledger_with_evidence_next()
+                if value is None:
+                    ledger["lanes"][0].pop("touched_files", None)
+                else:
+                    ledger["lanes"][0]["touched_files"] = value
+
+                verdict = build_team_ledger_verdict(ledger, base_dir=self.root)
+
+                self.assertEqual(verdict["decision"], "blocked")
+                self.assertIn(
+                    "ERR_TEAM_LEDGER_TOUCHED_FILES_REQUIRED",
+                    {error["code"] for error in verdict["errors"]},
+                )
+
+    def test_merge_receipt_allows_overlapping_passed_lanes(self) -> None:
+        ledger = self._ledger_with_evidence_next()
+        self._add_second_passing_lane(ledger)
+        ledger["merge_receipt"] = self._write_merge_receipt()
+        for lane in ledger["lanes"]:
+            lane["touched_files"] = ["depone/agent_fabric/team_ledger.py"]
+
+        verdict = build_team_ledger_verdict(ledger, base_dir=self.root)
+
+        self.assertEqual(verdict["decision"], "pass")
+        self.assertEqual(verdict["merge_receipt"]["decision"], "pass")
+        self.assertEqual(verdict["merge_receipt"]["overlap_count"], 1)
+
+    def test_blocked_merge_receipt_blocks_overlapping_passed_lanes(self) -> None:
+        ledger = self._ledger_with_evidence_next()
+        self._add_second_passing_lane(ledger)
+        ledger["merge_receipt"] = self._write_merge_receipt(decision="blocked")
+        for lane in ledger["lanes"]:
+            lane["touched_files"] = ["depone/agent_fabric/team_ledger.py"]
+
+        verdict = build_team_ledger_verdict(ledger, base_dir=self.root)
+
+        self.assertEqual(verdict["decision"], "blocked")
+        self.assertIn(
+            "ERR_TEAM_LEDGER_MERGE_RECEIPT_NOT_PASS",
+            {error["code"] for error in verdict["errors"]},
+        )
+
+    def test_merge_receipt_must_cover_overlapping_file_and_lanes(self) -> None:
+        ledger = self._ledger_with_evidence_next()
+        self._add_second_passing_lane(ledger)
+        ledger["merge_receipt"] = self._write_merge_receipt(
+            files=["docs/only.md"],
+            lanes=["lane-docs"],
+        )
+        for lane in ledger["lanes"]:
+            lane["touched_files"] = ["depone/agent_fabric/team_ledger.py"]
+
+        verdict = build_team_ledger_verdict(ledger, base_dir=self.root)
+
+        self.assertEqual(verdict["decision"], "blocked")
+        self.assertIn(
+            "ERR_TEAM_LEDGER_MERGE_RECEIPT_COVERAGE_MISSING",
             {error["code"] for error in verdict["errors"]},
         )
 
