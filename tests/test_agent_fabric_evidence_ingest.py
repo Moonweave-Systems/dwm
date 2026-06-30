@@ -80,7 +80,7 @@ class AgentFabricEvidenceIngestTests(unittest.TestCase):
         self.assertFalse(verdict["boundary"]["raises_assurance"])
         self.assertFalse(verdict["boundary"]["trusts_external_signature"])
 
-    def test_inconclusive_when_subject_artifact_is_absent(self) -> None:
+    def test_blocked_when_subject_artifact_is_absent(self) -> None:
         bundle = self._bundle()
 
         verdict = ingest_external_evidence(
@@ -89,7 +89,7 @@ class AgentFabricEvidenceIngestTests(unittest.TestCase):
             artifact_digest_modes={"source_fixture": DIGEST_MODE_CANONICAL_JSON},
         )
 
-        self.assertEqual(verdict["decision"], "inconclusive")
+        self.assertEqual(verdict["decision"], "blocked")
         self.assertIn(
             "missing",
             {result["status"] for result in verdict["subject_results"]},
@@ -364,7 +364,7 @@ class AgentFabricEvidenceIngestTests(unittest.TestCase):
         self.assertEqual(verdict["decision"], "blocked")
         self.assertTrue(verdict["otel_errors"])
 
-    def test_foreign_real_statement_with_absent_artifact_is_inconclusive(self) -> None:
+    def test_foreign_real_statement_with_absent_artifact_is_blocked(self) -> None:
         statement = json.loads(
             (self._external_dir() / "external_intoto_statement_real.json").read_text(
                 encoding="utf-8"
@@ -373,7 +373,7 @@ class AgentFabricEvidenceIngestTests(unittest.TestCase):
 
         verdict = ingest_external_evidence(statement, {})
 
-        self.assertEqual(verdict["decision"], "inconclusive")
+        self.assertEqual(verdict["decision"], "blocked")
         self.assertFalse(verdict["predicate_recognized"])
         self.assertEqual(verdict["predicate_type"], "https://slsa.dev/provenance/v1.0")
 
