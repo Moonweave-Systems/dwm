@@ -375,6 +375,11 @@ def _add_advance_args(parser: argparse.ArgumentParser) -> None:
         default="advance-decision.json",
         help="Machine-readable advance decision artifact path",
     )
+    parser.add_argument(
+        "--previous-source-fixture",
+        default="",
+        help="Optional source fixture override for the previous evidence-next gate",
+    )
     _add_evidence_run_args(parser)
 
 

@@ -45,7 +45,7 @@ def advance_once(args: argparse.Namespace) -> dict[str, Any]:
     if not evidence_dir_arg:
         raise ValueError("--evidence-dir is required")
     evidence_dir = Path(evidence_dir_arg)
-    source_fixture_arg = str(getattr(args, "source_fixture", "") or "")
+    source_fixture_arg = str(getattr(args, "previous_source_fixture", "") or "")
     gate = evidence_next.evaluate_evidence_dir(
         evidence_dir,
         source_fixture=Path(source_fixture_arg) if source_fixture_arg else None,
@@ -111,6 +111,7 @@ def _self_test() -> None:
             evidence_dir="docs/depone-run-receipt-frontdoor",
             advance_out=str(advance_out),
             runner_sandbox=str(sandbox),
+            previous_source_fixture="",
             source_fixture="depone/fixtures/agent_fabric/reference_adapter_shell.json",
             runner_uid=None,
             runner_user="",
