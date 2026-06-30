@@ -225,10 +225,12 @@ def run_evidence_loop(args: argparse.Namespace) -> dict[str, Any]:
         isolation_facts = probe_isolation_facts(
             observer_dir, runner_uid=int(runner_uid_arg)
         )
+    prev_capture_hash = str(getattr(args, "prev_capture_hash", "") or "") or None
     capture_manifest = build_capture_manifest(
         source_fixture,
         observer_capture=capture,
         allowed_touched_files=allowed_touched_files,
+        prev_capture_hash=prev_capture_hash,
         isolation=isolation_facts,
     )
     capture_errors = validate_capture_manifest(capture_manifest)
@@ -278,6 +280,10 @@ def run_evidence_loop(args: argparse.Namespace) -> dict[str, Any]:
     if runner_receipt_path is not None:
         artifact_paths["runner_receipt"] = str(runner_receipt_path)
         artifact_digest_modes["runner_receipt"] = DIGEST_MODE_CANONICAL_JSON
+    previous_capture_path = str(getattr(args, "previous_capture_path", "") or "")
+    if prev_capture_hash and previous_capture_path:
+        artifact_paths["prev_capture"] = previous_capture_path
+        artifact_digest_modes["prev_capture"] = DIGEST_MODE_CANONICAL_JSON
 
     ingest_verdict = ingest_external_evidence(
         bundle["dsse_envelope"],

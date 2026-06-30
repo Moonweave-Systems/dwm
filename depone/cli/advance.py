@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from depone._resources import resource_text
+from depone.agent_fabric.claim_gate import canonical_hash
 from depone.cli._response import (
     EXIT_FAILED,
     EXIT_INTERNAL,
@@ -98,6 +99,9 @@ def advance_once(args: argparse.Namespace) -> dict[str, Any]:
         return artifact
 
     _validate_continuation_request(args)
+    previous_capture = _read_previous_capture_manifest(previous_dir)
+    _set_temporary_attr(args, "prev_capture_hash", canonical_hash(previous_capture))
+    _set_temporary_attr(args, "previous_capture_path", str(previous_dir / "capture-manifest.json"))
     continuation = run_evidence_loop(args)
     artifact.update(
         {
@@ -178,6 +182,18 @@ def _validate_continuation_request(args: argparse.Namespace) -> None:
         raise ValueError("--sign-private-key and --sign-key-id must be provided together")
     if sign_public_key and not sign_private_key:
         raise ValueError("--sign-public-key requires --sign-private-key")
+
+
+def _set_temporary_attr(args: argparse.Namespace, name: str, value: str) -> None:
+    setattr(args, name, value)
+
+
+def _read_previous_capture_manifest(previous_dir: Path) -> dict[str, Any]:
+    path = previous_dir / "capture-manifest.json"
+    value = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(value, dict):
+        raise ValueError(f"JSON root must be an object: {path}")
+    return value
 
 
 def _artifact_path(args: argparse.Namespace) -> Path:

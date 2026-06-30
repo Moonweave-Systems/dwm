@@ -354,6 +354,13 @@ def _add_evidence_next_args(parser: argparse.ArgumentParser) -> None:
         ),
     )
     parser.add_argument(
+        "--previous-capture",
+        default="",
+        help=(
+            "Optional predecessor capture-manifest.json for validating a prev_capture_hash subject"
+        ),
+    )
+    parser.add_argument(
         "--out",
         default="",
         help="Optional output path for the evidence-next decision JSON",

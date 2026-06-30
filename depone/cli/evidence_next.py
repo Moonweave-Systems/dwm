@@ -38,9 +38,11 @@ def run(args: argparse.Namespace) -> None:
     evidence_dir = Path(evidence_dir_arg)
     try:
         source_fixture_arg = str(getattr(args, "source_fixture", "") or "")
+        previous_capture_arg = str(getattr(args, "previous_capture", "") or "")
         decision = evaluate_evidence_dir(
             evidence_dir,
             source_fixture=Path(source_fixture_arg) if source_fixture_arg else None,
+            previous_capture=Path(previous_capture_arg) if previous_capture_arg else None,
         )
     except (OSError, json.JSONDecodeError, ValueError) as exc:
         emit_error(
@@ -76,6 +78,7 @@ def evaluate_evidence_dir(
     evidence_dir: Path,
     *,
     source_fixture: Path | None = None,
+    previous_capture: Path | None = None,
 ) -> dict[str, Any]:
     """Re-validate an evidence-run directory and recommend the next safe action."""
 
@@ -122,6 +125,9 @@ def evaluate_evidence_dir(
         if (root / "runner-receipt.json").is_file():
             artifact_paths["runner_receipt"] = str(root / "runner-receipt.json")
             artifact_digest_modes["runner_receipt"] = DIGEST_MODE_CANONICAL_JSON
+        if previous_capture is not None:
+            artifact_paths["prev_capture"] = str(previous_capture)
+            artifact_digest_modes["prev_capture"] = DIGEST_MODE_CANONICAL_JSON
 
         if "capture-manifest.json" in missing or "evidence-bundle.json" in missing:
             ingest = {
@@ -167,6 +173,7 @@ def evaluate_evidence_dir(
         "command": "evidence-next",
         "schema_version": "1.0",
         "evidence_dir": str(root),
+        "previous_capture": str(previous_capture) if previous_capture is not None else None,
         "decision": decision,
         "next_action": next_action,
         "assurance": capture.get("assurance"),
