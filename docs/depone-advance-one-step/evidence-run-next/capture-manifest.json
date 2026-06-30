@@ -154,7 +154,7 @@
     ]
   },
   "observer_capture_hash": "4119e65b477a108d0ff304d1b119ef332ea8809a7938f31bcb95254de298ba37",
-  "prev_capture_hash": null,
+  "prev_capture_hash": "5cb2e350f4b644858543191c62b9f0b612dcc0c29620d6d4ef450c0cfd10188c",
   "required_observer_fields": [
     "command_receipts",
     "diff_summary",
