@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -105,6 +106,7 @@ def _self_test() -> None:
         root = Path(tmp)
         sandbox = root / "sandbox"
         sandbox.mkdir()
+        subprocess.run(["git", "init"], cwd=sandbox, check=True, capture_output=True, text=True)
         advance_out = root / "advance-decision.json"
         run_out = root / "evidence-run"
         args = argparse.Namespace(
