@@ -1,0 +1,26 @@
+{
+  "allowlist_sha256": "25ef8465868514beaa13d3dcfde07b8e7c0691c4f8590d4d879485ba73e0045f",
+  "argv": [
+    "python3",
+    "-c",
+    "print('depone shell lane fixture')"
+  ],
+  "boundary": {
+    "allows_arbitrary_shell_string": false,
+    "calls_live_models": false,
+    "executes_commands": true,
+    "launches_agents": false,
+    "uses_argv_allowlist": true,
+    "uses_shell": false
+  },
+  "command_id": "fixture-echo",
+  "cwd": "/tmp/depone-install-readiness/.omx/team/depone-wave-3-single-74805df1/worktrees/worker-1",
+  "decision": "pass",
+  "exit_code": 0,
+  "kind": "depone-team-shell-lane-launch",
+  "schema_version": "0.1",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "stdout_sha256": "67d800906931d7e374f0a96e4f40469f9f1a4de90ec72fe3690079b244f71573",
+  "transcript_path": "docs/team-shell-lane-launch/transcript.json",
+  "transcript_sha256": "74226977e0777b0b4caf9224cbf272f95b97991cbd09bd61069ca13a8fca43f7"
+}
