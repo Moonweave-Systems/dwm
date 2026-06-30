@@ -2843,25 +2843,61 @@ def require_team_shell_lane_launch_docs_contract() -> None:
             "does not raise assurance",
             "does not claim a2/container isolation",
             "agent_contract_hash",
-            "packaging/depone-agent-operating-contract.json",
-            "v22 role id",
+            "validates v22 role binding",
         ],
     )
 
     allowlist_path = ROOT / "docs" / "team-shell-lane-launch" / "allowlist.json"
+    contract_path = ROOT / "docs" / "team-shell-lane-launch" / "agent-operating-contract.json"
     receipt_path = ROOT / "docs" / "team-shell-lane-launch" / "receipt.json"
     transcript_path = ROOT / "docs" / "team-shell-lane-launch" / "transcript.json"
-    contract_path = ROOT / "packaging" / "depone-agent-operating-contract.json"
-    role_registry_path = ROOT / "packaging" / "dwm-roles.json"
-    for path in (allowlist_path, receipt_path, transcript_path, contract_path, role_registry_path):
+    for path in (allowlist_path, contract_path, receipt_path, transcript_path):
         if not path.exists():
             raise SystemExit(f"{path.relative_to(ROOT)} is required")
 
     allowlist = json.loads(allowlist_path.read_text(encoding="utf-8"))
+    contract = json.loads(contract_path.read_text(encoding="utf-8"))
     receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
     transcript = json.loads(transcript_path.read_text(encoding="utf-8"))
-    contract = json.loads(contract_path.read_text(encoding="utf-8"))
-    role_registry = json.loads(role_registry_path.read_text(encoding="utf-8"))
+    if contract.get("kind") != "depone-agent-operating-contract":
+        raise SystemExit("team-shell-lane-launch agent operating contract kind mismatch")
+    if contract.get("schema_version") != "0.1":
+        raise SystemExit("team-shell-lane-launch agent operating contract schema_version mismatch")
+    role_binding = contract.get("v22_role_binding")
+    if not isinstance(role_binding, dict):
+        raise SystemExit("team-shell-lane-launch agent operating contract must include v22_role_binding")
+    expected_roles = ["planner", "explorer", "worker", "reviewer", "verifier", "operator"]
+    if role_binding.get("allowed_base_role_ids") != expected_roles:
+        raise SystemExit("team-shell-lane-launch agent operating contract V22 role list mismatch")
+    if role_binding.get("lane_role_id") not in expected_roles:
+        raise SystemExit("team-shell-lane-launch agent operating contract lane_role_id must be a V22 base role")
+    clauses = contract.get("clauses")
+    if not isinstance(clauses, list) or not clauses:
+        raise SystemExit("team-shell-lane-launch agent operating contract clauses must be a non-empty list")
+    required_clause_ids = {
+        "common.discovery-before-edits",
+        "common.bounded-implementation",
+        "common.verification-discipline",
+        "common.safety-boundaries",
+        "common.review-repair-separation",
+    }
+    seen_clause_ids: set[str] = set()
+    for clause in clauses:
+        if not isinstance(clause, dict):
+            raise SystemExit("team-shell-lane-launch agent operating contract clause must be an object")
+        clause_id = clause.get("id")
+        level = clause.get("level")
+        if not isinstance(clause_id, str) or not clause_id:
+            raise SystemExit("team-shell-lane-launch agent operating contract clause id must be a non-empty string")
+        if level not in {"hard", "default", "skill"}:
+            raise SystemExit("team-shell-lane-launch agent operating contract clause level is invalid")
+        if not isinstance(clause.get("text"), str) or not clause["text"]:
+            raise SystemExit("team-shell-lane-launch agent operating contract clause text is required")
+        seen_clause_ids.add(clause_id)
+    missing_clause_ids = sorted(required_clause_ids - seen_clause_ids)
+    if missing_clause_ids:
+        raise SystemExit(f"team-shell-lane-launch agent operating contract missing clauses: {missing_clause_ids}")
+
     if receipt.get("kind") != "depone-team-shell-lane-launch":
         raise SystemExit("team-shell-lane-launch receipt kind mismatch")
     if receipt.get("decision") != "pass":
@@ -2906,6 +2942,23 @@ def require_team_shell_lane_launch_docs_contract() -> None:
     transcript_hash = hashlib.sha256(transcript_path.read_bytes()).hexdigest()
     if receipt.get("transcript_sha256") != transcript_hash:
         raise SystemExit("team-shell-lane-launch transcript_sha256 mismatch")
+    contract_rel = "docs/team-shell-lane-launch/agent-operating-contract.json"
+    contract_hash = hashlib.sha256(contract_path.read_bytes()).hexdigest()
+    agent_contract = receipt.get("agent_contract")
+    if not isinstance(agent_contract, dict):
+        raise SystemExit("team-shell-lane-launch receipt must include agent_contract facts")
+    if receipt.get("agent_contract_hash") != contract_hash:
+        raise SystemExit("team-shell-lane-launch receipt agent_contract_hash mismatch")
+    if agent_contract.get("path") != contract_rel:
+        raise SystemExit("team-shell-lane-launch receipt agent_contract.path must point to committed contract")
+    if agent_contract.get("sha256") != contract_hash:
+        raise SystemExit("team-shell-lane-launch receipt agent_contract.sha256 mismatch")
+    if agent_contract.get("contract_id") != contract.get("contract_id"):
+        raise SystemExit("team-shell-lane-launch receipt agent_contract.contract_id mismatch")
+    if agent_contract.get("version") != contract.get("version"):
+        raise SystemExit("team-shell-lane-launch receipt agent_contract.version mismatch")
+    if agent_contract.get("v22_role_id") != role_binding.get("lane_role_id"):
+        raise SystemExit("team-shell-lane-launch receipt V22 role binding mismatch")
 
     def _canonical_hash(value: object) -> str:
         payload = json.dumps(value, sort_keys=True, separators=(",", ":")).encode("utf-8")
