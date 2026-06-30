@@ -28,6 +28,7 @@ from depone.cli import (
     doctor,
     evidence_next,
     evidence_run,
+    advance,
     validate,
     validate_contracts,
 )
@@ -338,6 +339,20 @@ def _add_evidence_run_args(parser: argparse.ArgumentParser) -> None:
         nargs=argparse.REMAINDER,
         help="Observer-chosen verification command to run after --",
     )
+
+
+def _add_advance_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--evidence-dir",
+        default="",
+        help="Previous evidence-run artifact directory to re-validate before one continuation",
+    )
+    parser.add_argument(
+        "--advance-out",
+        default="",
+        help="Output path for the advance decision artifact; defaults to <out>/advance-decision.json",
+    )
+    _add_evidence_run_args(parser)
 
 
 def _add_evidence_next_args(parser: argparse.ArgumentParser) -> None:
@@ -919,7 +934,7 @@ def main() -> None:
     # advance
     advance_parser = sub.add_parser(
         "advance",
-        help="Gate on evidence-next, then run exactly one evidence-run continuation",
+        help="Gate and run exactly one evidence-run continuation after evidence-next",
     )
     _add_advance_args(advance_parser)
 
