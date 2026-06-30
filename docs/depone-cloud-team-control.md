@@ -1,12 +1,8 @@
 # Depone Cloud/Team Control Plane
 
-Status: architecture direction plus first Team Ledger v0 slice.  
+Status: V130 follow-up direction note and Team Ledger v0 slice.
 Date: 2026-06-30.
-
-This document extends `docs/v125-direction-check-roadmap.md` and
-`docs/depone-agent-execution-roadmap.md`. Those documents remain the product
-source of truth: Depone is a non-executing design and evidence plane, not a
-replacement coding agent, cloud runner, or scheduler.
+Source context: `.omx/context/cloud-team-control-20260630T043433Z.md`.
 
 ## Position
 
