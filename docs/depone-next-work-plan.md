@@ -1,8 +1,8 @@
 # Depone Next Work Plan
 
-Status: post-install-readiness and native-team-runtime planning note
+Status: native-team-runtime progress note refreshed through Wave 3 draft PR
 Date: 2026-06-30
-Base: `origin/main` at `2a7144c` (`Add source install readiness smoke`)
+Base: `origin/main` at `1e3da69` (`Add team worktree preparation receipt`)
 
 ## Purpose
 
@@ -50,15 +50,17 @@ must stop.
 
 ### Weak Or Missing Layers
 
-- Depone can produce a planning-only native team dry-run artifact and validate
-  observed cloud lane artifacts, but does not yet launch and manage a durable
-  multi-agent team by itself.
+- Depone can produce a planning-only native team dry-run artifact, validate
+  observed cloud lane artifacts, validate launch preflight, prepare/select local
+  worktrees, and run one shell-only lane command with a machine receipt. It does
+  not yet launch and manage a durable multi-agent coding team by itself.
 - Depone can now smoke-test source installation in a clean virtualenv through
   `scripts/install_smoke.py`, and that smoke is part of the changed-tier
   contract. This proves source install readiness in the observed environment; it
   does not claim PyPI readiness.
-- Depone does not yet create per-lane worktrees, assign tasks, run workers, and
-  collect lane evidence end-to-end.
+- Depone can prepare per-lane worktrees and capture one allowlisted shell command
+  receipt, but it does not yet assign coding tasks to Codex/Claude/OpenCode
+  adapters or collect full lane evidence end-to-end.
 - Depone does not yet own a cloud runner backend or remote workspace lifecycle.
   Cloud lanes are currently observed external facts, not runtime attestations.
 - Depone does not yet ingest GitHub PR/check status as first-class evidence for
@@ -241,6 +243,15 @@ worktrees with an explicit `--create-worktree` flag. It writes
 agents, execute lane commands, delete worktrees, call live models, or raise
 assurance.
 
-Do not skip straight to launching Codex, Claude Code, OMX, or cloud workers.
-After this PR is reviewed, the next implementation rung is Wave 3's single-lane
-shell adapter launch with explicit command allowlists and command receipts.
+Wave 3 now has a draft implementation slice in PR #51:
+`team-shell-lane-launch` runs exactly one shell adapter command selected by
+`command_id` from an explicit argv allowlist and writes a hash-bound command
+receipt plus transcript fixture under `docs/team-shell-lane-launch/`. It is
+shell-only A1-style evidence: no Codex, Claude Code, OpenCode, OMX, live model,
+team worker, scheduler, assurance upgrade, or A2/container claim.
+
+Do not start Wave 4 until Wave 3 is merged and reviewed. The next implementation
+rung after PR #51 lands is Wave 4's first real coding adapter, one PR per
+adapter, starting with Codex local capability detection and blocked-safe launch
+receipt behavior. Missing binary, missing auth, or missing config must return a
+blocked artifact, not a best-effort launch.
