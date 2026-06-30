@@ -71,24 +71,25 @@ def build_team_ledger_verdict(ledger: dict[str, Any], *, base_dir: Path | None =
     seen_lane_ids: set[str] = set()
     for index, raw_lane in enumerate(lanes):
         if not isinstance(raw_lane, dict):
-            errors.append(f"lanes[{index}] must be an object")
+            errors.append(
+                {
+                    "code": "ERR_TEAM_LEDGER_LANE_INVALID",
+                    "message": f"lanes[{index}] must be an object",
+                }
+            )
             continue
-        lane_id = raw_lane.get("lane_id")
-        lane_errors: list[str] = []
-        if isinstance(lane_id, str) and lane_id.strip():
-            if lane_id in seen_lane_ids:
-                lane_errors.append(f"lanes[{index}].lane_id must be unique: {lane_id}")
-            seen_lane_ids.add(lane_id)
-        lane_errors.extend(_validate_lane(raw_lane, index, root))
-        state = str(raw_lane.get("verification_state", ""))
-        lane_result = {
-            "lane_id": str(raw_lane.get("lane_id", f"lanes[{index}]")),
-            "verification_state": state,
-            "decision": "blocked" if lane_errors or state == "blocked" else "pass",
-            "errors": lane_errors,
-        }
+        lane_result = _validate_lane(raw_lane, root, seen_lane_ids)
         lane_results.append(lane_result)
-        errors.extend(lane_errors)
+        errors.extend(lane_result["errors"])
+
+    blocked = sum(1 for lane in lane_results if lane["decision"] != "pass")
+    passed = len(lane_results) - blocked
+    if errors:
+        decision = "blocked"
+    elif any(lane["verification_state"] == "blocked" for lane in lane_results):
+        decision = "blocked-explicit"
+    else:
+        decision = "pass"
 
     return {
         "kind": TEAM_LEDGER_VERDICT_KIND,
@@ -139,7 +140,11 @@ def _validate_ledger_header(ledger: dict[str, Any], errors: list[dict[str, str]]
     _require_non_empty_string(ledger, "stop_rule", errors)
 
 
-def _validate_lane(lane: dict[str, Any], base_dir: Path, seen_lane_ids: set[str]) -> dict[str, Any]:
+def _validate_lane(
+    lane: dict[str, Any],
+    base_dir: Path,
+    seen_lane_ids: set[str],
+) -> dict[str, Any]:
     errors: list[dict[str, str]] = []
     lane_id = lane.get("lane_id") if isinstance(lane.get("lane_id"), str) else ""
     lane_error_id = lane_id or "<missing>"
@@ -239,6 +244,7 @@ def _validate_lane(lane: dict[str, Any], base_dir: Path, seen_lane_ids: set[str]
         "runner_adapter_kind": lane.get("runner_adapter_kind"),
         "team_adapter_kind": lane.get("team_adapter_kind"),
         "verification_state": state,
+        "decision": "blocked" if errors or state == "blocked" else "pass",
         "evidence_dir": evidence_dir,
         "evidence_dir_exists": evidence_dir_exists,
         "verification_artifact_count": len(verification_artifacts),

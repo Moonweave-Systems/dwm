@@ -71,17 +71,27 @@ class AgentFabricTeamLedgerTests(unittest.TestCase):
         ledger["lanes"][0]["verification_state"] = "blocked"
         ledger["lanes"][0]["blocked_reason"] = "lane hit a merge conflict"
 
-    def test_duplicate_lane_ids_block(self) -> None:
-        ledger = self._ledger()
-        second = dict(ledger["lanes"][0])  # type: ignore[index]
-        ledger["lanes"].append(second)  # type: ignore[union-attr]
+        verdict = build_team_ledger_verdict(ledger, base_dir=self.root)
 
-        verdict = validate_team_ledger(ledger, base_dir=self.root)
+        self.assertEqual(verdict["decision"], "blocked-explicit")
+        self.assertEqual(verdict["blocked_lane_count"], 1)
+        self.assertEqual(verdict["errors"], [])
+
+    def test_duplicate_lane_ids_block(self) -> None:
+        ledger = build_sample_team_ledger("lane-evidence")
+        second = dict(ledger["lanes"][0])
+        ledger["lanes"].append(second)
+
+        verdict = build_team_ledger_verdict(ledger, base_dir=self.root)
 
         self.assertEqual(verdict["decision"], "blocked")
-        self.assertTrue(any("lane_id must be unique" in error for error in verdict["errors"]))
+        self.assertIn(
+            "ERR_TEAM_LEDGER_LANE_ID_DUPLICATE",
+            {error["code"] for error in verdict["errors"]},
+        )
 
     def test_cli_self_test_and_validate(self) -> None:
+        ledger = build_sample_team_ledger("lane-evidence")
         ledger_path = self.root / "team-ledger.json"
         verdict_path = self.root / "team-ledger-verdict.json"
         ledger_path.write_text(json.dumps(ledger), encoding="utf-8")

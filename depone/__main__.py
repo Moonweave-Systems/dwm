@@ -113,23 +113,6 @@ def _add_observe_args(parser: argparse.ArgumentParser) -> None:
     )
 
 
-def _add_team_ledger_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument(
-        "--ledger",
-        default="",
-        help="Input Depone Team Ledger v0 JSON",
-    )
-    parser.add_argument(
-        "--out",
-        default="team-ledger-verdict.json",
-        help="Output path for Team Ledger verdict JSON",
-    )
-    parser.add_argument(
-        "--self-test", action="store_true", help="Run self-test and exit"
-    )
-    _add_json_arg(parser)
-
-
 def _add_evidence_substrate_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--capture-manifest",
@@ -207,28 +190,6 @@ def _add_evidence_chain_args(parser: argparse.ArgumentParser) -> None:
         "--out",
         default="evidence-chain-verdict.json",
         help="Output evidence chain verdict JSON",
-    )
-    parser.add_argument(
-        "--self-test", action="store_true", help="Run self-test and exit"
-    )
-    _add_json_arg(parser)
-
-
-def _add_team_ledger_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument(
-        "--ledger",
-        default="",
-        help="Input team-ledger.json to validate",
-    )
-    parser.add_argument(
-        "--base-dir",
-        default="",
-        help="Base directory for relative lane evidence_dir values; defaults to ledger parent",
-    )
-    parser.add_argument(
-        "--out",
-        default="team-ledger-verdict.json",
-        help="Output path for the team ledger verdict JSON",
     )
     parser.add_argument(
         "--self-test", action="store_true", help="Run self-test and exit"
@@ -957,21 +918,6 @@ def main() -> None:
     )
     _add_evidence_chain_args(evidence_chain_alias_parser)
 
-
-    # team-ledger
-    team_ledger_parser = sub.add_parser(
-        "team-ledger",
-        help="Validate a Team Ledger v0 fan-in artifact",
-    )
-    _add_team_ledger_args(team_ledger_parser)
-
-    # agent-fabric-team-ledger
-    agent_fabric_team_ledger_parser = sub.add_parser(
-        "agent-fabric-team-ledger",
-        help="Validate a Team Ledger v0 fan-in artifact",
-    )
-    _add_team_ledger_args(agent_fabric_team_ledger_parser)
-
     # evidence-run
     evidence_run_parser = sub.add_parser(
         "evidence-run",
@@ -1115,8 +1061,6 @@ def main() -> None:
             evidence_next.run(args)
         elif args.command == "advance":
             advance.run(args)
-        elif args.command in ("team-ledger", "agent-fabric-team-ledger"):
-            agent_fabric_team_ledger.run(args)
         elif args.command == "agent-fabric-claim-gate":
             agent_fabric_claim_gate.run(args)
         elif args.command == "demo":
