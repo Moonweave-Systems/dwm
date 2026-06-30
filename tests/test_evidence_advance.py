@@ -48,7 +48,7 @@ class EvidenceAdvanceTests(unittest.TestCase):
             json=True,
         )
 
-    def _write_previous_capture(self, root: Path) -> dict[str, object]:
+    def _write_previous_manifest(self, root: Path) -> dict[str, object]:
         previous = root / "previous"
         previous.mkdir(exist_ok=True)
         previous_manifest: dict[str, object] = {
@@ -66,7 +66,7 @@ class EvidenceAdvanceTests(unittest.TestCase):
             root = Path(tmp)
             args = self._args(root)
             args.previous_source_fixture = str(root / "previous-source.json")
-            previous_manifest = self._write_previous_capture(root)
+            self._write_previous_manifest(root)
             calls = []
 
             def fake_evaluate(path: Path, *, source_fixture: Path | None = None) -> dict[str, object]:
@@ -130,7 +130,7 @@ class EvidenceAdvanceTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             args = self._args(root)
-            previous_manifest = self._write_previous_capture(root)
+            previous_manifest = self._write_previous_manifest(root)
             with patch.object(
                 advance,
                 "evaluate_evidence_dir",
@@ -157,7 +157,7 @@ class EvidenceAdvanceTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             args = self._args(root)
-            self._write_previous_capture(root)
+            self._write_previous_manifest(root)
             with patch.object(
                 advance,
                 "evaluate_evidence_dir",
