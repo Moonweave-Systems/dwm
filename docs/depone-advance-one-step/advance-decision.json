@@ -27,8 +27,8 @@
       "decision": "pass",
       "out": "docs/depone-advance-one-step/evidence-run-next/ingest-verdict.json",
       "signing_status": "unsigned-content-addressed",
-      "subject_count": 4,
-      "verified_subject_count": 4
+      "subject_count": 5,
+      "verified_subject_count": 5
     },
     "observe": {
       "decision": "pass",

@@ -67,3 +67,23 @@ python3 -m depone advance \
 ```
 
 This remains a one-step gate, not a scheduler or agent runtime.
+
+The one-step artifact set uses the canonical V129 continuity seam. The
+continuation manifest at `docs/depone-advance-one-step/evidence-run-next/`
+records `capture-manifest.prev_capture_hash` as the canonical hash of
+`docs/depone-run-receipt-frontdoor/capture-manifest.json`; `advance-decision.json`
+does not carry a parallel chain field. Revalidate that committed slice with the
+predecessor manifest supplied to `next`, then verify the ordered manifest chain:
+
+```bash
+python3 -m depone next \
+  --evidence-dir docs/depone-advance-one-step/evidence-run-next \
+  --previous-capture docs/depone-run-receipt-frontdoor/capture-manifest.json \
+  --json
+
+python3 -m depone evidence-chain \
+  --capture docs/depone-run-receipt-frontdoor/capture-manifest.json \
+  --capture docs/depone-advance-one-step/evidence-run-next/capture-manifest.json \
+  --out out/depone-advance-one-step-chain-verdict.json \
+  --json
+```

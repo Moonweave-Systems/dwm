@@ -26,8 +26,8 @@
     "decision": "pass",
     "out": "docs/depone-advance-one-step/evidence-run-next/ingest-verdict.json",
     "signing_status": "unsigned-content-addressed",
-    "subject_count": 4,
-    "verified_subject_count": 4
+    "subject_count": 5,
+    "verified_subject_count": 5
   },
   "evidence_substrate": {
     "assurance": "A2-isolated-observed",
@@ -37,7 +37,7 @@
     "otel_span_count": 2,
     "out": "docs/depone-advance-one-step/evidence-run-next/evidence-bundle.json",
     "signing_status": "unsigned-content-addressed",
-    "subject_count": 4
+    "subject_count": 5
   },
   "observe": {
     "decision": "pass",

@@ -11,8 +11,8 @@
   "signing_status": "unsigned-content-addressed",
   "subject_results": [
     {
-      "actual": "420896776bf68d4a3a0c6f169ad844d7e8a7fa023ec78fc43d2208f8c6bea149",
-      "expected": "420896776bf68d4a3a0c6f169ad844d7e8a7fa023ec78fc43d2208f8c6bea149",
+      "actual": "7fad27b6d7d5eda16cd14d09d990d7443c3aff516427110b3447dfb43af317e7",
+      "expected": "7fad27b6d7d5eda16cd14d09d990d7443c3aff516427110b3447dfb43af317e7",
       "name": "depone-capture-manifest",
       "status": "verified"
     },
@@ -33,7 +33,13 @@
       "expected": "53aa031886403b9eb82f2460bc98654519d67187fa5cebc8a532382ba6cfa224",
       "name": "runner_receipt",
       "status": "verified"
+    },
+    {
+      "actual": "5cb2e350f4b644858543191c62b9f0b612dcc0c29620d6d4ef450c0cfd10188c",
+      "expected": "5cb2e350f4b644858543191c62b9f0b612dcc0c29620d6d4ef450c0cfd10188c",
+      "name": "prev_capture",
+      "status": "verified"
     }
   ],
-  "verified_subject_count": 4
+  "verified_subject_count": 5
 }
