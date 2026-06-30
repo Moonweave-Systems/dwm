@@ -230,6 +230,7 @@ The executable planning basis is now:
 
 - `docs/depone-native-team-runtime-spec.md`
 - `docs/depone-native-team-runtime-wave-plan.md`
+- `docs/depone-agent-team-system-operating-contract.md`
 
 Wave 1 from that plan has a first implementation slice:
 `team-launch-preflight` validates planned lanes and writes re-validatable
@@ -255,3 +256,9 @@ rung after PR #51 lands is Wave 4's first real coding adapter, one PR per
 adapter, starting with Codex local capability detection and blocked-safe launch
 receipt behavior. Missing binary, missing auth, or missing config must return a
 blocked artifact, not a best-effort launch.
+
+Before launching a real coding adapter, add the smallest contract-hash slice from
+`docs/depone-agent-team-system-operating-contract.md`: machine-readable common
+engineering clauses, V22 role binding on lane receipts, and fixture validation
+that the recorded contract hash matches the committed contract JSON. This keeps
+adapter prompts thin while making the role/contract surface auditable.
