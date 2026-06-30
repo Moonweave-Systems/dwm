@@ -18,6 +18,7 @@
     "docs/worktree-lane-receipt/team-ledger-verdict.json",
     "docs/worktree-lane-receipt/team-ledger.json",
     "docs/worktree-lane-receipt/worktree-receipt.json",
+    "tests/test_agent_fabric_team_ledger.py",
     "tests/test_agent_fabric_worktree_receipt.py"
   ],
   "command_receipts": [
@@ -29,7 +30,7 @@
   "dirty": false,
   "dirty_files": [],
   "evidence_dir": "docs/worktree-lane-receipt",
-  "head_commit": "ed419194f0aa0ba59adeb5ae131233a202113574",
+  "head_commit": "6a191ef70e581735ce159585a7554826bd8b83de",
   "kind": "depone-worktree-lane-receipt",
   "schema_version": "0.1",
   "worktree": "/tmp/depone-worktree-lane-receipt"

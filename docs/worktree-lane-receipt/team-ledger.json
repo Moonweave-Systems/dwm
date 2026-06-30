@@ -1,9 +1,20 @@
 {
-  "end_commit": "ed419194f0aa0ba59adeb5ae131233a202113574",
+  "commit_scope": {
+    "allowed_post_subject_paths": [
+      "docs/worktree-lane-receipt/evidence-next-verdict.json",
+      "docs/worktree-lane-receipt/team-ledger-verdict.json",
+      "docs/worktree-lane-receipt/team-ledger.json",
+      "docs/worktree-lane-receipt/worktree-receipt.json"
+    ],
+    "end_commit_semantics": "observed_subject_commit",
+    "rationale": "Committed evidence JSON files may advance branch head after the observed subject commit.",
+    "subject_commit": "6a191ef70e581735ce159585a7554826bd8b83de"
+  },
+  "end_commit": "6a191ef70e581735ce159585a7554826bd8b83de",
   "kind": "depone-team-ledger",
   "lanes": [
     {
-      "end_commit": "ed419194f0aa0ba59adeb5ae131233a202113574",
+      "end_commit": "6a191ef70e581735ce159585a7554826bd8b83de",
       "env_kind": "local",
       "evidence_dir": "docs/worktree-lane-receipt",
       "evidence_next_verdict": "docs/worktree-lane-receipt/evidence-next-verdict.json",

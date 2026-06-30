@@ -8,6 +8,17 @@
     "launches_agents": false,
     "raises_assurance": false
   },
+  "commit_scope": {
+    "allowed_post_subject_paths": [
+      "docs/worktree-lane-receipt/evidence-next-verdict.json",
+      "docs/worktree-lane-receipt/team-ledger-verdict.json",
+      "docs/worktree-lane-receipt/team-ledger.json",
+      "docs/worktree-lane-receipt/worktree-receipt.json"
+    ],
+    "end_commit_semantics": "observed_subject_commit",
+    "rationale": "Committed evidence JSON files may advance branch head after the observed subject commit.",
+    "subject_commit": "6a191ef70e581735ce159585a7554826bd8b83de"
+  },
   "decision": "pass",
   "errors": [],
   "kind": "depone-team-ledger-verdict",
@@ -65,11 +76,12 @@
           "docs/worktree-lane-receipt/team-ledger-verdict.json",
           "docs/worktree-lane-receipt/team-ledger.json",
           "docs/worktree-lane-receipt/worktree-receipt.json",
+          "tests/test_agent_fabric_team_ledger.py",
           "tests/test_agent_fabric_worktree_receipt.py"
         ],
         "dirty": false,
         "dirty_file_count": 0,
-        "head_commit": "ed419194f0aa0ba59adeb5ae131233a202113574",
+        "head_commit": "6a191ef70e581735ce159585a7554826bd8b83de",
         "path": "docs/worktree-lane-receipt/worktree-receipt.json"
       }
     }
@@ -85,6 +97,6 @@
   "passed_lane_count": 1,
   "schema_version": "0.1",
   "source_hashes": {
-    "team_ledger": "ceb9778f63abc9be6fd64008380ca753730571fb53803be54d7b782ae64085a1"
+    "team_ledger": "d9bac9767520fbae897ef86ed648387c4037272d083751c1cc47fdfdb3bc9b81"
   }
 }
