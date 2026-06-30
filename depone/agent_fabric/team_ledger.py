@@ -23,6 +23,7 @@ TEAM_LEDGER_KIND = "depone-team-ledger"
 TEAM_LEDGER_SCHEMA_VERSION = "0.1"
 TEAM_LEDGER_VERDICT_KIND = "depone-team-ledger-verdict"
 TEAM_LEDGER_PR_ARTIFACT_KIND = "depone-team-ledger-pr-artifact"
+TEAM_LEDGER_SUBJECT_COMMIT_SEMANTICS = "observed_subject_commit"
 VALID_ENV_KINDS = frozenset({"local", "container", "cloud"})
 VALID_ADAPTER_KINDS = frozenset(
     {
@@ -74,6 +75,7 @@ def build_team_ledger_verdict(ledger: dict[str, Any], *, base_dir: Path | None =
             }
         )
         lanes = []
+    commit_scope = _validate_commit_scope(ledger, errors)
 
     seen_lane_ids: set[str] = set()
     for index, raw_lane in enumerate(lanes):
@@ -107,7 +109,7 @@ def build_team_ledger_verdict(ledger: dict[str, Any], *, base_dir: Path | None =
     else:
         decision = "pass"
 
-    return {
+    verdict = {
         "kind": TEAM_LEDGER_VERDICT_KIND,
         "schema_version": TEAM_LEDGER_SCHEMA_VERSION,
         "decision": decision,
@@ -129,6 +131,9 @@ def build_team_ledger_verdict(ledger: dict[str, Any], *, base_dir: Path | None =
             "approves_merge": False,
         },
     }
+    if commit_scope is not None:
+        verdict["commit_scope"] = commit_scope
+    return verdict
 
 
 def validate_team_ledger(ledger: dict[str, Any], *, base_dir: Path | None = None) -> list[dict[str, str]]:
@@ -187,6 +192,119 @@ def _validate_ledger_header(ledger: dict[str, Any], errors: list[dict[str, str]]
     _require_non_empty_string(ledger, "leader_id", errors)
     _require_non_empty_string(ledger, "start_commit", errors)
     _require_non_empty_string(ledger, "stop_rule", errors)
+
+
+def _validate_commit_scope(
+    ledger: dict[str, Any],
+    errors: list[dict[str, str]],
+) -> dict[str, Any] | None:
+    raw = ledger.get("commit_scope")
+    if raw is None:
+        return None
+    if not isinstance(raw, dict):
+        errors.append(
+            {
+                "code": "ERR_TEAM_LEDGER_COMMIT_SCOPE_INVALID",
+                "message": "commit_scope must be an object when present",
+            }
+        )
+        return {
+            "end_commit_semantics": None,
+            "subject_commit": None,
+            "allowed_post_subject_paths": [],
+        }
+
+    semantics = raw.get("end_commit_semantics")
+    if semantics != TEAM_LEDGER_SUBJECT_COMMIT_SEMANTICS:
+        errors.append(
+            {
+                "code": "ERR_TEAM_LEDGER_COMMIT_SCOPE_INVALID",
+                "message": (
+                    "commit_scope end_commit_semantics must be "
+                    f"{TEAM_LEDGER_SUBJECT_COMMIT_SEMANTICS}"
+                ),
+            }
+        )
+
+    subject_commit = raw.get("subject_commit")
+    if not isinstance(subject_commit, str) or not subject_commit.strip():
+        errors.append(
+            {
+                "code": "ERR_TEAM_LEDGER_COMMIT_SCOPE_INVALID",
+                "message": "commit_scope subject_commit must be a non-empty string",
+            }
+        )
+        subject_commit = None
+
+    ledger_end_commit = ledger.get("end_commit")
+    if (
+        isinstance(subject_commit, str)
+        and isinstance(ledger_end_commit, str)
+        and ledger_end_commit
+        and subject_commit != ledger_end_commit
+    ):
+        errors.append(
+            {
+                "code": "ERR_TEAM_LEDGER_COMMIT_SCOPE_SUBJECT_MISMATCH",
+                "message": "commit_scope subject_commit must match ledger end_commit",
+            }
+        )
+
+    allowed_paths = _validate_commit_scope_paths(raw.get("allowed_post_subject_paths"), errors)
+    rationale = raw.get("rationale")
+    if rationale is not None and not isinstance(rationale, str):
+        errors.append(
+            {
+                "code": "ERR_TEAM_LEDGER_COMMIT_SCOPE_INVALID",
+                "message": "commit_scope rationale must be a string when present",
+            }
+        )
+        rationale = None
+
+    summary = {
+        "end_commit_semantics": semantics if isinstance(semantics, str) else None,
+        "subject_commit": subject_commit,
+        "allowed_post_subject_paths": allowed_paths,
+    }
+    if isinstance(rationale, str) and rationale:
+        summary["rationale"] = rationale
+    return summary
+
+
+def _validate_commit_scope_paths(
+    value: Any,
+    errors: list[dict[str, str]],
+) -> list[str]:
+    if not isinstance(value, list) or not value:
+        errors.append(
+            {
+                "code": "ERR_TEAM_LEDGER_COMMIT_SCOPE_PATHS_INVALID",
+                "message": "commit_scope allowed_post_subject_paths must be a non-empty list",
+            }
+        )
+        return []
+
+    normalized: list[str] = []
+    for item in value:
+        if not isinstance(item, str) or not item.strip():
+            errors.append(
+                {
+                    "code": "ERR_TEAM_LEDGER_COMMIT_SCOPE_PATHS_INVALID",
+                    "message": "commit_scope allowed_post_subject_paths entries must be non-empty strings",
+                }
+            )
+            continue
+        path = PurePosixPath(item)
+        if path.is_absolute() or ".." in path.parts:
+            errors.append(
+                {
+                    "code": "ERR_TEAM_LEDGER_COMMIT_SCOPE_PATHS_INVALID",
+                    "message": "commit_scope allowed_post_subject_paths entries must stay repo-relative",
+                }
+            )
+            continue
+        normalized.append(path.as_posix())
+    return sorted(set(normalized))
 
 
 def _validate_lane(

@@ -116,8 +116,18 @@ lane ids, or a blocked lane without a reason blocks the ledger.
   "leader_objective": "ship one reviewed control-plane slice",
   "leader_id": "leader-fixed",
   "start_commit": "abc123",
+  "end_commit": "def456",
   "stop_rule": "stop after deterministic verification",
   "merge_receipt": "out/team/team-merge-receipt.json",
+  "commit_scope": {
+    "end_commit_semantics": "observed_subject_commit",
+    "subject_commit": "def456",
+    "allowed_post_subject_paths": [
+      "out/team/team-ledger.json",
+      "out/team/team-ledger-verdict.json"
+    ],
+    "rationale": "committed artifact files may advance branch head after capture"
+  },
   "lanes": [
     {
       "lane_id": "worker-1",
@@ -151,6 +161,13 @@ lane ids, or a blocked lane without a reason blocks the ledger.
   ]
 }
 ```
+
+`commit_scope` is optional, but when present it is validated and echoed into the
+verdict. It documents that the ledger `end_commit` is the observed subject
+commit, not necessarily the later git commit that contains the JSON artifacts
+themselves. This avoids overclaiming a self-referential commit hash. Reviewers
+can independently check that any `subject_commit..HEAD` delta is limited to the
+repo-relative `allowed_post_subject_paths`.
 
 When a local lane includes `worktree_receipt`, it points at a machine JSON
 receipt captured from read-only git state. The receipt is optional, but once

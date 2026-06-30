@@ -143,6 +143,66 @@ class AgentFabricTeamLedgerTests(unittest.TestCase):
         self.assertFalse(verdict["boundary"]["executes_commands"])
         self.assertFalse(verdict["boundary"]["raises_assurance"])
 
+    def test_commit_scope_documents_observed_subject_commit(self) -> None:
+        ledger = self._ledger_with_evidence_next()
+        ledger["commit_scope"] = {
+            "end_commit_semantics": "observed_subject_commit",
+            "subject_commit": ledger["end_commit"],
+            "allowed_post_subject_paths": [
+                "docs/worktree-lane-receipt/team-ledger.json",
+                "docs/worktree-lane-receipt/team-ledger-verdict.json",
+            ],
+            "rationale": "committed artifact files may advance branch head after capture",
+        }
+
+        verdict = build_team_ledger_verdict(ledger, base_dir=self.root)
+
+        self.assertEqual(verdict["decision"], "pass")
+        self.assertEqual(
+            verdict["commit_scope"]["end_commit_semantics"],
+            "observed_subject_commit",
+        )
+        self.assertEqual(verdict["commit_scope"]["subject_commit"], ledger["end_commit"])
+        self.assertEqual(
+            verdict["commit_scope"]["allowed_post_subject_paths"],
+            [
+                "docs/worktree-lane-receipt/team-ledger-verdict.json",
+                "docs/worktree-lane-receipt/team-ledger.json",
+            ],
+        )
+
+    def test_commit_scope_mismatch_blocks(self) -> None:
+        ledger = self._ledger_with_evidence_next()
+        ledger["commit_scope"] = {
+            "end_commit_semantics": "observed_subject_commit",
+            "subject_commit": "cccccccccccccccccccccccccccccccccccccccc",
+            "allowed_post_subject_paths": ["docs/worktree-lane-receipt/team-ledger.json"],
+        }
+
+        verdict = build_team_ledger_verdict(ledger, base_dir=self.root)
+
+        self.assertEqual(verdict["decision"], "blocked")
+        self.assertIn(
+            "ERR_TEAM_LEDGER_COMMIT_SCOPE_SUBJECT_MISMATCH",
+            {error["code"] for error in verdict["errors"]},
+        )
+
+    def test_commit_scope_rejects_unsafe_post_subject_paths(self) -> None:
+        ledger = self._ledger_with_evidence_next()
+        ledger["commit_scope"] = {
+            "end_commit_semantics": "observed_subject_commit",
+            "subject_commit": ledger["end_commit"],
+            "allowed_post_subject_paths": ["../team-ledger.json"],
+        }
+
+        verdict = build_team_ledger_verdict(ledger, base_dir=self.root)
+
+        self.assertEqual(verdict["decision"], "blocked")
+        self.assertIn(
+            "ERR_TEAM_LEDGER_COMMIT_SCOPE_PATHS_INVALID",
+            {error["code"] for error in verdict["errors"]},
+        )
+
     def test_missing_evidence_dir_blocks_passed_lane(self) -> None:
         ledger = build_sample_team_ledger("missing-evidence")
         ledger["lanes"][0]["evidence_next_verdict"] = "missing-evidence/evidence-next-verdict.json"

@@ -63,6 +63,11 @@ operator-supplied command receipts. `team-ledger` can consume the receipt throug
 lane `worktree_receipt`; a dirty receipt or a receipt whose head commit,
 evidence dir, or changed files do not match the lane blocks fan-in. This is a
 local worktree fact binding, not a cloud runtime attestation or worker launcher.
+When a committed evidence bundle necessarily advances git history after capture,
+optional ledger `commit_scope` records that `end_commit` is the observed subject
+commit and lists the only allowed post-subject artifact paths. `team-ledger`
+validates that metadata shape and echoes it into the verdict; reviewers can
+compare `subject_commit..HEAD` against that allowlist.
 
 When the observer launches a uid runner through `--runner-user`, the output
 directory also contains `runner-receipt.json`. The evidence bundle binds that
