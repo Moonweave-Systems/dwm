@@ -461,7 +461,7 @@ def _add_team_shell_lane_launch_args(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument(
         "--agent-role-id",
-        default="operator",
+        default="worker",
         help="Existing V22 role id to bind into the lane receipt agent contract",
     )
     parser.add_argument(

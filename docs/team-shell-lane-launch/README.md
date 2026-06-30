@@ -8,10 +8,11 @@ argv list with `subprocess.run(..., shell=False)`. The adapter does not accept o
 concatenate arbitrary shell command strings. `receipt.json` records the resolved
 `cwd`, argv, exit code, stdout/stderr SHA-256 hashes, transcript path/hash, `agent_contract_hash`, and `agent_contract` facts;
 `transcript.json` contains the captured stdout/stderr text.
-`agent-operating-contract.json` is the minimal machine-readable agent operating
-contract bound to this shell lane receipt. The committed `receipt.json` records
-`agent_contract_hash` plus `agent_contract` facts: contract path, contract id,
-version, SHA-256, and V22 `worker` role binding.
+`packaging/depone-agent-operating-contract.json` is the minimal machine-readable
+agent operating contract bound to this shell lane receipt. The committed
+`receipt.json` records `agent_contract_hash` plus `agent_contract` facts:
+contract id, contract hash, V22 role id, role-registry path, and role-registry
+SHA-256.
 
 Contract terms: `subprocess.run(..., shell=False)`; does not accept or concatenate arbitrary shell command strings; does not launch Codex, Claude, OpenCode; does not raise assurance; does not claim A2/container isolation; records `agent_contract_hash`; validates V22 role binding.
 
@@ -24,15 +25,13 @@ python3 -m depone team-shell-lane-launch \
   --cwd . \
   --out docs/team-shell-lane-launch/receipt.json \
   --transcript docs/team-shell-lane-launch/transcript.json \
-  --agent-role-id operator \
+  --agent-role-id worker \
   --json
 ```
 
 Generated files:
 
 - `allowlist.json` — explicit argv allowlist for this fixture.
-- `agent-operating-contract.json` — minimal common engineering contract and V22
-  base-role binding used by this fixture.
 - `receipt.json` — machine receipt for the selected command, including the
   contract hash and role binding facts.
 - `transcript.json` — captured stdout/stderr text for the selected command.

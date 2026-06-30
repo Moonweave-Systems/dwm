@@ -306,8 +306,8 @@ not prescribe every search query, every variable name, or every design choice.
 
 Add these only when needed by the next implementation slice:
 
-- `packaging/depone-agent-operating-contract.json`: common clauses with ids,
-  levels, and validation notes.
+- `packaging/depone-agent-operating-contract.json`: minimal machine contract
+  identity, boundary flags, V22 worker-role binding, and role-registry hash.
 - `packaging/depone-role-specializations.json`: thin role specializations over
   V22 base roles.
 - `depone agent-contract inspect`: print resolved common + role + adapter
@@ -337,9 +337,9 @@ adapter receipts:
 - validate that committed fixture hash matches the contract JSON.
 
 For the current shell-lane fixture, the minimal machine-readable contract lives
-under `docs/team-shell-lane-launch/agent-operating-contract.json`. It binds the
-receipt to V22 base role `worker` and records the contract SHA-256 in
-`receipt.json` as both `agent_contract_hash` and `agent_contract.sha256`.
+under `packaging/depone-agent-operating-contract.json`. It binds the receipt to
+V22 base role `worker` and records the contract facts in `receipt.json` as
+`agent_contract_hash` plus the `agent_contract` object.
 
 This makes later Codex/Claude adapter launches auditable without making the
 system prompt huge.

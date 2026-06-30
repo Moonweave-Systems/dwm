@@ -218,7 +218,7 @@ does not prove provider runtime isolation or provision cloud workers.
 ## Recommended Immediate Next Step
 
 Finish the contract-hash slice before adding another launcher: keep the
-`docs/team-shell-lane-launch/agent-operating-contract.json` contract minimal,
+`packaging/depone-agent-operating-contract.json` contract minimal,
 revalidate the committed shell-lane receipt's `agent_contract_hash`, and only
 then implement a minimal local lane launcher preflight.
 

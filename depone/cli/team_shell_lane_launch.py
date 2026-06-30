@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 from depone.agent_fabric.team_shell_lane_launch import (
+    DEFAULT_AGENT_ROLE_ID,
     TeamShellLaneLaunchError,
     _self_test,
     load_allowlist,
@@ -59,7 +60,7 @@ def run(args: argparse.Namespace) -> None:
             cwd=Path(str(getattr(args, "cwd", "") or ".")),
             transcript_path=Path(transcript_arg),
             timeout_seconds=int(getattr(args, "timeout_seconds", 120)),
-            agent_role_id=str(getattr(args, "agent_role_id", "") or "operator"),
+            agent_role_id=str(getattr(args, "agent_role_id", "") or DEFAULT_AGENT_ROLE_ID),
         )
         write_receipt(Path(out_arg), receipt)
     except TeamShellLaneLaunchError as exc:

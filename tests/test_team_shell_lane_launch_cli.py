@@ -64,7 +64,7 @@ class TeamShellLaneLaunchCliTests(unittest.TestCase):
                 "--transcript",
                 str(transcript_path),
                 "--agent-role-id",
-                "operator",
+                "worker",
                 "--json",
             ],
             capture_output=True,
@@ -79,8 +79,8 @@ class TeamShellLaneLaunchCliTests(unittest.TestCase):
         self.assertEqual(stdout["command"], "team-shell-lane-launch")
         self.assertEqual(stdout["decision"], "pass")
         self.assertEqual(receipt["boundary"]["uses_shell"], False)
-        self.assertEqual(receipt["agent_contract_hash"], receipt["agent_contract"]["resolved_contract_hash"])
-        self.assertEqual(receipt["agent_contract"]["role_id"], "operator")
+        self.assertEqual(receipt["agent_contract_hash"], receipt["agent_contract"]["agent_contract_hash"])
+        self.assertEqual(receipt["agent_contract"]["role_id"], "worker")
         self.assertEqual(receipt["boundary"]["uses_argv_allowlist"], True)
         self.assertEqual(receipt["boundary"]["allows_arbitrary_shell_string"], False)
         self.assertEqual(transcript["stdout_text"], "fixture ok\n")
