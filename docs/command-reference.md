@@ -91,9 +91,9 @@ A2.
 future lane launch work and writes a capability receipt. It records binary
 lookup/version, git worktree facts, requested sandbox/approval policy,
 instruction file hashes, `agent_contract_hash`, and explicit boundary flags. It
-does not launch Codex, call live models, execute a coding task, schedule teams,
-prove A2/container isolation, or raise assurance. A blocked-safe capability
-receipt exits `2`.
+does not launch a Codex model session, call live models, execute a coding task,
+schedule teams, prove A2/container isolation, or raise assurance. A blocked-safe
+capability receipt exits `2`.
 
 `team-ledger-merge-receipt` writes the machine JSON merge receipt consumed by
 `team-ledger` when passed lanes touch the same file. It normalizes lane ids and

@@ -24,5 +24,5 @@ The committed fixture intentionally uses a missing binary, so it must return
 `decision: blocked`. A blocked receipt is accepted here because the detector is
 proving fail-closed behavior, not launch success.
 
-Honest boundary: this fixture does not launch Codex, does not call live models,
+Honest boundary: this fixture does not launch a Codex model session, does not call live models,
 does not execute a coding task, does not schedule a team, does not prove a2/container isolation, and does not raise assurance.

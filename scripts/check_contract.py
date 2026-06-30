@@ -2959,6 +2959,7 @@ def require_codex_local_capability_docs_contract() -> None:
             "does not execute a coding task",
             "agent_contract_hash",
             "decision: blocked",
+            "does not launch a codex model session",
             "does not prove a2/container isolation",
             "does not raise assurance",
         ],
