@@ -12,7 +12,7 @@ from typing import Any
 
 TEAM_SHELL_LANE_LAUNCH_KIND = "depone-team-shell-lane-launch"
 TEAM_SHELL_LANE_LAUNCH_SCHEMA_VERSION = "0.1"
-PROHIBITED_EXECUTABLES = frozenset({"codex", "claude", "opencode"})
+PROHIBITED_EXECUTABLES = frozenset({"codex", "claude", "claude-code", "opencode"})
 
 
 class TeamShellLaneLaunchError(Exception):
@@ -81,6 +81,7 @@ def run_shell_lane_command(
             "executes_commands": True,
             "launches_agents": False,
             "calls_live_models": False,
+            "raises_assurance": False,
             "allows_arbitrary_shell_string": False,
         },
     }
