@@ -218,8 +218,8 @@ def _self_test() -> None:
                 {"source_fixture": artifact_paths["source_fixture"]},
                 artifact_digest_modes={"source_fixture": DIGEST_MODE_CANONICAL_JSON},
             )
-            if missing["decision"] != "inconclusive":
-                raise AssertionError("missing subjects should be inconclusive")
+            if missing["decision"] != "blocked":
+                raise AssertionError("missing subjects should be blocked")
 
             tampered_path = Path(temp_dir) / "tampered.json"
             tampered_path.write_text('{"tampered": true}\n', encoding="utf-8")
@@ -350,8 +350,8 @@ def _self_test() -> None:
         )
     )
     foreign_missing = ingest_external_evidence(foreign_statement, {})
-    if foreign_missing["decision"] != "inconclusive":
-        raise AssertionError("foreign statement with absent artifact is inconclusive")
+    if foreign_missing["decision"] != "blocked":
+        raise AssertionError("foreign statement with absent artifact is blocked")
     if foreign_missing.get("predicate_recognized") is not False:
         raise AssertionError("foreign predicate must remain unrecognized")
 

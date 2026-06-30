@@ -296,6 +296,11 @@ def ingest_external_statement(
             )
             reasons.append(f"subject artifact present but could not be hashed: {name}")
         elif actual is None:
+            # A named subject without a readable artifact cannot substantiate the
+            # statement. Treat absence as blocked rather than inconclusive so an
+            # external producer cannot drop an artifact to soften a stale or
+            # mismatched subject claim.
+            blocked = True
             subject_results.append(
                 {
                     "name": name,
