@@ -27,7 +27,7 @@
     {
       "path": "AGENTS.md",
       "present": true,
-      "sha256": "530273f6c4d2b4e3cac47df4baf5f0f3a01fa16350ac27fb30d1bd1ad5e67622"
+      "sha256": "5371a30153e67b04919531fb53158da921b859e00d2989739d048861bf61dc9e"
     },
     {
       "path": "CLAUDE.md",
@@ -55,10 +55,10 @@
   "repo": {
     "branch": "",
     "dirty": false,
-    "head": "ab519a21e8d075de7c08e82a9ea79db324cf5948",
+    "head": "a4358ba7b720dfb5b6f13e10f02d7f6c21c8c73c",
     "is_git_worktree": true,
-    "path": "/home/ubuntu/depone-wave3-team-local/.omx/team/depone-next-big-waves-74805df1/worktrees/worker-2",
-    "root": "/home/ubuntu/depone-wave3-team-local/.omx/team/depone-next-big-waves-74805df1/worktrees/worker-2"
+    "path": "/home/ubuntu/depone-wave3-team-local/.omx/team/depone-next-big-waves-74805df1/worktrees/worker-1",
+    "root": "/home/ubuntu/depone-wave3-team-local/.omx/team/depone-next-big-waves-74805df1/worktrees/worker-1"
   },
   "requested_runtime": {
     "approval_policy": "on-request",
