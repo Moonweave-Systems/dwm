@@ -1,0 +1,35 @@
+{
+  "agent_contract": {
+    "agent_contract_hash": "7f8609766f1aad439050f876ea2c5261cde3715070b27fd4fbfefd81c43d71e8",
+    "agent_contract_id": "depone-agent-operating-contract.v0.1",
+    "role_id": "worker",
+    "role_registry_path": "packaging/dwm-roles.json",
+    "role_registry_sha256": "8a5ea14ff29d9f00c7b253364912f95c946f6c53616e16804ab96d5bbbdb36fc"
+  },
+  "agent_contract_hash": "7f8609766f1aad439050f876ea2c5261cde3715070b27fd4fbfefd81c43d71e8",
+  "allowlist_sha256": "5ee53045726649ea5089b9bbc9a92fb244aee68d2711ae5f1a3637a3ce5019b1",
+  "argv": [
+    "python3",
+    "-c",
+    "from pathlib import Path; Path('team-local-marker.txt').write_text('ok\\n', encoding='utf-8')"
+  ],
+  "boundary": {
+    "allows_arbitrary_shell_string": false,
+    "calls_live_models": false,
+    "executes_commands": true,
+    "launches_agents": false,
+    "raises_assurance": false,
+    "uses_argv_allowlist": true,
+    "uses_shell": false
+  },
+  "command_id": "write-marker",
+  "cwd": "/tmp/depone-team-local-pass-worktrees-sy7gz6i9/lane-1-worktree",
+  "decision": "pass",
+  "exit_code": 0,
+  "kind": "depone-team-shell-lane-launch",
+  "schema_version": "0.1",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "transcript_path": "docs/team-local-pass/lane-1/commands/write-marker-transcript.json",
+  "transcript_sha256": "067d2fb7389bda6b36a9ce99f90e3540ed9f1d149f6f7480d8f4c274de408cc3"
+}

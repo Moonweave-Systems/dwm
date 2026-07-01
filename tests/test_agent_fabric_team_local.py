@@ -55,6 +55,95 @@ class AgentFabricTeamLocalTests(unittest.TestCase):
             ledger["blocking_reasons"],
         )
 
+
+    def test_ordered_commands_can_produce_passed_lane(self) -> None:
+        repo_root = Path.cwd()
+        with tempfile.TemporaryDirectory(prefix="depone-team-local-pass-") as temp_text:
+            temp = Path(temp_text)
+            base_commit = _git(repo_root, "rev-parse", "HEAD")
+            plan = {
+                "leader_objective": "Run one ordered local pass lane",
+                "base_commit": base_commit,
+                "lanes": [
+                    {
+                        "lane_id": "lane-1",
+                        "objective": "Create marker and capture evidence",
+                        "runner_adapter_kind": "shell",
+                        "team_adapter_kind": "depone-native",
+                        "planned_worktree": "lane-1-worktree",
+                        "command_ids": ["write-marker", "evidence-run", "git-add", "git-commit"],
+                        "touched_files": ["team-local-marker.txt"],
+                    }
+                ],
+            }
+            allowlist = _pass_lane_allowlist(repo_root)
+            cwd = Path.cwd()
+            os.chdir(temp)
+            try:
+                ledger = run_team_local(
+                    plan,
+                    allowlist=allowlist,
+                    repo_root=repo_root,
+                    worktree_root=temp / "worktrees",
+                    out_dir=Path("out/team-local-pass-test"),
+                    base_commit=base_commit,
+                    create_worktree=True,
+                    execute_lanes=True,
+                )
+                loaded = json.loads((temp / "out" / "team-local-pass-test" / "team-run-ledger.json").read_text(encoding="utf-8"))
+            finally:
+                os.chdir(cwd)
+            lane = loaded["lanes"][0]
+            verdict = json.loads((temp / "out" / "team-local-pass-test" / "team-ledger-verdict.json").read_text(encoding="utf-8"))
+
+            self.assertEqual("pass", ledger["decision"], ledger["blocking_reasons"])
+            self.assertEqual(1, ledger["passed_lane_count"])
+            self.assertEqual(0, ledger["blocked_lane_count"])
+            self.assertGreaterEqual(len(lane["shell_receipts"]), 4)
+            self.assertEqual([], validate_team_local_run_ledger(loaded, base_dir=temp))
+            self.assertEqual("pass", verdict["decision"], verdict["errors"])
+
+    def test_unknown_runtime_token_blocks_lane(self) -> None:
+        with _git_repo() as repo:
+            plan = _plan(repo.head)
+            allowlist = {"commands": [{"id": "ok", "argv": ["python3", "-c", "print('{not_allowed}')"]}]}
+            ledger = run_team_local(
+                plan,
+                allowlist=allowlist,
+                repo_root=repo.path,
+                worktree_root=repo.temp / "worktrees",
+                out_dir=Path("out/team-local-test"),
+                create_worktree=True,
+                execute_lanes=True,
+            )
+        self.assertEqual("blocked", ledger["decision"])
+        self.assertTrue(
+            any("ERR_TEAM_LOCAL_TOKEN_INVALID" in reason for reason in ledger["blocking_reasons"]),
+            ledger["blocking_reasons"],
+        )
+
+    def test_command_id_and_command_ids_conflict_blocks_lane(self) -> None:
+        with _git_repo() as repo:
+            plan = _plan(repo.head)
+            lane = plan["lanes"][0]
+            assert isinstance(lane, dict)
+            lane["command_ids"] = ["ok"]
+            allowlist = {"commands": [{"id": "ok", "argv": ["python3", "-c", "print('ok')"]}]}
+            ledger = run_team_local(
+                plan,
+                allowlist=allowlist,
+                repo_root=repo.path,
+                worktree_root=repo.temp / "worktrees",
+                out_dir=Path("out/team-local-test"),
+                create_worktree=True,
+                execute_lanes=True,
+            )
+        self.assertEqual("blocked", ledger["decision"])
+        self.assertTrue(
+            any("ERR_TEAM_LOCAL_COMMAND_IDS_INVALID" in reason for reason in ledger["blocking_reasons"]),
+            ledger["blocking_reasons"],
+        )
+
     def test_validator_rejects_overclaiming_boundary(self) -> None:
         with _git_repo() as repo:
             plan = _plan(repo.head)
@@ -88,6 +177,61 @@ def _plan(head: str) -> dict[str, object]:
                 "touched_files": ["README.md"],
             }
         ],
+    }
+
+
+def _pass_lane_allowlist(repo_root: Path) -> dict[str, object]:
+    return {
+        "commands": [
+            {
+                "id": "write-marker",
+                "argv": [
+                    "python3",
+                    "-c",
+                    "from pathlib import Path; Path('team-local-marker.txt').write_text('ok\\n', encoding='utf-8')",
+                ],
+            },
+            {
+                "id": "evidence-run",
+                "argv": [
+                    "python3",
+                    "-m",
+                    "depone",
+                    "evidence-run",
+                    "--runner-sandbox",
+                    ".",
+                    "--source-fixture",
+                    "{repo_root}/depone/fixtures/agent_fabric/reference_adapter_shell.json",
+                    "--out",
+                    "{evidence_dir_abs}",
+                    "--allow-touched-file",
+                    "team-local-marker.txt",
+                    "--verify-plan",
+                    "{repo_root}/fixtures/v105-verify-wedge/plan.json",
+                    "--verify-evidence",
+                    "{repo_root}/fixtures/v105-verify-wedge/evidence/good",
+                    "--json",
+                    "--",
+                    "python3",
+                    "-c",
+                    "from pathlib import Path; assert Path('team-local-marker.txt').exists()",
+                ],
+            },
+            {"id": "git-add", "argv": ["git", "add", "team-local-marker.txt"]},
+            {
+                "id": "git-commit",
+                "argv": [
+                    "git",
+                    "-c",
+                    "user.name=Depone",
+                    "-c",
+                    "user.email=depone@example.invalid",
+                    "commit",
+                    "-m",
+                    "team local marker",
+                ],
+            },
+        ]
     }
 
 

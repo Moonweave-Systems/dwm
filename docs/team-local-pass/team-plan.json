@@ -1,0 +1,22 @@
+{
+  "base_commit": "d47c3cd1c17a735bec2d53298f484b2281fa2fd1",
+  "lanes": [
+    {
+      "command_ids": [
+        "write-marker",
+        "evidence-run",
+        "git-add",
+        "git-commit"
+      ],
+      "lane_id": "lane-1",
+      "objective": "Create marker, capture evidence, and fan into Team Ledger.",
+      "planned_worktree": "lane-1-worktree",
+      "runner_adapter_kind": "shell",
+      "team_adapter_kind": "depone-native",
+      "touched_files": [
+        "team-local-marker.txt"
+      ]
+    }
+  ],
+  "leader_objective": "Demonstrate a passing local Depone team evidence lane."
+}

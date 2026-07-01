@@ -1,0 +1,59 @@
+{
+  "commands": [
+    {
+      "argv": [
+        "python3",
+        "-c",
+        "from pathlib import Path; Path('team-local-marker.txt').write_text('ok\\n', encoding='utf-8')"
+      ],
+      "id": "write-marker"
+    },
+    {
+      "argv": [
+        "python3",
+        "-m",
+        "depone",
+        "evidence-run",
+        "--runner-sandbox",
+        ".",
+        "--source-fixture",
+        "{repo_root}/depone/fixtures/agent_fabric/reference_adapter_shell.json",
+        "--out",
+        "{evidence_dir_abs}",
+        "--allow-touched-file",
+        "team-local-marker.txt",
+        "--verify-plan",
+        "{repo_root}/fixtures/v105-verify-wedge/plan.json",
+        "--verify-evidence",
+        "{repo_root}/fixtures/v105-verify-wedge/evidence/good",
+        "--json",
+        "--",
+        "python3",
+        "-c",
+        "from pathlib import Path; assert Path('team-local-marker.txt').exists()"
+      ],
+      "id": "evidence-run"
+    },
+    {
+      "argv": [
+        "git",
+        "add",
+        "team-local-marker.txt"
+      ],
+      "id": "git-add"
+    },
+    {
+      "argv": [
+        "git",
+        "-c",
+        "user.name=Depone",
+        "-c",
+        "user.email=depone@example.invalid",
+        "commit",
+        "-m",
+        "team local marker"
+      ],
+      "id": "git-commit"
+    }
+  ]
+}

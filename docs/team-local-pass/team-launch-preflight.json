@@ -1,0 +1,44 @@
+{
+  "adapter_availability": {
+    "shell": {
+      "available": true,
+      "source": "team-local"
+    }
+  },
+  "base_commit": "d47c3cd1c17a735bec2d53298f484b2281fa2fd1",
+  "boundary": {
+    "calls_live_models": false,
+    "creates_worktrees": false,
+    "executes_commands": false,
+    "launches_agents": false,
+    "mutates_worktree": false,
+    "raises_assurance": false
+  },
+  "decision": "pass",
+  "errors": [],
+  "kind": "depone-team-launch-preflight",
+  "lane_count": 1,
+  "lanes": [
+    {
+      "adapter_available": true,
+      "availability_required": true,
+      "boundary": {
+        "creates_worktrees": false,
+        "executes_commands": false,
+        "launches_agents": false
+      },
+      "evidence_dir": "lane-1",
+      "lane_id": "lane-1",
+      "planned_worktree": "lane-1-worktree",
+      "runner_adapter_kind": "shell",
+      "worktree_receipt": "lane-1/worktree-receipt.json"
+    }
+  ],
+  "launch_intent": "launch-ready",
+  "leader_objective": "Demonstrate a passing local Depone team evidence lane.",
+  "repo_root": "/home/ubuntu/depone-wave3-team-local/.omx/team/implement-depone-team-74805df1/worktrees/worker-2",
+  "schema_version": "0.1",
+  "source_hashes": {
+    "team_dry_run": "218604d313a032f3366560adfc935d2e741ec4e968b4b3fd65fbbed78262b42c"
+  }
+}

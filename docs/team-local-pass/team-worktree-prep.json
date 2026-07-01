@@ -1,0 +1,38 @@
+{
+  "base_commit": "d47c3cd1c17a735bec2d53298f484b2281fa2fd1",
+  "boundary": {
+    "calls_live_models": false,
+    "create_worktree_requested": true,
+    "deletes_worktrees": false,
+    "executes_lane_commands": false,
+    "launches_agents": false,
+    "raises_assurance": false,
+    "runs_git_worktree_add": true
+  },
+  "decision": "pass",
+  "errors": [],
+  "kind": "depone-team-worktree-prep",
+  "lane_count": 1,
+  "lanes": [
+    {
+      "action": "created",
+      "base_commit": "d47c3cd1c17a735bec2d53298f484b2281fa2fd1",
+      "branch": "HEAD",
+      "errors": [],
+      "evidence_dir": "lane-1",
+      "exists_after": true,
+      "exists_before": false,
+      "head_commit": "d47c3cd1c17a735bec2d53298f484b2281fa2fd1",
+      "lane_id": "lane-1",
+      "planned_worktree": "lane-1-worktree",
+      "worktree_path": "/tmp/depone-team-local-pass-worktrees-sy7gz6i9/lane-1-worktree",
+      "worktree_receipt": "lane-1/worktree-receipt.json"
+    }
+  ],
+  "repo_root": "/home/ubuntu/depone-wave3-team-local/.omx/team/implement-depone-team-74805df1/worktrees/worker-2",
+  "schema_version": "0.1",
+  "source_hashes": {
+    "team_launch_preflight": "0a1f316abaf62047d5be63b9c9fc1d0dd658984ab740fb29617c6f2f420b81d2"
+  },
+  "worktree_root": "/tmp/depone-team-local-pass-worktrees-sy7gz6i9"
+}

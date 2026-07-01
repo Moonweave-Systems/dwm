@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import shutil
 import subprocess
 import tempfile
 from copy import deepcopy
@@ -217,6 +218,7 @@ def run_team_local(
             continue
 
         evidence_dir = out_dir / lane_id
+        _materialize_evidence_next_artifacts(evidence_dir)
         evidence_next = evaluate_evidence_dir(evidence_dir)
         evidence_next_path = evidence_dir / "evidence-next-verdict.json"
         _write_json(evidence_next_path, evidence_next)
@@ -418,6 +420,13 @@ def validate_team_local_run_ledger(
                         errors.append(f"lanes[{index}].{key}[{item_index}] file is missing")
 
     return errors
+
+
+def _materialize_evidence_next_artifacts(evidence_dir: Path) -> None:
+    observer_owned_capture = evidence_dir / "observer-owned" / "observer-capture.json"
+    root_capture = evidence_dir / "observer-capture.json"
+    if observer_owned_capture.is_file() and not root_capture.exists():
+        shutil.copyfile(observer_owned_capture, root_capture)
 
 
 def _command_ids_for_lane(plan_lane: dict[str, Any]) -> list[str]:

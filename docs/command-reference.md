@@ -91,14 +91,17 @@ Codex/Claude/OpenCode, call live models, schedule teams, or raise assurance to
 A2.
 
 `team-local` is the first minimal local team loop. It sequences existing safe
-primitives (`team-dry-run`, `team-launch-preflight`, `team-worktree-prep`, one
-allowlisted `team-shell-lane-launch` per lane, `evidence-next`, and
-`team-ledger`) and writes `team-run-ledger.json`. It is fail-closed: missing
-worktrees, missing allowlist commands, prohibited Codex/Claude/OpenCode
-executables, failed shell receipts, missing evidence-next artifacts, or blocked
-Team Ledger fan-in keep the run ledger blocked. It does not launch live models,
-start coding-agent sessions, execute unlisted shell commands, approve merges, or
-raise assurance.
+primitives (`team-dry-run`, `team-launch-preflight`, `team-worktree-prep`,
+allowlisted `team-shell-lane-launch` commands per lane, `evidence-next`, and
+`team-ledger`) and writes `team-run-ledger.json`. A lane may use `command_id`
+for one allowlisted argv command or `command_ids` for an ordered allowlisted
+sequence. Runtime argv token expansion is limited to `{repo_root}`,
+`{worktree_path}`, `{evidence_dir}`, `{evidence_dir_abs}`, and `{lane_id}`. It
+is fail-closed: missing worktrees, missing allowlist commands, prohibited
+Codex/Claude/OpenCode executables, unknown runtime tokens, failed shell
+receipts, missing evidence-next artifacts, or blocked Team Ledger fan-in keep the
+run ledger blocked. It does not launch live models, start coding-agent sessions,
+execute unlisted shell commands, approve merges, or raise assurance.
 
 `team-pr-artifact` converts saved GitHub PR JSON, or an explicitly selected live
 `gh` PR query, into a fail-closed machine artifact for Team Ledger fan-in. It

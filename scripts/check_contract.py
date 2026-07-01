@@ -3034,6 +3034,79 @@ def require_team_local_docs_contract() -> None:
         raise SystemExit("team-local evidence-next verdict path mismatch")
 
 
+def require_team_local_pass_docs_contract() -> None:
+    from depone.agent_fabric.team_local import validate_team_local_run_ledger
+
+    root = ROOT / "docs" / "team-local-pass"
+    required_paths = [
+        root / "team-run-ledger.json",
+        root / "team-ledger.json",
+        root / "team-ledger-verdict.json",
+        root / "lane-1" / "evidence-next-verdict.json",
+        root / "lane-1" / "worktree-receipt.json",
+        root / "lane-1" / "capture-manifest.json",
+        root / "lane-1" / "observer-capture.json",
+        root / "lane-1" / "evidence-bundle.json",
+        root / "lane-1" / "evidence-run-summary.json",
+        root / "lane-1" / "commands" / "write-marker-receipt.json",
+        root / "lane-1" / "commands" / "write-marker-transcript.json",
+        root / "lane-1" / "commands" / "evidence-run-receipt.json",
+        root / "lane-1" / "commands" / "evidence-run-transcript.json",
+        root / "lane-1" / "commands" / "git-add-receipt.json",
+        root / "lane-1" / "commands" / "git-add-transcript.json",
+        root / "lane-1" / "commands" / "git-commit-receipt.json",
+        root / "lane-1" / "commands" / "git-commit-transcript.json",
+    ]
+    for path in required_paths:
+        if not path.exists():
+            raise SystemExit(f"{path.relative_to(ROOT)} is required")
+
+    run_ledger = json.loads((root / "team-run-ledger.json").read_text(encoding="utf-8"))
+    errors = validate_team_local_run_ledger(run_ledger, base_dir=ROOT)
+    if errors:
+        raise SystemExit(f"team-local-pass run ledger validation failed: {errors}")
+    if run_ledger.get("decision") != "pass":
+        raise SystemExit("team-local-pass fixture must pass")
+    if run_ledger.get("passed_lane_count") != 1:
+        raise SystemExit("team-local-pass fixture must record one passed lane")
+    if run_ledger.get("blocked_lane_count") != 0:
+        raise SystemExit("team-local-pass fixture must record zero blocked lanes")
+
+    boundary = run_ledger.get("boundary")
+    if not isinstance(boundary, dict):
+        raise SystemExit("team-local-pass run ledger boundary must be an object")
+    expected_boundary = {
+        "launches_agents": False,
+        "calls_live_models": False,
+        "executes_unlisted_shell_commands": False,
+        "executes_allowlisted_shell_commands": True,
+        "creates_worktrees": True,
+        "raises_assurance": False,
+        "approves_merge": False,
+    }
+    for key, expected in expected_boundary.items():
+        if boundary.get(key) is not expected:
+            raise SystemExit(f"team-local-pass boundary.{key} must be {expected}")
+
+    verdict = json.loads((root / "team-ledger-verdict.json").read_text(encoding="utf-8"))
+    if verdict.get("decision") != "pass":
+        raise SystemExit("team-local-pass Team Ledger verdict must pass")
+    lanes = run_ledger.get("lanes")
+    if not isinstance(lanes, list) or len(lanes) != 1 or not isinstance(lanes[0], dict):
+        raise SystemExit("team-local-pass fixture must record one lane object")
+    lane = lanes[0]
+    if lane.get("decision") != "pass":
+        raise SystemExit("team-local-pass lane must pass")
+    if lane.get("worktree_receipt") != "docs/team-local-pass/lane-1/worktree-receipt.json":
+        raise SystemExit("team-local-pass worktree receipt path mismatch")
+    shell_receipts = lane.get("shell_receipts")
+    shell_transcripts = lane.get("shell_transcripts")
+    if not isinstance(shell_receipts, list) or len(shell_receipts) != 4:
+        raise SystemExit("team-local-pass lane must record four shell receipts")
+    if not isinstance(shell_transcripts, list) or len(shell_transcripts) != 4:
+        raise SystemExit("team-local-pass lane must record four shell transcripts")
+
+
 def require_team_pr_artifact_docs_contract() -> None:
     readme_path = ROOT / "docs" / "team-pr-artifact" / "README.md"
     artifact_path = ROOT / "docs" / "team-pr-artifact" / "pr-artifact.json"
@@ -3337,6 +3410,7 @@ def contract_steps_for_tier(tier: str) -> list[tuple[str, object, int]]:
             ("team-worktree-prep docs contract", require_team_worktree_prep_docs_contract, 300),
             ("team-shell-lane-launch docs contract", require_team_shell_lane_launch_docs_contract, 300),
             ("team-local docs contract", require_team_local_docs_contract, 300),
+            ("team-local-pass docs contract", require_team_local_pass_docs_contract, 300),
             ("team-pr-artifact docs contract", require_team_pr_artifact_docs_contract, 300),
             ("team-merge-attempt docs contract", require_team_merge_attempt_docs_contract, 300),
             ("codex-local-capability docs contract", require_codex_local_capability_docs_contract, 300),

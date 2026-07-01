@@ -1,0 +1,64 @@
+{
+  "boundary": {
+    "isolation": null,
+    "note": "A1 local observed evidence; not A2 privilege isolation.",
+    "observer_assurance": "A1-local-observed",
+    "privilege_isolated": false
+  },
+  "capture_manifest": {
+    "assurance": "A1-local-observed",
+    "decision": "observed-local-capture",
+    "error_count": 0,
+    "errors": [],
+    "path": "/home/ubuntu/depone-wave3-team-local/.omx/team/implement-depone-team-74805df1/worktrees/worker-2/docs/team-local-pass/lane-1/capture-manifest.json"
+  },
+  "command": "evidence-run",
+  "decision": "pass",
+  "evidence_ingest": {
+    "decision": "pass",
+    "out": "/home/ubuntu/depone-wave3-team-local/.omx/team/implement-depone-team-74805df1/worktrees/worker-2/docs/team-local-pass/lane-1/ingest-verdict.json",
+    "signing_status": "unsigned-content-addressed",
+    "subject_count": 3,
+    "verified_subject_count": 3
+  },
+  "evidence_substrate": {
+    "assurance": "A1-local-observed",
+    "decision": "pass",
+    "error_count": 0,
+    "errors": [],
+    "otel_span_count": 2,
+    "out": "/home/ubuntu/depone-wave3-team-local/.omx/team/implement-depone-team-74805df1/worktrees/worker-2/docs/team-local-pass/lane-1/evidence-bundle.json",
+    "signing_status": "unsigned-content-addressed",
+    "subject_count": 3
+  },
+  "observe": {
+    "decision": "pass",
+    "log": "/home/ubuntu/depone-wave3-team-local/.omx/team/implement-depone-team-74805df1/worktrees/worker-2/docs/team-local-pass/lane-1/observer-owned/verify-log.json",
+    "observer_capture_hash": "70b314e571ffde78fb8fd9075630798ed08e5f38a569aaa464474514e0f4e5d8",
+    "out": "/home/ubuntu/depone-wave3-team-local/.omx/team/implement-depone-team-74805df1/worktrees/worker-2/docs/team-local-pass/lane-1/observer-owned/observer-capture.json",
+    "status": "passed"
+  },
+  "out": "/home/ubuntu/depone-wave3-team-local/.omx/team/implement-depone-team-74805df1/worktrees/worker-2/docs/team-local-pass/lane-1",
+  "runner_receipt": {
+    "arm": null,
+    "error_count": 0,
+    "errors": [],
+    "path": null,
+    "runner_kind": null
+  },
+  "signed_evidence_bundle": {
+    "decision": "skipped",
+    "out": null,
+    "public_key": null,
+    "signing_status": "unsigned-content-addressed",
+    "verified": null
+  },
+  "verify": {
+    "assurance": "A0-claims-only",
+    "decision": "pass",
+    "operator_view_out": "/home/ubuntu/depone-wave3-team-local/.omx/team/implement-depone-team-74805df1/worktrees/worker-2/docs/team-local-pass/lane-1/operator-view.md",
+    "out": "/home/ubuntu/depone-wave3-team-local/.omx/team/implement-depone-team-74805df1/worktrees/worker-2/docs/team-local-pass/lane-1/verify-report.json",
+    "phase_count": 2,
+    "verdict": "verified"
+  }
+}

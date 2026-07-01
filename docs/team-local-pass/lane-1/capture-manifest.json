@@ -1,0 +1,137 @@
+{
+  "allowed_touched_files": [
+    "team-local-marker.txt"
+  ],
+  "assurance": "A1-local-observed",
+  "decision": "observed-local-capture",
+  "fixture": {
+    "adapter": {
+      "executes_commands": false,
+      "harness": "shell",
+      "mode": "fixture-only",
+      "name": "shell-reference-fixture"
+    },
+    "capture": {
+      "command_receipts": [],
+      "diff_summary": {
+        "changed_files": [],
+        "summary": "fixture-only adapter did not observe a diff"
+      },
+      "self_report": {
+        "agent_role": "runner",
+        "command_receipts": [],
+        "errors": [
+          "fixture-only adapter did not execute work"
+        ],
+        "output_files": [
+          "out/agent/result.txt"
+        ],
+        "profile": "self-test-profile",
+        "result_version": "1.0",
+        "self_reported_claims": [
+          "fixture captured a self-report shape"
+        ],
+        "status": "partial"
+      },
+      "test_output": {
+        "command": null,
+        "status": "not-run",
+        "summary": "fixture-only adapter did not run tests"
+      },
+      "touched_files": [],
+      "trust_level": "A0-claims-only"
+    },
+    "invocation": {
+      "context_policy": "local-code-only",
+      "evidence_obligations": [
+        "command_receipt"
+      ],
+      "instructions": "Run local checks and report outputs without writing observer-owned evidence.",
+      "packet_version": "1.0",
+      "profile": "self-test-profile",
+      "role": "runner",
+      "target_harness": "shell",
+      "toolbelt": {
+        "allowed_mcp": [],
+        "allowed_tools": [
+          "cat",
+          "python3"
+        ],
+        "context_policy": "local-code-only",
+        "evidence_obligations": [
+          "command_receipt"
+        ],
+        "forbidden_tools": [
+          "write"
+        ],
+        "output_schema": "runner-result-v1"
+      }
+    },
+    "kind": "agent-fabric-reference-adapter-fixture",
+    "schema_version": "1.0"
+  },
+  "kind": "agent-fabric-capture-manifest",
+  "observer_capture": {
+    "command_receipts": [
+      {
+        "command": [
+          "python3",
+          "-c",
+          "from pathlib import Path; assert Path('team-local-marker.txt').exists()"
+        ],
+        "cwd": "/tmp/depone-team-local-pass-worktrees-sy7gz6i9/lane-1-worktree",
+        "ended_at": "2026-07-01T06:29:04Z",
+        "exit_code": 0,
+        "log_path": "/home/ubuntu/depone-wave3-team-local/.omx/team/implement-depone-team-74805df1/worktrees/worker-2/docs/team-local-pass/lane-1/observer-owned/verify-log.json",
+        "started_at": "2026-07-01T06:29:04Z",
+        "status": "passed"
+      }
+    ],
+    "diff_summary": {
+      "changed_file_count": 1,
+      "changed_files": [
+        "team-local-marker.txt"
+      ],
+      "stat": ""
+    },
+    "observed_by": "depone-observer",
+    "observer_independence": {
+      "model": "separate-process-observer-owned-dir",
+      "note": "Process- and directory-separated capture. Not privilege-isolated (same uid); full A2 requires a uid or container boundary, deferred.",
+      "observer_dir": "/home/ubuntu/depone-wave3-team-local/.omx/team/implement-depone-team-74805df1/worktrees/worker-2/docs/team-local-pass/lane-1/observer-owned",
+      "observer_pid": 4013729,
+      "out_is_outside_sandbox": true,
+      "privilege_boundary": false,
+      "runner_sandbox": "/tmp/depone-team-local-pass-worktrees-sy7gz6i9/lane-1-worktree",
+      "tamper_resistant_same_uid": false
+    },
+    "source_fixture_hash": "009327cf064732c631c6a3144fb4b79d71e48ca0ccd37e1c9099bfc18af95c29",
+    "test_output": {
+      "command": [
+        "python3",
+        "-c",
+        "from pathlib import Path; assert Path('team-local-marker.txt').exists()"
+      ],
+      "pre_verification_changed_files": [
+        "team-local-marker.txt"
+      ],
+      "status": "passed",
+      "summary": "exit 0"
+    },
+    "touched_files": [
+      "team-local-marker.txt"
+    ]
+  },
+  "observer_capture_hash": "70b314e571ffde78fb8fd9075630798ed08e5f38a569aaa464474514e0f4e5d8",
+  "prev_capture_hash": null,
+  "required_observer_fields": [
+    "command_receipts",
+    "diff_summary",
+    "observed_by",
+    "source_fixture_hash",
+    "test_output",
+    "touched_files"
+  ],
+  "schema_version": "1.0",
+  "source_fixture_hash": "009327cf064732c631c6a3144fb4b79d71e48ca0ccd37e1c9099bfc18af95c29"
+}

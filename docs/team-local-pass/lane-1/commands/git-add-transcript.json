@@ -1,0 +1,12 @@
+{
+  "argv": [
+    "git",
+    "add",
+    "team-local-marker.txt"
+  ],
+  "command_id": "git-add",
+  "cwd": "/tmp/depone-team-local-pass-worktrees-sy7gz6i9/lane-1-worktree",
+  "exit_code": 0,
+  "stderr_text": "",
+  "stdout_text": ""
+}

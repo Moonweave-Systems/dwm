@@ -1,0 +1,68 @@
+{
+  "assurance": "A1-local-observed",
+  "automation_boundary": {
+    "executes_next_action": false,
+    "requires_operator_or_loop_to_execute": true
+  },
+  "blocking_reasons": [],
+  "boundary": {
+    "isolation": null,
+    "privilege_isolated": false
+  },
+  "capture": {
+    "errors": [],
+    "path": "docs/team-local-pass/lane-1/capture-manifest.json"
+  },
+  "command": "evidence-next",
+  "decision": "continue",
+  "evidence_bundle": {
+    "path": "docs/team-local-pass/lane-1/evidence-bundle.json",
+    "statement_errors": []
+  },
+  "evidence_dir": "docs/team-local-pass/lane-1",
+  "evidence_ingest": {
+    "decision": "pass",
+    "reasons": [],
+    "subject_results": [
+      {
+        "actual": "de18c79724657db2a4557ae1bac7195b2dc1c5bed2abe26c01755fa4bfe3fdbb",
+        "expected": "de18c79724657db2a4557ae1bac7195b2dc1c5bed2abe26c01755fa4bfe3fdbb",
+        "name": "depone-capture-manifest",
+        "status": "verified"
+      },
+      {
+        "actual": "009327cf064732c631c6a3144fb4b79d71e48ca0ccd37e1c9099bfc18af95c29",
+        "expected": "009327cf064732c631c6a3144fb4b79d71e48ca0ccd37e1c9099bfc18af95c29",
+        "name": "source_fixture",
+        "status": "verified"
+      },
+      {
+        "actual": "70b314e571ffde78fb8fd9075630798ed08e5f38a569aaa464474514e0f4e5d8",
+        "expected": "70b314e571ffde78fb8fd9075630798ed08e5f38a569aaa464474514e0f4e5d8",
+        "name": "observer_capture",
+        "status": "verified"
+      }
+    ],
+    "verified_subject_count": 3
+  },
+  "next_action": "run_next_evidence_slice",
+  "previous_capture": null,
+  "recorded_ingest": {
+    "decision": "pass",
+    "path": "docs/team-local-pass/lane-1/ingest-verdict.json"
+  },
+  "runner_receipt": {
+    "errors": [],
+    "path": null
+  },
+  "schema_version": "1.0",
+  "verified_artifacts": {
+    "subject_count": 3,
+    "verified_subject_count": 3
+  },
+  "verify": {
+    "errors": [],
+    "report_decision": "pass",
+    "summary_decision": "pass"
+  }
+}

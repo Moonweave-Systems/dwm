@@ -1,0 +1,60 @@
+{
+  "artifacts": {
+    "team_dry_run": "docs/team-local-pass/team-dry-run.json",
+    "team_launch_preflight": "docs/team-local-pass/team-launch-preflight.json",
+    "team_ledger": "docs/team-local-pass/team-ledger.json",
+    "team_ledger_verdict": "docs/team-local-pass/team-ledger-verdict.json",
+    "team_run_ledger": "docs/team-local-pass/team-run-ledger.json",
+    "team_worktree_prep": "docs/team-local-pass/team-worktree-prep.json"
+  },
+  "base_commit": "d47c3cd1c17a735bec2d53298f484b2281fa2fd1",
+  "blocked_lane_count": 0,
+  "blocking_reasons": [],
+  "boundary": {
+    "approves_merge": false,
+    "calls_live_models": false,
+    "creates_worktrees": true,
+    "executes_allowlisted_shell_commands": true,
+    "executes_unlisted_shell_commands": false,
+    "launches_agents": false,
+    "raises_assurance": false
+  },
+  "decision": "pass",
+  "kind": "depone-team-local-run-ledger",
+  "lane_count": 1,
+  "lanes": [
+    {
+      "blocking_reasons": [],
+      "decision": "pass",
+      "evidence_next_verdict": "docs/team-local-pass/lane-1/evidence-next-verdict.json",
+      "lane_id": "lane-1",
+      "shell_receipt": "docs/team-local-pass/lane-1/shell-receipt.json",
+      "shell_receipts": [
+        "docs/team-local-pass/lane-1/commands/write-marker-receipt.json",
+        "docs/team-local-pass/lane-1/commands/evidence-run-receipt.json",
+        "docs/team-local-pass/lane-1/commands/git-add-receipt.json",
+        "docs/team-local-pass/lane-1/commands/git-commit-receipt.json"
+      ],
+      "shell_transcript": "docs/team-local-pass/lane-1/shell-transcript.json",
+      "shell_transcripts": [
+        "docs/team-local-pass/lane-1/commands/write-marker-transcript.json",
+        "docs/team-local-pass/lane-1/commands/evidence-run-transcript.json",
+        "docs/team-local-pass/lane-1/commands/git-add-transcript.json",
+        "docs/team-local-pass/lane-1/commands/git-commit-transcript.json"
+      ],
+      "worktree_receipt": "docs/team-local-pass/lane-1/worktree-receipt.json"
+    }
+  ],
+  "leader_objective": "Demonstrate a passing local Depone team evidence lane.",
+  "out_dir": "docs/team-local-pass",
+  "passed_lane_count": 1,
+  "schema_version": "0.1",
+  "source_hashes": {
+    "allowlist": "a1ed5855582f48409fc89325176299881e3b1c5017637b30222740f26a7a69c8",
+    "plan": "e2617aef19a74707181cd95ced08c0585a0facfd8c55c1ed3f48a646803507b9",
+    "team_dry_run": "218604d313a032f3366560adfc935d2e741ec4e968b4b3fd65fbbed78262b42c",
+    "team_launch_preflight": "0a1f316abaf62047d5be63b9c9fc1d0dd658984ab740fb29617c6f2f420b81d2",
+    "team_ledger": "80f1582a6416e2b46cabaa2634cc50f2cc5573fcc9e6ac1dfbfbcc5538e675a3",
+    "team_worktree_prep": "f5fdb2348fa55f686780b3ba588b8bda7d5a4472e07ef232de0fde03a34d4331"
+  }
+}

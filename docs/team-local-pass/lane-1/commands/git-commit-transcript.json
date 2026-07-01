@@ -1,0 +1,17 @@
+{
+  "argv": [
+    "git",
+    "-c",
+    "user.name=Depone",
+    "-c",
+    "user.email=depone@example.invalid",
+    "commit",
+    "-m",
+    "team local marker"
+  ],
+  "command_id": "git-commit",
+  "cwd": "/tmp/depone-team-local-pass-worktrees-sy7gz6i9/lane-1-worktree",
+  "exit_code": 0,
+  "stderr_text": "",
+  "stdout_text": "[detached HEAD bd5157f] team local marker\n 1 file changed, 1 insertion(+)\n create mode 100644 team-local-marker.txt\n"
+}
