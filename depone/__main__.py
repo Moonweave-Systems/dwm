@@ -21,6 +21,7 @@ from depone.cli import (
     agent_fabric_sign,
     agent_fabric_smoke,
     agent_fabric_team_ledger,
+    team_pr_artifact,
     agent_fabric_verify_seal,
     agent_fabric_verify_signature,
     advance,
@@ -346,6 +347,63 @@ def _add_evidence_run_args(parser: argparse.ArgumentParser) -> None:
     )
 
 
+
+def _add_team_pr_artifact_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--input",
+        default="",
+        help="Saved gh pr view JSON or normalized PR JSON input",
+    )
+    parser.add_argument(
+        "--artifact",
+        default="",
+        help="Existing team-pr-artifact JSON to validate without network",
+    )
+    parser.add_argument(
+        "--repo",
+        default="",
+        help="GitHub repository in owner/name form; overrides saved input repo",
+    )
+    parser.add_argument(
+        "--pr-number",
+        default="",
+        help="PR number for optional --live-gh capture",
+    )
+    parser.add_argument(
+        "--captured-at",
+        default="",
+        help="ISO timestamp to bind to the produced artifact",
+    )
+    parser.add_argument(
+        "--expected-head-sha",
+        default="",
+        help="Expected PR head SHA; mismatch blocks",
+    )
+    parser.add_argument(
+        "--expected-base-sha",
+        default="",
+        help="Expected PR base SHA; mismatch blocks",
+    )
+    parser.add_argument(
+        "--expected-pr-url",
+        default="",
+        help="Expected PR URL; mismatch blocks",
+    )
+    parser.add_argument(
+        "--live-gh",
+        action="store_true",
+        help="Optionally capture via gh pr view; saved JSON input is preferred",
+    )
+    parser.add_argument(
+        "--out",
+        default="",
+        help="Optional output path for the PR artifact JSON",
+    )
+    parser.add_argument(
+        "--self-test", action="store_true", help="Run self-test and exit"
+    )
+    _add_json_arg(parser)
+
 def _add_team_ledger_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--ledger",
@@ -523,6 +581,12 @@ def _add_codex_local_capability_args(parser: argparse.ArgumentParser) -> None:
         "--approval-policy",
         default="on-request",
         help="Requested Codex approval policy",
+    )
+    parser.add_argument(
+        "--version-timeout-seconds",
+        type=float,
+        default=10,
+        help="Timeout for capability-only codex --version probing",
     )
     parser.add_argument(
         "--instruction-file",
@@ -1204,6 +1268,12 @@ def main() -> None:
     _add_advance_args(advance_parser)
 
 
+    team_pr_artifact_parser = sub.add_parser(
+        "team-pr-artifact",
+        help="Build or validate a Team Ledger GitHub PR artifact",
+    )
+    _add_team_pr_artifact_args(team_pr_artifact_parser)
+
     # team-ledger
     team_ledger_parser = sub.add_parser(
         "team-ledger",
@@ -1345,6 +1415,8 @@ def main() -> None:
             agent_fabric_evidence_ingest.run(args)
         elif args.command in ("agent-fabric-evidence-chain", "evidence-chain"):
             agent_fabric_evidence_chain.run(args)
+        elif args.command == "team-pr-artifact":
+            team_pr_artifact.run(args)
         elif args.command in ("team-ledger", "agent-fabric-team-ledger"):
             agent_fabric_team_ledger.run(args)
         elif args.command == "team-ledger-merge-receipt":

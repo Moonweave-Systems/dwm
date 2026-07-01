@@ -2944,9 +2944,98 @@ def require_team_shell_lane_launch_docs_contract() -> None:
         raise SystemExit("team-shell-lane-launch receipt agent_contract facts mismatch")
 
 
+def require_team_pr_artifact_docs_contract() -> None:
+    readme_path = ROOT / "docs" / "team-pr-artifact" / "README.md"
+    artifact_path = ROOT / "docs" / "team-pr-artifact" / "pr-artifact.json"
+    module_path = ROOT / "depone" / "agent_fabric" / "team_pr_artifact.py"
+    cli_path = ROOT / "depone" / "cli" / "team_pr_artifact.py"
+    command_available = module_path.exists() and cli_path.exists()
+    if not command_available:
+        if artifact_path.exists():
+            raise SystemExit(
+                "docs/team-pr-artifact/pr-artifact.json must not be committed before "
+                "depone.agent_fabric.team_pr_artifact and depone.cli.team_pr_artifact exist"
+            )
+        return
+
+    if not readme_path.exists():
+        raise SystemExit("docs/team-pr-artifact/README.md is required")
+    if not artifact_path.exists():
+        raise SystemExit("docs/team-pr-artifact/pr-artifact.json is required")
+
+    require_terms(
+        "docs/team-pr-artifact/README.md",
+        [
+            "python3 -m depone team-pr-artifact",
+            "pr-artifact.json",
+            "saved json",
+            "head sha",
+            "failed",
+            "pending",
+            "stale",
+            "mergeability",
+            "does not launch agents",
+            "does not call live models",
+            "does not raise assurance",
+            "team ledger",
+        ],
+    )
+
+    run_contract_command([sys.executable, "-m", "depone", "team-pr-artifact", "--self-test"])
+
+    import importlib
+
+    module = importlib.import_module("depone.agent_fabric.team_pr_artifact")
+    validator = None
+    for name in ("validate_team_pr_artifact", "validate_pr_artifact"):
+        candidate = getattr(module, name, None)
+        if callable(candidate):
+            validator = candidate
+            break
+    if validator is None:
+        raise SystemExit(
+            "depone.agent_fabric.team_pr_artifact must expose "
+            "validate_team_pr_artifact or validate_pr_artifact"
+        )
+
+    artifact = json.loads(artifact_path.read_text(encoding="utf-8"))
+    errors = validator(artifact)
+    if errors:
+        raise SystemExit(f"team-pr-artifact fixture invalid: {errors}")
+
+    if artifact.get("kind") != "depone-team-ledger-pr-artifact":
+        raise SystemExit("team-pr-artifact fixture kind mismatch")
+    if artifact.get("schema_version") != "0.1":
+        raise SystemExit("team-pr-artifact fixture schema_version mismatch")
+    if artifact.get("provider") != "github":
+        raise SystemExit("team-pr-artifact fixture provider must be github")
+    if artifact.get("stale") is not False:
+        raise SystemExit("team-pr-artifact fixture must not be stale")
+    check_summary = artifact.get("check_summary")
+    if not isinstance(check_summary, dict) or check_summary.get("status") != "pass":
+        raise SystemExit("team-pr-artifact fixture check_summary.status must be pass")
+    if check_summary.get("failed_count") != 0 or check_summary.get("pending_count") != 0:
+        raise SystemExit("team-pr-artifact fixture checks must have zero failed and pending")
+    for key in ("base_sha", "head_sha"):
+        value = artifact.get(key)
+        if (
+            not isinstance(value, str)
+            or len(value) != 40
+            or any(character not in "0123456789abcdef" for character in value.lower())
+        ):
+            raise SystemExit(f"team-pr-artifact fixture {key} must be a 40-character hex SHA")
+    boundary = artifact.get("boundary")
+    if not isinstance(boundary, dict):
+        raise SystemExit("team-pr-artifact boundary must be an object")
+    for key in ("launches_agents", "calls_live_models", "raises_assurance"):
+        if boundary.get(key) is not False:
+            raise SystemExit(f"team-pr-artifact boundary.{key} must be false")
+
+
 def require_codex_local_capability_docs_contract() -> None:
     readme_path = ROOT / "docs" / "codex-local-capability" / "README.md"
-    capability_path = ROOT / "docs" / "codex-local-capability" / "capability.json"
+    fixture_dir = ROOT / "docs" / "codex-local-capability"
+    capability_path = fixture_dir / "capability.json"
     if not readme_path.exists():
         raise SystemExit("docs/codex-local-capability/README.md is required")
     if not capability_path.exists():
@@ -2959,32 +3048,49 @@ def require_codex_local_capability_docs_contract() -> None:
             "does not execute a coding task",
             "agent_contract_hash",
             "decision: blocked",
+            "pass-capability.json",
             "does not launch a codex model session",
             "does not prove a2/container isolation",
             "does not raise assurance",
         ],
     )
 
+    capability_fixtures = sorted(fixture_dir.glob("*.json"))
+    if not capability_fixtures:
+        raise SystemExit("docs/codex-local-capability requires at least one JSON fixture")
+    if capability_path not in capability_fixtures:
+        raise SystemExit("docs/codex-local-capability/capability.json must be a committed fixture")
+
+    for fixture_path in capability_fixtures:
+        require_codex_local_capability_fixture_contract(fixture_path)
+
+
+def require_codex_local_capability_fixture_contract(fixture_path: Path) -> None:
     from depone.agent_fabric.codex_local_capability import (
         CODEX_LOCAL_CAPABILITY_KIND,
         validate_codex_local_capability,
     )
 
-    receipt = json.loads(capability_path.read_text(encoding="utf-8"))
+    label = fixture_path.relative_to(ROOT).as_posix()
+    receipt = json.loads(fixture_path.read_text(encoding="utf-8"))
     errors = validate_codex_local_capability(receipt)
     if errors:
-        raise SystemExit(f"codex-local-capability receipt invalid: {errors}")
+        raise SystemExit(f"{label} invalid: {errors}")
     if receipt.get("kind") != CODEX_LOCAL_CAPABILITY_KIND:
-        raise SystemExit("codex-local-capability receipt kind mismatch")
-    if receipt.get("decision") != "blocked":
-        raise SystemExit("codex-local-capability fixture must record decision blocked")
-    blocked_reasons = receipt.get("blocked_reasons")
-    if not isinstance(blocked_reasons, list) or "codex binary not found" not in blocked_reasons:
-        raise SystemExit("codex-local-capability fixture must block on missing codex binary")
+        raise SystemExit(f"{label} kind mismatch")
+    decision = receipt.get("decision")
+    if decision == "pass" and receipt.get("blocked_reasons"):
+        raise SystemExit(f"{label} pass fixture must not record blocked_reasons")
+    if fixture_path.name == "capability.json":
+        if decision != "blocked":
+            raise SystemExit("codex-local-capability capability.json fixture must record decision blocked")
+        blocked_reasons = receipt.get("blocked_reasons")
+        if not isinstance(blocked_reasons, list) or "codex binary not found" not in blocked_reasons:
+            raise SystemExit("codex-local-capability capability.json must block on missing codex binary")
 
     boundary = receipt.get("boundary")
     if not isinstance(boundary, dict):
-        raise SystemExit("codex-local-capability boundary must be an object")
+        raise SystemExit(f"{label} boundary must be an object")
     expected_boundary = {
         "launches_live_model": False,
         "executes_coding_task": False,
@@ -2993,37 +3099,66 @@ def require_codex_local_capability_docs_contract() -> None:
     }
     for key, expected in expected_boundary.items():
         if boundary.get(key) is not expected:
-            raise SystemExit(f"codex-local-capability boundary.{key} must be {expected}")
+            raise SystemExit(f"{label} boundary.{key} must be {expected}")
+
+    serialized_receipt = json.dumps(receipt, sort_keys=True).lower()
+    forbidden_fragments = [
+        "api_key",
+        "authorization",
+        "bearer ",
+        "credential",
+        "secret",
+        "token",
+        ".codex/auth",
+        ".config/codex",
+    ]
+    leaked = [fragment for fragment in forbidden_fragments if fragment in serialized_receipt]
+    if leaked:
+        raise SystemExit(f"{label} contains forbidden secret/auth fragments: {leaked}")
+
+    adapter = receipt.get("adapter")
+    if not isinstance(adapter, dict):
+        raise SystemExit(f"{label} adapter must be an object")
+    if adapter.get("id") != "codex-local":
+        raise SystemExit(f"{label} adapter.id must be codex-local")
 
     agent_contract = receipt.get("agent_contract")
     if not isinstance(agent_contract, dict):
-        raise SystemExit("codex-local-capability agent_contract must be an object")
+        raise SystemExit(f"{label} agent_contract must be an object")
     if receipt.get("agent_contract_hash") != agent_contract.get("agent_contract_hash"):
-        raise SystemExit("codex-local-capability agent_contract_hash mismatch")
+        raise SystemExit(f"{label} agent_contract_hash mismatch")
+
+    requested_runtime = receipt.get("requested_runtime")
+    if not isinstance(requested_runtime, dict):
+        raise SystemExit(f"{label} requested_runtime must be an object")
+    if requested_runtime.get("sandbox_mode") not in {"read-only", "workspace-write"}:
+        raise SystemExit(f"{label} requested_runtime.sandbox_mode is unsupported")
+    if requested_runtime.get("approval_policy") not in {"on-request", "on-failure", "never"}:
+        raise SystemExit(f"{label} requested_runtime.approval_policy is unsupported")
 
     instruction_files = receipt.get("instruction_files")
     if not isinstance(instruction_files, list) or not instruction_files:
-        raise SystemExit("codex-local-capability instruction_files must be non-empty")
+        raise SystemExit(f"{label} instruction_files must be non-empty")
     for item in instruction_files:
         if not isinstance(item, dict):
-            raise SystemExit("codex-local-capability instruction_files entries must be objects")
+            raise SystemExit(f"{label} instruction_files entries must be objects")
         rel_path = item.get("path")
         if not isinstance(rel_path, str) or not rel_path:
-            raise SystemExit("codex-local-capability instruction path must be a non-empty string")
+            raise SystemExit(f"{label} instruction path must be a non-empty string")
         rel_parts = Path(rel_path).parts
         if Path(rel_path).is_absolute() or ".." in rel_parts:
-            raise SystemExit("codex-local-capability instruction path must be repo-relative")
+            raise SystemExit(f"{label} instruction path must be repo-relative")
         source_path = ROOT / rel_path
         if item.get("present") is True:
             if not source_path.is_file():
-                raise SystemExit("codex-local-capability recorded instruction file is missing")
+                raise SystemExit(f"{label} recorded instruction file is missing")
             if item.get("sha256") != hashlib.sha256(source_path.read_bytes()).hexdigest():
-                raise SystemExit("codex-local-capability instruction sha256 mismatch")
+                raise SystemExit(f"{label} instruction sha256 mismatch")
         elif item.get("present") is False:
             if item.get("sha256") is not None:
-                raise SystemExit("codex-local-capability absent instruction sha256 must be null")
+                raise SystemExit(f"{label} absent instruction sha256 must be null")
         else:
-            raise SystemExit("codex-local-capability instruction present must be boolean")
+            raise SystemExit(f"{label} instruction present must be boolean")
 
 
 def contract_steps_for_tier(tier: str) -> list[tuple[str, object, int]]:
@@ -3041,6 +3176,7 @@ def contract_steps_for_tier(tier: str) -> list[tuple[str, object, int]]:
             ("team-launch-preflight docs contract", require_team_launch_preflight_docs_contract, 300),
             ("team-worktree-prep docs contract", require_team_worktree_prep_docs_contract, 300),
             ("team-shell-lane-launch docs contract", require_team_shell_lane_launch_docs_contract, 300),
+            ("team-pr-artifact docs contract", require_team_pr_artifact_docs_contract, 300),
             ("codex-local-capability docs contract", require_codex_local_capability_docs_contract, 300),
         ]
     if tier != "full":
@@ -3133,6 +3269,7 @@ Overclaims execution: no
         "team-launch-preflight docs contract",
         "team-worktree-prep docs contract",
         "team-shell-lane-launch docs contract",
+        "team-pr-artifact docs contract",
         "codex-local-capability docs contract",
     ]:
         raise SystemExit("self-test failed: changed tier steps changed")
