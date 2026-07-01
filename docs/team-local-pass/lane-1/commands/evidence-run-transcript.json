@@ -1,0 +1,26 @@
+{
+  "argv": [
+    "python3",
+    "-m",
+    "depone",
+    "evidence-run",
+    "--runner-sandbox",
+    ".",
+    "--source-fixture",
+    "/home/ubuntu/depone-wave3-team-local/depone/fixtures/agent_fabric/reference_adapter_shell.json",
+    "--out",
+    "/home/ubuntu/depone-wave3-team-local/docs/team-local-pass/lane-1",
+    "--allow-touched-file",
+    "team-local-marker.txt",
+    "--json",
+    "--",
+    "python3",
+    "-c",
+    "from pathlib import Path; assert Path('team-local-marker.txt').exists()"
+  ],
+  "command_id": "evidence-run",
+  "cwd": "/tmp/depone-team-local-pass-docs/lane-1-worktree",
+  "exit_code": 2,
+  "stderr_text": "",
+  "stdout_text": "{\"boundary\": {\"isolation\": null, \"note\": \"A1 local observed evidence; not A2 privilege isolation.\", \"observer_assurance\": \"A1-local-observed\", \"privilege_isolated\": false}, \"capture_manifest\": {\"assurance\": \"A1-local-observed\", \"decision\": \"observed-local-capture\", \"error_count\": 0, \"errors\": [], \"path\": \"/home/ubuntu/depone-wave3-team-local/docs/team-local-pass/lane-1/capture-manifest.json\"}, \"command\": \"evidence-run\", \"decision\": \"inconclusive\", \"evidence_ingest\": {\"decision\": \"pass\", \"out\": \"/home/ubuntu/depone-wave3-team-local/docs/team-local-pass/lane-1/ingest-verdict.json\", \"signing_status\": \"unsigned-content-addressed\", \"subject_count\": 3, \"verified_subject_count\": 3}, \"evidence_substrate\": {\"assurance\": \"A1-local-observed\", \"decision\": \"pass\", \"error_count\": 0, \"errors\": [], \"otel_span_count\": 2, \"out\": \"/home/ubuntu/depone-wave3-team-local/docs/team-local-pass/lane-1/evidence-bundle.json\", \"signing_status\": \"unsigned-content-addressed\", \"subject_count\": 3}, \"observe\": {\"decision\": \"pass\", \"log\": \"/home/ubuntu/depone-wave3-team-local/docs/team-local-pass/lane-1/observer-owned/verify-log.json\", \"observer_capture_hash\": \"4b440bfefa0633c6138931fdbb06a9999b3882f33bb5cccc4f12bc3b57327272\", \"out\": \"/home/ubuntu/depone-wave3-team-local/docs/team-local-pass/lane-1/observer-owned/observer-capture.json\", \"status\": \"passed\"}, \"out\": \"/home/ubuntu/depone-wave3-team-local/docs/team-local-pass/lane-1\", \"runner_receipt\": {\"arm\": null, \"error_count\": 0, \"errors\": [], \"path\": null, \"runner_kind\": null}, \"signed_evidence_bundle\": {\"decision\": \"skipped\", \"out\": null, \"public_key\": null, \"signing_status\": \"unsigned-content-addressed\", \"verified\": null}, \"verify\": {\"decision\": \"skipped\", \"operator_view_out\": null, \"out\": null, \"verdict\": \"skipped\"}}\n"
+}

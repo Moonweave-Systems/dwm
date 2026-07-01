@@ -74,68 +74,58 @@ class AgentFabricTeamLocalTests(unittest.TestCase):
         self.assertIn("boundary.raises_assurance must be false", errors)
 
     def test_ordered_commands_can_produce_passed_lane(self) -> None:
+        repo_root = Path(__file__).resolve().parents[1]
+        with tempfile.TemporaryDirectory(prefix="depone-team-local-pass-") as temp_text:
+            temp = Path(temp_text)
+            base_commit = _git(repo_root, "rev-parse", "HEAD")
+            plan = {
+                "leader_objective": "Run one ordered local pass lane",
+                "base_commit": base_commit,
+                "lanes": [
+                    {
+                        "lane_id": "lane-1",
+                        "objective": "Create marker and capture evidence",
+                        "runner_adapter_kind": "shell",
+                        "team_adapter_kind": "depone-native",
+                        "planned_worktree": "lane-1-worktree",
+                        "command_ids": ["write-marker", "evidence-run", "git-add", "git-commit"],
+                        "touched_files": ["team-local-marker.txt"],
+                    }
+                ],
+            }
+            cwd = Path.cwd()
+            os.chdir(temp)
+            try:
+                ledger = run_team_local(
+                    plan,
+                    allowlist=_pass_lane_allowlist(),
+                    repo_root=repo_root,
+                    worktree_root=temp / "worktrees",
+                    out_dir=Path("out/team-local-pass-test"),
+                    base_commit=base_commit,
+                    create_worktree=True,
+                    execute_lanes=True,
+                )
+                verdict = json.loads(
+                    (temp / "out" / "team-local-pass-test" / "team-ledger-verdict.json").read_text(
+                        encoding="utf-8"
+                    )
+                )
+            finally:
+                os.chdir(cwd)
+
+            self.assertEqual("pass", ledger["decision"], ledger["blocking_reasons"])
+            self.assertEqual(1, ledger["passed_lane_count"])
+            self.assertEqual(0, ledger["blocked_lane_count"])
+            lane_record = ledger["lanes"][0]
+            self.assertEqual(4, len(lane_record["shell_receipts"]))
+            self.assertEqual([], validate_team_local_run_ledger(ledger, base_dir=temp))
+            self.assertEqual("pass", verdict["decision"])
+
+    def test_unknown_runtime_token_blocks_before_shell_execution(self) -> None:
         with _git_repo() as repo:
             plan = _plan(repo.head)
-            plan["lanes"][0].pop("command_id")
-            plan["lanes"][0]["command_ids"] = [
-                "write-marker",
-                "evidence-run",
-                "git-add",
-                "git-commit",
-            ]
-            plan["lanes"][0]["touched_files"] = ["team-local-marker.txt"]
-            allowlist = {
-                "commands": [
-                    {
-                        "id": "write-marker",
-                        "argv": [
-                            sys.executable,
-                            "-c",
-                            (
-                                "from pathlib import Path; "
-                                "Path('team-local-marker.txt').write_text('ok\\n', encoding='utf-8')"
-                            ),
-                        ],
-                    },
-                    {
-                        "id": "evidence-run",
-                        "argv": [
-                            sys.executable,
-                            "-m",
-                            "depone",
-                            "evidence-run",
-                            "--runner-sandbox",
-                            ".",
-                            "--source-fixture",
-                            "{repo_root}/depone/fixtures/agent_fabric/reference_adapter_shell.json",
-                            "--out",
-                            "{evidence_dir_abs}",
-                            "--allow-touched-file",
-                            "team-local-marker.txt",
-                            "--json",
-                            "--",
-                            sys.executable,
-                            "-c",
-                            "from pathlib import Path; assert Path('team-local-marker.txt').exists()",
-                        ],
-                    },
-                    {"id": "git-add", "argv": ["git", "add", "team-local-marker.txt"]},
-                    {
-                        "id": "git-commit",
-                        "argv": [
-                            "git",
-                            "-c",
-                            "user.name=Depone",
-                            "-c",
-                            "user.email=depone@example.invalid",
-                            "commit",
-                            "-m",
-                            "team local marker",
-                        ],
-                    },
-                ]
-            }
-
+            allowlist = {"commands": [{"id": "ok", "argv": [sys.executable, "-c", "{bad_token}"]}]}
             ledger = run_team_local(
                 plan,
                 allowlist=allowlist,
@@ -145,35 +135,11 @@ class AgentFabricTeamLocalTests(unittest.TestCase):
                 create_worktree=True,
                 execute_lanes=True,
             )
-
-            self.assertEqual("pass", ledger["decision"], ledger["blocking_reasons"])
-            self.assertEqual(1, ledger["passed_lane_count"])
-            self.assertEqual(0, ledger["blocked_lane_count"])
-            lane_record = ledger["lanes"][0]
-            self.assertEqual(4, len(lane_record["shell_receipts"]))
-            self.assertEqual([], validate_team_local_run_ledger(ledger, base_dir=repo.temp))
-            verdict = json.loads(
-                (repo.temp / "out" / "team-local-test" / "team-ledger-verdict.json").read_text(
-                    encoding="utf-8"
-                )
-            )
-            self.assertEqual("pass", verdict["decision"])
-
-    def test_unknown_runtime_token_blocks_before_shell_execution(self) -> None:
-        with _git_repo() as repo:
-            plan = _plan(repo.head)
-            allowlist = {"commands": [{"id": "ok", "argv": [sys.executable, "-c", "{bad_token}"]}]}
-            with self.assertRaises(TeamLocalError) as raised:
-                run_team_local(
-                    plan,
-                    allowlist=allowlist,
-                    repo_root=repo.path,
-                    worktree_root=repo.temp / "worktrees",
-                    out_dir=Path("out/team-local-test"),
-                    create_worktree=True,
-                    execute_lanes=True,
-                )
-        self.assertEqual("ERR_TEAM_LOCAL_TOKEN_INVALID", raised.exception.code)
+        self.assertEqual("blocked", ledger["decision"])
+        self.assertTrue(
+            any("ERR_TEAM_LOCAL_TOKEN_INVALID" in reason for reason in ledger["blocking_reasons"]),
+            ledger["blocking_reasons"],
+        )
 
 
 def _plan(head: str) -> dict[str, object]:
@@ -191,6 +157,61 @@ def _plan(head: str) -> dict[str, object]:
                 "touched_files": ["README.md"],
             }
         ],
+    }
+
+
+def _pass_lane_allowlist() -> dict[str, object]:
+    return {
+        "commands": [
+            {
+                "id": "write-marker",
+                "argv": [
+                    sys.executable,
+                    "-c",
+                    (
+                        "from pathlib import Path; "
+                        "Path('team-local-marker.txt').write_text('ok\\n', encoding='utf-8')"
+                    ),
+                ],
+            },
+            {
+                "id": "evidence-run",
+                "allowed_exit_codes": [0, 2],
+                "argv": [
+                    sys.executable,
+                    "-m",
+                    "depone",
+                    "evidence-run",
+                    "--runner-sandbox",
+                    ".",
+                    "--source-fixture",
+                    "{repo_root}/depone/fixtures/agent_fabric/reference_adapter_shell.json",
+                    "--out",
+                    "{evidence_dir_abs}",
+                    "--allow-touched-file",
+                    "team-local-marker.txt",
+                    "--json",
+                    "--",
+                    sys.executable,
+                    "-c",
+                    "from pathlib import Path; assert Path('team-local-marker.txt').exists()",
+                ],
+            },
+            {"id": "git-add", "argv": ["git", "add", "team-local-marker.txt"]},
+            {
+                "id": "git-commit",
+                "argv": [
+                    "git",
+                    "-c",
+                    "user.name=Depone",
+                    "-c",
+                    "user.email=depone@example.invalid",
+                    "commit",
+                    "-m",
+                    "team local marker",
+                ],
+            },
+        ]
     }
 
 

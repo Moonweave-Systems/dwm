@@ -11,7 +11,20 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SKIP_DIRS = {".git", ".pytest_cache", ".ruff_cache", "__pycache__", "out", "build", ".eggs", ".venv", "venv", "contract-seed"}
+SKIP_DIRS = {
+    ".git",
+    ".omo",
+    ".omx",
+    ".pytest_cache",
+    ".ruff_cache",
+    "__pycache__",
+    "out",
+    "build",
+    ".eggs",
+    ".venv",
+    "venv",
+    "contract-seed",
+}
 SECRET_PATTERN = re.compile(
     r"(?i)['\"]?(api[_-]?key|secret|token|password)['\"]?\s*[:=]\s*['\"]?[^'\"\s]{8,}|"
     r"-----BEGIN (RSA|OPENSSH) PRIVATE KEY-----"

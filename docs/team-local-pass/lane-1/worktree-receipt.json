@@ -1,0 +1,194 @@
+{
+  "base_commit": "c7b605c16405bef87d783d2244b87838d9526cf4",
+  "boundary": {
+    "executes_commands": false,
+    "git_read_only": true,
+    "launches_agents": false,
+    "mutates_worktree": false
+  },
+  "branch": "HEAD",
+  "changed_files": [
+    "team-local-marker.txt"
+  ],
+  "command_receipts": [
+    {
+      "agent_contract": {
+        "agent_contract_hash": "7f8609766f1aad439050f876ea2c5261cde3715070b27fd4fbfefd81c43d71e8",
+        "agent_contract_id": "depone-agent-operating-contract.v0.1",
+        "role_id": "worker",
+        "role_registry_path": "packaging/dwm-roles.json",
+        "role_registry_sha256": "8a5ea14ff29d9f00c7b253364912f95c946f6c53616e16804ab96d5bbbdb36fc"
+      },
+      "agent_contract_hash": "7f8609766f1aad439050f876ea2c5261cde3715070b27fd4fbfefd81c43d71e8",
+      "allowed_exit_codes": [
+        0
+      ],
+      "allowlist_sha256": "1ad0718b2a63178b2a5e18fc3818bab7c4077741f1770e78cd7212300edf62c7",
+      "argv": [
+        "python3",
+        "-c",
+        "from pathlib import Path; Path('team-local-marker.txt').write_text('ok\\n', encoding='utf-8')"
+      ],
+      "boundary": {
+        "allows_arbitrary_shell_string": false,
+        "calls_live_models": false,
+        "executes_commands": true,
+        "launches_agents": false,
+        "raises_assurance": false,
+        "uses_argv_allowlist": true,
+        "uses_shell": false
+      },
+      "command_id": "write-marker",
+      "cwd": "/tmp/depone-team-local-pass-docs/lane-1-worktree",
+      "decision": "pass",
+      "exit_code": 0,
+      "kind": "depone-team-shell-lane-launch",
+      "schema_version": "0.1",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "transcript_path": "docs/team-local-pass/lane-1/commands/write-marker-transcript.json",
+      "transcript_sha256": "7eba05be3a08c673409ae41cebbed3fc4a10ac244310e8a79be4f4fa45e47700"
+    },
+    {
+      "agent_contract": {
+        "agent_contract_hash": "7f8609766f1aad439050f876ea2c5261cde3715070b27fd4fbfefd81c43d71e8",
+        "agent_contract_id": "depone-agent-operating-contract.v0.1",
+        "role_id": "worker",
+        "role_registry_path": "packaging/dwm-roles.json",
+        "role_registry_sha256": "8a5ea14ff29d9f00c7b253364912f95c946f6c53616e16804ab96d5bbbdb36fc"
+      },
+      "agent_contract_hash": "7f8609766f1aad439050f876ea2c5261cde3715070b27fd4fbfefd81c43d71e8",
+      "allowed_exit_codes": [
+        0,
+        2
+      ],
+      "allowlist_sha256": "1ad0718b2a63178b2a5e18fc3818bab7c4077741f1770e78cd7212300edf62c7",
+      "argv": [
+        "python3",
+        "-m",
+        "depone",
+        "evidence-run",
+        "--runner-sandbox",
+        ".",
+        "--source-fixture",
+        "/home/ubuntu/depone-wave3-team-local/depone/fixtures/agent_fabric/reference_adapter_shell.json",
+        "--out",
+        "/home/ubuntu/depone-wave3-team-local/docs/team-local-pass/lane-1",
+        "--allow-touched-file",
+        "team-local-marker.txt",
+        "--json",
+        "--",
+        "python3",
+        "-c",
+        "from pathlib import Path; assert Path('team-local-marker.txt').exists()"
+      ],
+      "boundary": {
+        "allows_arbitrary_shell_string": false,
+        "calls_live_models": false,
+        "executes_commands": true,
+        "launches_agents": false,
+        "raises_assurance": false,
+        "uses_argv_allowlist": true,
+        "uses_shell": false
+      },
+      "command_id": "evidence-run",
+      "cwd": "/tmp/depone-team-local-pass-docs/lane-1-worktree",
+      "decision": "pass",
+      "exit_code": 2,
+      "kind": "depone-team-shell-lane-launch",
+      "schema_version": "0.1",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "151c00b6a32ca732b6c0614674d26a3202b09b02479a00abaf59e995546ff131",
+      "transcript_path": "docs/team-local-pass/lane-1/commands/evidence-run-transcript.json",
+      "transcript_sha256": "51702acccab80114940639c7f5fe737b7431f30b9e7061f9aab3be49886224a9"
+    },
+    {
+      "agent_contract": {
+        "agent_contract_hash": "7f8609766f1aad439050f876ea2c5261cde3715070b27fd4fbfefd81c43d71e8",
+        "agent_contract_id": "depone-agent-operating-contract.v0.1",
+        "role_id": "worker",
+        "role_registry_path": "packaging/dwm-roles.json",
+        "role_registry_sha256": "8a5ea14ff29d9f00c7b253364912f95c946f6c53616e16804ab96d5bbbdb36fc"
+      },
+      "agent_contract_hash": "7f8609766f1aad439050f876ea2c5261cde3715070b27fd4fbfefd81c43d71e8",
+      "allowed_exit_codes": [
+        0
+      ],
+      "allowlist_sha256": "1ad0718b2a63178b2a5e18fc3818bab7c4077741f1770e78cd7212300edf62c7",
+      "argv": [
+        "git",
+        "add",
+        "team-local-marker.txt"
+      ],
+      "boundary": {
+        "allows_arbitrary_shell_string": false,
+        "calls_live_models": false,
+        "executes_commands": true,
+        "launches_agents": false,
+        "raises_assurance": false,
+        "uses_argv_allowlist": true,
+        "uses_shell": false
+      },
+      "command_id": "git-add",
+      "cwd": "/tmp/depone-team-local-pass-docs/lane-1-worktree",
+      "decision": "pass",
+      "exit_code": 0,
+      "kind": "depone-team-shell-lane-launch",
+      "schema_version": "0.1",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "transcript_path": "docs/team-local-pass/lane-1/commands/git-add-transcript.json",
+      "transcript_sha256": "e2d913499aae01f4e28c462f3eae87012d6340baad59bc7691de07c4cd8a8425"
+    },
+    {
+      "agent_contract": {
+        "agent_contract_hash": "7f8609766f1aad439050f876ea2c5261cde3715070b27fd4fbfefd81c43d71e8",
+        "agent_contract_id": "depone-agent-operating-contract.v0.1",
+        "role_id": "worker",
+        "role_registry_path": "packaging/dwm-roles.json",
+        "role_registry_sha256": "8a5ea14ff29d9f00c7b253364912f95c946f6c53616e16804ab96d5bbbdb36fc"
+      },
+      "agent_contract_hash": "7f8609766f1aad439050f876ea2c5261cde3715070b27fd4fbfefd81c43d71e8",
+      "allowed_exit_codes": [
+        0
+      ],
+      "allowlist_sha256": "1ad0718b2a63178b2a5e18fc3818bab7c4077741f1770e78cd7212300edf62c7",
+      "argv": [
+        "git",
+        "-c",
+        "user.name=Depone",
+        "-c",
+        "user.email=depone@example.invalid",
+        "commit",
+        "-m",
+        "team local marker"
+      ],
+      "boundary": {
+        "allows_arbitrary_shell_string": false,
+        "calls_live_models": false,
+        "executes_commands": true,
+        "launches_agents": false,
+        "raises_assurance": false,
+        "uses_argv_allowlist": true,
+        "uses_shell": false
+      },
+      "command_id": "git-commit",
+      "cwd": "/tmp/depone-team-local-pass-docs/lane-1-worktree",
+      "decision": "pass",
+      "exit_code": 0,
+      "kind": "depone-team-shell-lane-launch",
+      "schema_version": "0.1",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "32899bc0b2bee5d7d95d19608be0626321c81442ed8855ad728f0d44c8aa67ee",
+      "transcript_path": "docs/team-local-pass/lane-1/commands/git-commit-transcript.json",
+      "transcript_sha256": "ec6313029bc95d1a56c567bdabc694283a2ba3c6c98fde06a23f7b6bbc490d27"
+    }
+  ],
+  "dirty": false,
+  "dirty_files": [],
+  "evidence_dir": "lane-1",
+  "head_commit": "364c6a009206317853e95bda9354dd3b2d0807d8",
+  "kind": "depone-worktree-lane-receipt",
+  "schema_version": "0.1",
+  "worktree": "/tmp/depone-team-local-pass-docs/lane-1-worktree"
+}

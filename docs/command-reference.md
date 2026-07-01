@@ -91,11 +91,18 @@ Codex/Claude/OpenCode, call live models, schedule teams, or raise assurance to
 A2.
 
 `team-local` is the first minimal local team loop. It sequences existing safe
-primitives (`team-dry-run`, `team-launch-preflight`, `team-worktree-prep`, one
-allowlisted `team-shell-lane-launch` per lane, `evidence-next`, and
-`team-ledger`) and writes `team-run-ledger.json`. It is fail-closed: missing
+primitives (`team-dry-run`, `team-launch-preflight`, `team-worktree-prep`,
+allowlisted `team-shell-lane-launch` commands, `evidence-next`,
+`worktree-lane-receipt`, and `team-ledger`) and writes `team-run-ledger.json`.
+A lane may use either `command_id` for one command or `command_ids` for an
+ordered list. Allowlist argv entries may use only `{repo_root}`,
+`{worktree_path}`, `{evidence_dir}`, `{evidence_dir_abs}`, and `{lane_id}` as
+runtime tokens. Unknown tokens block the lane. An allowlist entry may set
+`allowed_exit_codes` to record accepted nonzero exits for artifact-generation
+steps; the lane still reaches pass only if `evidence-next` returns `continue`
+and Team Ledger validates the worktree receipt. It is fail-closed: missing
 worktrees, missing allowlist commands, prohibited Codex/Claude/OpenCode
-executables, failed shell receipts, missing evidence-next artifacts, or blocked
+executables, unaccepted shell exits, missing evidence-next artifacts, or blocked
 Team Ledger fan-in keep the run ledger blocked. It does not launch live models,
 start coding-agent sessions, execute unlisted shell commands, approve merges, or
 raise assurance.

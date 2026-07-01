@@ -1,0 +1,32 @@
+{
+  "end_commit": "c7b605c16405bef87d783d2244b87838d9526cf4",
+  "kind": "depone-team-ledger",
+  "lanes": [
+    {
+      "end_commit": "364c6a009206317853e95bda9354dd3b2d0807d8",
+      "env_kind": "local",
+      "evidence_dir": "lane-1",
+      "evidence_next_verdict": "lane-1/evidence-next-verdict.json",
+      "lane_id": "lane-1",
+      "objective": "Create a marker file, capture evidence, and commit the lane work.",
+      "runner_adapter_kind": "shell",
+      "start_commit": "c7b605c16405bef87d783d2244b87838d9526cf4",
+      "team_adapter_kind": "depone-native",
+      "touched_files": [
+        "team-local-marker.txt"
+      ],
+      "verification_artifacts": [
+        "team-shell-lane-launch",
+        "evidence-next",
+        "worktree-lane-receipt"
+      ],
+      "verification_state": "pass",
+      "worktree_receipt": "lane-1/worktree-receipt.json"
+    }
+  ],
+  "leader_id": "leader-fixed",
+  "leader_objective": "Produce one local team lane that reaches Team Ledger pass from revalidated evidence.",
+  "schema_version": "0.1",
+  "start_commit": "c7b605c16405bef87d783d2244b87838d9526cf4",
+  "stop_rule": "team-local stops on first blocked lane"
+}

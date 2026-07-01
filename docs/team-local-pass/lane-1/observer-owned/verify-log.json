@@ -1,0 +1,11 @@
+{
+  "command": [
+    "python3",
+    "-c",
+    "from pathlib import Path; assert Path('team-local-marker.txt').exists()"
+  ],
+  "cwd": "/tmp/depone-team-local-pass-docs/lane-1-worktree",
+  "exit_code": 0,
+  "stderr": "",
+  "stdout": ""
+}

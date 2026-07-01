@@ -45,7 +45,9 @@ def run_shell_lane_command(
 ) -> dict[str, object]:
     """Run one allowlisted argv command and return a hash-bound receipt."""
 
-    argv = _resolve_allowlisted_argv(allowlist, command_id)
+    command_spec = _resolve_allowlisted_command(allowlist, command_id)
+    argv = command_spec["argv"]
+    allowed_exit_codes = command_spec["allowed_exit_codes"]
     agent_contract = _resolve_agent_contract(
         agent_role_id=agent_role_id,
         contract_path=agent_contract_path or AGENT_OPERATING_CONTRACT_PATH,
@@ -81,11 +83,12 @@ def run_shell_lane_command(
     return {
         "kind": TEAM_SHELL_LANE_LAUNCH_KIND,
         "schema_version": TEAM_SHELL_LANE_LAUNCH_SCHEMA_VERSION,
-        "decision": "pass" if completed.returncode == 0 else "failed",
+        "decision": "pass" if completed.returncode in allowed_exit_codes else "failed",
         "command_id": command_id,
         "cwd": resolved_cwd.as_posix(),
         "argv": argv,
         "exit_code": completed.returncode,
+        "allowed_exit_codes": allowed_exit_codes,
         "stdout_sha256": _sha256_bytes(stdout),
         "stderr_sha256": _sha256_bytes(stderr),
         "transcript_path": transcript_path.as_posix(),
@@ -188,7 +191,9 @@ def write_receipt(path: Path, receipt: dict[str, object]) -> None:
     path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
-def _resolve_allowlisted_argv(allowlist: dict[str, object], command_id: str) -> list[str]:
+def _resolve_allowlisted_command(
+    allowlist: dict[str, object], command_id: str
+) -> dict[str, list[int] | list[str]]:
     if not command_id.strip():
         raise TeamShellLaneLaunchError(
             "ERR_TEAM_SHELL_LANE_COMMAND_ID_REQUIRED",
@@ -221,14 +226,36 @@ def _resolve_allowlisted_argv(allowlist: dict[str, object], command_id: str) -> 
             "ERR_TEAM_SHELL_LANE_ARGV_INVALID",
             "allowlisted argv must be a non-empty list of non-empty strings",
         )
-    normalized = list(argv)
-    executable = Path(normalized[0]).name.lower()
+    normalized_argv = list(argv)
+    executable = Path(normalized_argv[0]).name.lower()
     if executable in PROHIBITED_EXECUTABLES:
         raise TeamShellLaneLaunchError(
             "ERR_TEAM_SHELL_LANE_AGENT_EXECUTABLE_BLOCKED",
             "Codex, Claude, Claude Code, and OpenCode executables are not permitted in shell lane launch",
         )
-    return normalized
+    allowed_exit_codes = _resolve_allowed_exit_codes(selected.get("allowed_exit_codes"))
+    return {"argv": normalized_argv, "allowed_exit_codes": allowed_exit_codes}
+
+
+def _resolve_allowlisted_argv(allowlist: dict[str, object], command_id: str) -> list[str]:
+    command = _resolve_allowlisted_command(allowlist, command_id)
+    argv = command["argv"]
+    return [str(part) for part in argv]
+
+
+def _resolve_allowed_exit_codes(value: object) -> list[int]:
+    if value is None:
+        return [0]
+    if (
+        not isinstance(value, list)
+        or not value
+        or not all(isinstance(item, int) and 0 <= item <= 255 for item in value)
+    ):
+        raise TeamShellLaneLaunchError(
+            "ERR_TEAM_SHELL_LANE_ALLOWED_EXIT_CODES_INVALID",
+            "allowed_exit_codes must be a non-empty list of integers between 0 and 255",
+        )
+    return sorted(set(value))
 
 
 def _resolve_cwd(cwd: Path) -> Path:

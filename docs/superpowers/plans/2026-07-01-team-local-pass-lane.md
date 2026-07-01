@@ -85,6 +85,7 @@ Use runtime tokens in the allowlist:
     },
     {
       "id": "evidence-run",
+      "allowed_exit_codes": [0, 2],
       "argv": [
         "python3",
         "-m",
@@ -125,6 +126,11 @@ Use runtime tokens in the allowlist:
   ]
 }
 ```
+
+`evidence-run` may exit `2` when the capture remains A1-local inconclusive
+while still writing valid machine artifacts. Treating exit `2` as accepted here
+does not pass the lane by itself; the lane can pass only after `evidence-next`
+returns `continue` and Team Ledger validates the worktree receipt.
 
 - [ ] **Step 2: Run the failing test**
 

@@ -1,0 +1,121 @@
+{
+  "assurance": "A1-local-observed",
+  "boundary": {
+    "approves_public_claim": false,
+    "raises_assurance": false,
+    "signed": false
+  },
+  "dsse_envelope": {
+    "payload": "eyJfdHlwZSI6Imh0dHBzOi8vaW4tdG90by5pby9TdGF0ZW1lbnQvdjEiLCJwcmVkaWNhdGUiOnsiYWxsb3dlZF90b3VjaGVkX2ZpbGVzIjpbInRlYW0tbG9jYWwtbWFya2VyLnR4dCJdLCJhc3N1cmFuY2UiOiJBMS1sb2NhbC1vYnNlcnZlZCIsImJvdW5kYXJ5Ijp7InJhaXNlc19hc3N1cmFuY2UiOmZhbHNlLCJzaWduZWQiOmZhbHNlLCJzaWduaW5nX3N0YXR1cyI6InVuc2lnbmVkLWNvbnRlbnQtYWRkcmVzc2VkIn0sImRlY2lzaW9uIjoib2JzZXJ2ZWQtbG9jYWwtY2FwdHVyZSIsIm9ic2VydmVyIjp7ImNvbW1hbmRfcmVjZWlwdHMiOlt7ImNvbW1hbmQiOlsicHl0aG9uMyIsIi1jIiwiZnJvbSBwYXRobGliIGltcG9ydCBQYXRoOyBhc3NlcnQgUGF0aCgndGVhbS1sb2NhbC1tYXJrZXIudHh0JykuZXhpc3RzKCkiXSwiY3dkIjoiL3RtcC9kZXBvbmUtdGVhbS1sb2NhbC1wYXNzLWRvY3MvbGFuZS0xLXdvcmt0cmVlIiwiZW5kZWRfYXQiOiIyMDI2LTA3LTAxVDA2OjMwOjMxWiIsImV4aXRfY29kZSI6MCwibG9nX3BhdGgiOiIvaG9tZS91YnVudHUvZGVwb25lLXdhdmUzLXRlYW0tbG9jYWwvZG9jcy90ZWFtLWxvY2FsLXBhc3MvbGFuZS0xL29ic2VydmVyLW93bmVkL3ZlcmlmeS1sb2cuanNvbiIsInN0YXJ0ZWRfYXQiOiIyMDI2LTA3LTAxVDA2OjMwOjMxWiIsInN0YXR1cyI6InBhc3NlZCJ9XSwib2JzZXJ2ZWRfYnkiOiJkZXBvbmUtb2JzZXJ2ZXIiLCJ0ZXN0X291dHB1dCI6eyJjb21tYW5kIjpbInB5dGhvbjMiLCItYyIsImZyb20gcGF0aGxpYiBpbXBvcnQgUGF0aDsgYXNzZXJ0IFBhdGgoJ3RlYW0tbG9jYWwtbWFya2VyLnR4dCcpLmV4aXN0cygpIl0sInByZV92ZXJpZmljYXRpb25fY2hhbmdlZF9maWxlcyI6WyJ0ZWFtLWxvY2FsLW1hcmtlci50eHQiXSwic3RhdHVzIjoicGFzc2VkIiwic3VtbWFyeSI6ImV4aXQgMCJ9LCJ0b3VjaGVkX2ZpbGVzIjpbInRlYW0tbG9jYWwtbWFya2VyLnR4dCJdfSwicnVubmVyIjpudWxsLCJzY2hlbWFfdmVyc2lvbiI6IjEuMCIsInNvdXJjZV9raW5kIjoiYWdlbnQtZmFicmljLWNhcHR1cmUtbWFuaWZlc3QiLCJ2YWxpZGF0aW9uX2Vycm9ycyI6W119LCJwcmVkaWNhdGVUeXBlIjoiaHR0cHM6Ly9kZXBvbmUuZGV2L2F0dGVzdGF0aW9ucy9ldmlkZW5jZS92MSIsInN1YmplY3QiOlt7ImRpZ2VzdCI6eyJzaGEyNTYiOiIxZDA4Zjc4OGJmZGM0N2U0MmNkMjlkNjMyNGJiMzA5MTNhYjc1NDNjOTAwMmY5MjYyYzU0NzFlOWY5NzQ3MWUzIn0sIm5hbWUiOiJkZXBvbmUtY2FwdHVyZS1tYW5pZmVzdCJ9LHsiZGlnZXN0Ijp7InNoYTI1NiI6IjAwOTMyN2NmMDY0NzMyYzYzMWM2YTMxNDRmYjRiNzlkNzFlNDhjYTBjY2QzN2UxYzkwOTliZmMxOGFmOTVjMjkifSwibmFtZSI6InNvdXJjZV9maXh0dXJlIn0seyJkaWdlc3QiOnsic2hhMjU2IjoiNGI0NDBiZmVmYTA2MzNjNjEzODkzMWZkYmIwNmE5OTk5YjM4ODJmMzNiYjVjY2NjNGYxMmJjM2I1NzMyNzI3MiJ9LCJuYW1lIjoib2JzZXJ2ZXJfY2FwdHVyZSJ9XX0=",
+    "payloadType": "application/vnd.in-toto+json",
+    "signatures": []
+  },
+  "kind": "depone-evidence-substrate-bundle",
+  "otel_spans": [
+    {
+      "attributes": {
+        "depone.arm": "unknown",
+        "depone.assurance": "A1-local-observed",
+        "depone.decision": "observed-local-capture",
+        "gen_ai.agent.name": "unknown",
+        "gen_ai.operation.name": "invoke_agent"
+      },
+      "name": "invoke_agent",
+      "parent_span_id": null,
+      "span_id": "b764ef79422d717f",
+      "trace_id": "cdfcf5b672845d0d32631eb57423fb52"
+    },
+    {
+      "attributes": {
+        "depone.command": [
+          "python3",
+          "-c",
+          "from pathlib import Path; assert Path('team-local-marker.txt').exists()"
+        ],
+        "depone.exit_code": 0,
+        "depone.status": "passed",
+        "gen_ai.operation.name": "execute_tool",
+        "gen_ai.tool.name": "verification_command"
+      },
+      "name": "execute_tool",
+      "parent_span_id": "b764ef79422d717f",
+      "span_id": "1b517c2c64849596",
+      "trace_id": "cdfcf5b672845d0d32631eb57423fb52"
+    }
+  ],
+  "schema_version": "1.0",
+  "signing_status": "unsigned-content-addressed",
+  "statement": {
+    "_type": "https://in-toto.io/Statement/v1",
+    "predicate": {
+      "allowed_touched_files": [
+        "team-local-marker.txt"
+      ],
+      "assurance": "A1-local-observed",
+      "boundary": {
+        "raises_assurance": false,
+        "signed": false,
+        "signing_status": "unsigned-content-addressed"
+      },
+      "decision": "observed-local-capture",
+      "observer": {
+        "command_receipts": [
+          {
+            "command": [
+              "python3",
+              "-c",
+              "from pathlib import Path; assert Path('team-local-marker.txt').exists()"
+            ],
+            "cwd": "/tmp/depone-team-local-pass-docs/lane-1-worktree",
+            "ended_at": "2026-07-01T06:30:31Z",
+            "exit_code": 0,
+            "log_path": "/home/ubuntu/depone-wave3-team-local/docs/team-local-pass/lane-1/observer-owned/verify-log.json",
+            "started_at": "2026-07-01T06:30:31Z",
+            "status": "passed"
+          }
+        ],
+        "observed_by": "depone-observer",
+        "test_output": {
+          "command": [
+            "python3",
+            "-c",
+            "from pathlib import Path; assert Path('team-local-marker.txt').exists()"
+          ],
+          "pre_verification_changed_files": [
+            "team-local-marker.txt"
+          ],
+          "status": "passed",
+          "summary": "exit 0"
+        },
+        "touched_files": [
+          "team-local-marker.txt"
+        ]
+      },
+      "runner": null,
+      "schema_version": "1.0",
+      "source_kind": "agent-fabric-capture-manifest",
+      "validation_errors": []
+    },
+    "predicateType": "https://depone.dev/attestations/evidence/v1",
+    "subject": [
+      {
+        "digest": {
+          "sha256": "1d08f788bfdc47e42cd29d6324bb30913ab7543c9002f9262c5471e9f97471e3"
+        },
+        "name": "depone-capture-manifest"
+      },
+      {
+        "digest": {
+          "sha256": "009327cf064732c631c6a3144fb4b79d71e48ca0ccd37e1c9099bfc18af95c29"
+        },
+        "name": "source_fixture"
+      },
+      {
+        "digest": {
+          "sha256": "4b440bfefa0633c6138931fdbb06a9999b3882f33bb5cccc4f12bc3b57327272"
+        },
+        "name": "observer_capture"
+      }
+    ]
+  }
+}

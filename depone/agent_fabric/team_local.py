@@ -217,6 +217,14 @@ def run_team_local(
             continue
 
         evidence_dir = out_dir / lane_id
+        try:
+            _materialize_evidence_next_inputs(evidence_dir)
+        except TeamLocalError as exc:
+            lane_record["blocking_reasons"].append(f"{exc.code}: {exc.message}")
+            lane["blocked_reason"] = lane_record["blocking_reasons"][0]
+            lane_records.append(lane_record)
+            stopped = True
+            continue
         evidence_next = evaluate_evidence_dir(evidence_dir)
         evidence_next_path = evidence_dir / "evidence-next-verdict.json"
         _write_json(evidence_next_path, evidence_next)
@@ -495,15 +503,56 @@ def _expand_allowlist_runtime_tokens(
 
 def _expand_runtime_tokens(value: str, replacements: dict[str, str]) -> str:
     def replace(match: re.Match[str]) -> str:
-        token = match.group(1)
-        if token not in _ALLOWED_RUNTIME_TOKENS:
+        marker_name = match.group(1)
+        if marker_name not in _ALLOWED_RUNTIME_TOKENS:
             raise TeamLocalError(
                 "ERR_TEAM_LOCAL_TOKEN_INVALID",
-                f"runtime token {{{token}}} is not allowed",
+                f"runtime token {{{marker_name}}} is not allowed",
             )
-        return replacements[token]
+        return replacements[marker_name]
 
     return _RUNTIME_TOKEN_PATTERN.sub(replace, value)
+
+
+def _materialize_evidence_next_inputs(evidence_dir: Path) -> None:
+    observer_capture = evidence_dir / "observer-capture.json"
+    if observer_capture.is_file():
+        return
+    summary_path = evidence_dir / "evidence-run-summary.json"
+    if not summary_path.is_file():
+        return
+    try:
+        summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise TeamLocalError(
+            "ERR_TEAM_LOCAL_EVIDENCE_SUMMARY_INVALID",
+            f"evidence-run-summary.json must be readable JSON: {exc}",
+        ) from exc
+    if not isinstance(summary, dict):
+        raise TeamLocalError(
+            "ERR_TEAM_LOCAL_EVIDENCE_SUMMARY_INVALID",
+            "evidence-run-summary.json root must be an object",
+        )
+    observe = summary.get("observe")
+    source_path_text = observe.get("out") if isinstance(observe, dict) else None
+    if not isinstance(source_path_text, str) or not source_path_text:
+        return
+    source_path = Path(source_path_text)
+    resolved_source = source_path.resolve(strict=False)
+    resolved_evidence_dir = evidence_dir.resolve(strict=False)
+    try:
+        resolved_source.relative_to(resolved_evidence_dir)
+    except ValueError as exc:
+        raise TeamLocalError(
+            "ERR_TEAM_LOCAL_EVIDENCE_INPUT_OUTSIDE_DIR",
+            "observer capture source must stay under the lane evidence directory",
+        ) from exc
+    if not resolved_source.is_file():
+        raise TeamLocalError(
+            "ERR_TEAM_LOCAL_EVIDENCE_INPUT_MISSING",
+            "observer capture source file is missing",
+        )
+    observer_capture.write_bytes(resolved_source.read_bytes())
 
 
 def _plan_lanes_by_id(plan: dict[str, Any]) -> dict[str, dict[str, Any]]:
