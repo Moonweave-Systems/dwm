@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import hashlib
 import json
 import os
@@ -18,6 +19,11 @@ from depone.agent_fabric.observer_provenance import (
 )
 from depone.agent_fabric.reference_adapter import build_reference_adapter_fixture
 from depone.agent_fabric.seal import seal_capture
+from depone.agent_fabric.sign import (
+    _generate_ed25519_keypair,
+    openssl_path,
+    sign_dsse_envelope,
+)
 from depone.verify.adapters.base import EvidenceContext, EvidenceFile
 from depone.verify import run as run_verify
 from depone.verify.engine import run_verification
@@ -137,6 +143,92 @@ def _trusted_provenance_file(root: Path, manifest: dict) -> Path:
     return path
 
 
+def _signed_trusted_provenance_file(
+    root: Path,
+    manifest: dict,
+    *,
+    private_key_path: Path,
+    public_key_path: Path,
+) -> Path:
+    path = root / "trusted-observer-provenance.dsse.json"
+    record = _signed_trusted_raw(
+        manifest,
+        private_key_path=private_key_path,
+        public_key_path=public_key_path,
+    )["trusted_observer_provenance"][0]
+    path.write_text(json.dumps([record], sort_keys=True), encoding="utf-8")
+    return path
+
+
+def _signed_binding(manifest: dict) -> dict:
+    return {
+        "kind": "trusted-observer-provenance-binding",
+        "schema_version": "1.0",
+        "evidence_path": "agent-fabric-capture-manifest.json",
+        "manifest_hash": canonical_hash(manifest),
+        "observer_capture_hash": manifest.get("observer_capture_hash"),
+    }
+
+
+def _unsigned_dsse_envelope(binding: dict) -> dict:
+    payload = json.dumps(binding, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return {
+        "payloadType": "application/vnd.depone.trusted-observer-provenance.v1+json",
+        "payload": base64.b64encode(payload).decode("ascii"),
+        "signatures": [],
+    }
+
+
+def _signed_trusted_raw(
+    manifest: dict,
+    *,
+    private_key_path: Path,
+    public_key_path: Path,
+) -> dict:
+    binding = _signed_binding(manifest)
+    envelope = sign_dsse_envelope(
+        _unsigned_dsse_envelope(binding),
+        str(private_key_path),
+        key_id="operator-test-key",
+    )
+    return {
+        "metadata": {"run_id": "assurance-test-run"},
+        "trusted_observer_provenance": [
+            {
+                "kind": "trusted-observer-provenance",
+                "schema_version": "1.0",
+                "evidence_path": binding["evidence_path"],
+                "manifest_hash": binding["manifest_hash"],
+                "observer_capture_hash": binding["observer_capture_hash"],
+                "scheme": "DSSE-Ed25519-openssl-cli",
+                "key_id": "operator-test-key",
+                "dsse_envelope": envelope,
+            }
+        ],
+        "trusted_observer_public_key_file": str(public_key_path),
+    }
+
+
+def _fake_signed_trusted_raw(manifest: dict, public_key_path: Path) -> dict:
+    binding = _signed_binding(manifest)
+    return {
+        "metadata": {"run_id": "assurance-test-run"},
+        "trusted_observer_provenance": [
+            {
+                "kind": "trusted-observer-provenance",
+                "schema_version": "1.0",
+                "evidence_path": binding["evidence_path"],
+                "manifest_hash": binding["manifest_hash"],
+                "observer_capture_hash": binding["observer_capture_hash"],
+                "scheme": "DSSE-Ed25519-openssl-cli",
+                "key_id": "operator-test-key",
+                "dsse_envelope": _unsigned_dsse_envelope(binding),
+            }
+        ],
+        "trusted_observer_public_key_file": str(public_key_path),
+    }
+
+
 def _forged_isolated_manifest() -> dict:
     """A hand-forged capture claiming isolated-observed (A2) assurance backed by
     root-uid isolation facts. Root can override directory permission bits, so the
@@ -184,6 +276,114 @@ class VerificationReportAssuranceTests(unittest.TestCase):
         self.assertEqual(report.decision, "pass")
         self.assertEqual(report.assurance, "A1-local-observed")
         self.assertEqual(report.agent_fabric_captures[0].valid, True)
+
+    def test_signed_ed25519_provenance_surfaces_a1_assurance(self) -> None:
+        if openssl_path() is None:
+            self.skipTest("openssl unavailable")
+        with tempfile.TemporaryDirectory() as tmp:
+            temp_dir = Path(tmp)
+            private_key, public_key = _generate_ed25519_keypair(temp_dir)
+            manifest = _a1_manifest()
+            evidence = EvidenceContext(
+                run_id="assurance-test-run",
+                files=_base_evidence_files(manifest),
+                raw=_signed_trusted_raw(
+                    manifest,
+                    private_key_path=private_key,
+                    public_key_path=public_key,
+                ),
+            )
+
+            report = run_verification(_plan(), evidence)
+
+        self.assertEqual(report.verdict, "verified")
+        self.assertEqual(report.decision, "pass")
+        self.assertEqual(report.assurance, "A1-local-observed")
+        self.assertTrue(report.agent_fabric_captures[0].trusted_observer_provenance)
+
+    def test_public_key_only_dsse_provenance_cannot_raise_assurance(self) -> None:
+        if openssl_path() is None:
+            self.skipTest("openssl unavailable")
+        with tempfile.TemporaryDirectory() as tmp:
+            temp_dir = Path(tmp)
+            _private_key, public_key = _generate_ed25519_keypair(temp_dir)
+            manifest = _a1_manifest()
+            evidence = EvidenceContext(
+                run_id="assurance-test-run",
+                files=_base_evidence_files(manifest),
+                raw=_fake_signed_trusted_raw(manifest, public_key),
+            )
+
+            report = run_verification(_plan(), evidence)
+
+        self.assertEqual(report.verdict, "refuted")
+        self.assertEqual(report.decision, "fail")
+        self.assertEqual(report.assurance, "A0-claims-only")
+        self.assertIn(
+            "trusted observer provenance signature verification failed",
+            report.agent_fabric_captures[0].errors,
+        )
+
+    def test_signed_dsse_provenance_for_different_manifest_fails_closed(self) -> None:
+        if openssl_path() is None:
+            self.skipTest("openssl unavailable")
+        with tempfile.TemporaryDirectory() as tmp:
+            temp_dir = Path(tmp)
+            private_key, public_key = _generate_ed25519_keypair(temp_dir)
+            honest_manifest = _a1_manifest()
+            raw = _signed_trusted_raw(
+                honest_manifest,
+                private_key_path=private_key,
+                public_key_path=public_key,
+            )
+            forged_manifest = _a1_manifest()
+            forged_manifest["observer_capture"]["test_output"]["summary"] = "forged"
+            forged_manifest["observer_capture_hash"] = canonical_hash(
+                forged_manifest["observer_capture"]
+            )
+            evidence = EvidenceContext(
+                run_id="assurance-test-run",
+                files=_base_evidence_files(forged_manifest),
+                raw=raw,
+            )
+
+            report = run_verification(_plan(), evidence)
+
+        self.assertEqual(report.verdict, "refuted")
+        self.assertEqual(report.decision, "fail")
+        self.assertEqual(report.assurance, "A0-claims-only")
+        self.assertIn(
+            "trusted observer provenance manifest_hash mismatch",
+            report.agent_fabric_captures[0].errors,
+        )
+
+    def test_openssl_unavailable_dsse_provenance_fails_closed(self) -> None:
+        if openssl_path() is None:
+            self.skipTest("openssl unavailable")
+        with tempfile.TemporaryDirectory() as tmp:
+            temp_dir = Path(tmp)
+            private_key, public_key = _generate_ed25519_keypair(temp_dir)
+            manifest = _a1_manifest()
+            evidence = EvidenceContext(
+                run_id="assurance-test-run",
+                files=_base_evidence_files(manifest),
+                raw=_signed_trusted_raw(
+                    manifest,
+                    private_key_path=private_key,
+                    public_key_path=public_key,
+                ),
+            )
+
+            with patch("depone.agent_fabric.sign.openssl_path", return_value=None):
+                report = run_verification(_plan(), evidence)
+
+        self.assertEqual(report.verdict, "refuted")
+        self.assertEqual(report.decision, "fail")
+        self.assertEqual(report.assurance, "A0-claims-only")
+        self.assertIn(
+            "ERR_OPENSSL_UNAVAILABLE",
+            report.agent_fabric_captures[0].errors,
+        )
 
     def test_byte_copied_a1_capture_without_trusted_provenance_fails_closed(
         self,
@@ -532,6 +732,116 @@ class VerificationReportAssuranceTests(unittest.TestCase):
             self.assertIn("# Verification Operator View", view)
             self.assertIn("- Decision: pass", view)
             self.assertIn("- Assurance: A1-local-observed", view)
+
+    def test_verify_cli_loads_signed_provenance_and_public_key_outside_evidence_dir(
+        self,
+    ) -> None:
+        if openssl_path() is None:
+            self.skipTest("openssl unavailable")
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            plan_path = root / "plan.json"
+            evidence_dir = root / "evidence"
+            report_path = root / "verification-report.json"
+            view_path = root / "operator-view.md"
+            key_dir = root / "operator-keys"
+            evidence_dir.mkdir()
+            key_dir.mkdir()
+            private_key, public_key = _generate_ed25519_keypair(key_dir)
+            plan_path.write_text(json.dumps(_plan()), encoding="utf-8")
+            manifest = _a1_manifest()
+            provenance_path = _signed_trusted_provenance_file(
+                root,
+                manifest,
+                private_key_path=private_key,
+                public_key_path=public_key,
+            )
+            for evidence_file in _base_evidence_files(manifest):
+                target = evidence_dir / evidence_file.path
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(evidence_file.content, encoding="utf-8")
+
+            with patch.dict(
+                os.environ,
+                {
+                    "DEPONE_TRUSTED_OBSERVER_PROVENANCE_FILE": str(
+                        provenance_path
+                    ),
+                    "DEPONE_TRUSTED_OBSERVER_PUBLIC_KEY_FILE": str(public_key),
+                },
+            ):
+                run_verify(
+                    argparse.Namespace(
+                        self_test=False,
+                        plan=str(plan_path),
+                        evidence=str(evidence_dir),
+                        adapter="generic",
+                        out=str(report_path),
+                        operator_view_out=str(view_path),
+                    )
+                )
+
+            report = json.loads(report_path.read_text(encoding="utf-8"))
+            self.assertEqual(report["decision"], "pass")
+            self.assertEqual(report["assurance"], "A1-local-observed")
+            view = view_path.read_text(encoding="utf-8")
+            self.assertIn("- Assurance: A1-local-observed", view)
+
+    def test_verify_cli_ignores_public_key_file_inside_evidence_dir(self) -> None:
+        if openssl_path() is None:
+            self.skipTest("openssl unavailable")
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            plan_path = root / "plan.json"
+            evidence_dir = root / "evidence"
+            report_path = root / "verification-report.json"
+            view_path = root / "operator-view.md"
+            key_dir = root / "operator-keys"
+            evidence_dir.mkdir()
+            key_dir.mkdir()
+            private_key, public_key = _generate_ed25519_keypair(key_dir)
+            inside_public_key = evidence_dir / "operator.pub"
+            inside_public_key.write_text(public_key.read_text(encoding="utf-8"))
+            plan_path.write_text(json.dumps(_plan()), encoding="utf-8")
+            manifest = _a1_manifest()
+            provenance_path = _signed_trusted_provenance_file(
+                root,
+                manifest,
+                private_key_path=private_key,
+                public_key_path=public_key,
+            )
+            for evidence_file in _base_evidence_files(manifest):
+                target = evidence_dir / evidence_file.path
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(evidence_file.content, encoding="utf-8")
+
+            with patch.dict(
+                os.environ,
+                {
+                    "DEPONE_TRUSTED_OBSERVER_PROVENANCE_FILE": str(
+                        provenance_path
+                    ),
+                    "DEPONE_TRUSTED_OBSERVER_PUBLIC_KEY_FILE": str(inside_public_key),
+                },
+            ):
+                with self.assertRaises(SystemExit) as caught:
+                    run_verify(
+                        argparse.Namespace(
+                            self_test=False,
+                            plan=str(plan_path),
+                            evidence=str(evidence_dir),
+                            adapter="generic",
+                            out=str(report_path),
+                            operator_view_out=str(view_path),
+                        )
+                    )
+
+            self.assertEqual(caught.exception.code, 1)
+            report = json.loads(report_path.read_text(encoding="utf-8"))
+            self.assertEqual(report["decision"], "fail")
+            self.assertEqual(report["assurance"], "A0-claims-only")
+            errors = report["agent_fabric_captures"][0]["errors"]
+            self.assertIn("trusted observer provenance public key missing", errors)
 
     def test_verify_cli_ignores_provenance_file_inside_evidence_dir(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

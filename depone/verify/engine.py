@@ -403,6 +403,9 @@ def _read_agent_fabric_captures(
                 evidence_path=evidence_file.path,
                 provenance=evidence.raw.get("trusted_observer_provenance"),
                 key=evidence.raw.get("trusted_observer_seal_key"),
+                public_key_path=evidence.raw.get(
+                    "trusted_observer_public_key_file"
+                ),
             )
             errors.extend(provenance_errors)
             trusted_provenance = not provenance_errors

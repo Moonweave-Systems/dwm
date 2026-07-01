@@ -55,6 +55,9 @@ def read_evidence(evidence_dir: str) -> EvidenceContext:
     seal_key = _read_trusted_observer_seal_key(root)
     if seal_key is not None:
         raw["trusted_observer_seal_key"] = seal_key
+    public_key_file = _read_trusted_observer_public_key_file(root)
+    if public_key_file is not None:
+        raw["trusted_observer_public_key_file"] = public_key_file
 
     return EvidenceContext(run_id=run_id, files=files, raw=raw)
 
@@ -105,3 +108,21 @@ def _read_trusted_observer_seal_key(evidence_root: Path) -> bytes | None:
     except OSError:
         return None
     return key or None
+
+
+def _read_trusted_observer_public_key_file(evidence_root: Path) -> str | None:
+    """Return an operator public key path only when it is outside evidence."""
+
+    configured = os.environ.get("DEPONE_TRUSTED_OBSERVER_PUBLIC_KEY_FILE")
+    if not configured:
+        return None
+    path = Path(configured).expanduser().resolve(strict=False)
+    root = evidence_root.expanduser().resolve(strict=False)
+    try:
+        if os.path.commonpath([str(path), str(root)]) == str(root):
+            return None
+    except ValueError:
+        return None
+    if not path.is_file():
+        return None
+    return str(path)
