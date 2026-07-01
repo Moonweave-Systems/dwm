@@ -7,8 +7,12 @@ from typing import Any, Literal
 
 from depone.agent_fabric.capture_bridge import (
     ASSURANCE_A1,
+    ASSURANCE_A2,
     CAPTURE_MANIFEST_KIND,
     validate_capture_manifest,
+)
+from depone.agent_fabric.observer_provenance import (
+    validate_trusted_observer_provenance,
 )
 from depone.verify.adapters.base import EvidenceContext
 from depone.verify.evidence_contract import (
@@ -76,6 +80,7 @@ class AgentFabricCaptureCheck:
     assurance: str
     decision: str
     valid: bool
+    trusted_observer_provenance: bool = False
     errors: list[str] = field(default_factory=list)
 
 
@@ -389,12 +394,25 @@ def _read_agent_fabric_captures(
             continue
 
         errors = validate_capture_manifest(parsed)
+        provenance_errors: list[str] = []
+        trusted_provenance = False
+        assurance = str(parsed.get("assurance", "A0-claims-only"))
+        if not errors and assurance in (ASSURANCE_A1, ASSURANCE_A2):
+            provenance_errors = validate_trusted_observer_provenance(
+                parsed,
+                evidence_path=evidence_file.path,
+                provenance=evidence.raw.get("trusted_observer_provenance"),
+                key=evidence.raw.get("trusted_observer_seal_key"),
+            )
+            errors.extend(provenance_errors)
+            trusted_provenance = not provenance_errors
         captures.append(
             AgentFabricCaptureCheck(
                 evidence_path=evidence_file.path,
-                assurance=str(parsed.get("assurance", "A0-claims-only")),
+                assurance=assurance,
                 decision=str(parsed.get("decision", "unknown")),
                 valid=not errors,
+                trusted_observer_provenance=trusted_provenance,
                 errors=errors,
             )
         )
@@ -402,6 +420,8 @@ def _read_agent_fabric_captures(
 
 
 def _assurance_for_report(captures: list[AgentFabricCaptureCheck]) -> str:
+    if any(capture.valid and capture.assurance == ASSURANCE_A2 for capture in captures):
+        return ASSURANCE_A2
     if any(capture.valid and capture.assurance == ASSURANCE_A1 for capture in captures):
         return ASSURANCE_A1
     return "A0-claims-only"

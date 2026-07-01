@@ -14,7 +14,9 @@ from dataclasses import asdict
 from typing import Any
 
 from depone.agent_fabric.capture_bridge import build_capture_manifest
+from depone.agent_fabric.observer_provenance import build_trusted_observer_provenance
 from depone.agent_fabric.reference_adapter import build_reference_adapter_fixture
+from depone.agent_fabric.seal import seal_capture
 from depone.compile.agent_fabric import compile_agent_fabric
 from depone.verify.adapters.base import EvidenceContext, EvidenceFile
 from depone.verify.engine import run_verification
@@ -22,6 +24,7 @@ from depone.verify.operator_view import render_operator_view
 
 SMOKE_KIND = "agent-fabric-compile-to-report-smoke"
 SMOKE_VERSION = "1.0"
+SMOKE_OBSERVER_KEY = b"agent-fabric-lifecycle-smoke-observer-key"
 
 
 def _sha(text: str) -> str:
@@ -33,12 +36,19 @@ def _evidence_file(path: str, data: dict[str, Any]) -> EvidenceFile:
     return EvidenceFile(path=path, content=content, sha256=_sha(content))
 
 
-def _evidence_context(manifest: dict[str, Any]) -> EvidenceContext:
+def _evidence_context(
+    manifest: dict[str, Any],
+    provenance: list[dict[str, Any]] | None = None,
+) -> EvidenceContext:
     metadata = {"run_id": "agent-fabric-lifecycle-smoke"}
     contract = {
         "schema_version": "v105.verify_wedge",
         "required_evidence": ["run-metadata.json"],
     }
+    raw: dict[str, Any] = {"metadata": metadata}
+    if provenance is not None:
+        raw["trusted_observer_provenance"] = provenance
+        raw["trusted_observer_seal_key"] = SMOKE_OBSERVER_KEY
     return EvidenceContext(
         run_id="agent-fabric-lifecycle-smoke",
         files=[
@@ -46,7 +56,7 @@ def _evidence_context(manifest: dict[str, Any]) -> EvidenceContext:
             _evidence_file("run-metadata.json", metadata),
             _evidence_file("agent-fabric-capture-manifest.json", manifest),
         ],
-        raw={"metadata": metadata},
+        raw=raw,
     )
 
 
@@ -80,7 +90,8 @@ def build_compile_to_report_smoke(
         observer_capture=observer_capture,
         allowed_touched_files=allowed_touched_files,
     )
-    report = run_verification(plan, _evidence_context(manifest))
+    provenance = _trusted_provenance_for_smoke(manifest)
+    report = run_verification(plan, _evidence_context(manifest, provenance))
     report_data = asdict(report)
     compile_decision = str(bundle["compile_report"]["decision"])
     report_decision = str(report_data["decision"])
@@ -97,3 +108,24 @@ def build_compile_to_report_smoke(
         "overall_decision": _overall_decision(compile_decision, report_decision),
         "operator_view": render_operator_view(report),
     }
+
+
+def _trusted_provenance_for_smoke(
+    manifest: dict[str, Any],
+) -> list[dict[str, Any]] | None:
+    observer_capture = manifest.get("observer_capture")
+    if not isinstance(observer_capture, dict):
+        return None
+    seal = seal_capture(
+        observer_capture,
+        SMOKE_OBSERVER_KEY,
+        key_id="agent-fabric-lifecycle-smoke-observer-key",
+    )
+    return [
+        build_trusted_observer_provenance(
+            manifest,
+            evidence_path="agent-fabric-capture-manifest.json",
+            seal=seal,
+            key=SMOKE_OBSERVER_KEY,
+        )
+    ]

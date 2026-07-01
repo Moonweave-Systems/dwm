@@ -15,16 +15,22 @@ from depone.agent_fabric.capture_bridge import (
     validate_capture_manifest,
 )
 from depone.agent_fabric.claim_gate import canonical_hash
+from depone.agent_fabric.observer_provenance import (
+    build_trusted_observer_provenance,
+    validate_trusted_observer_provenance,
+)
 from depone.agent_fabric.paired_run import (
     PairedRunError,
     build_observer_capture,
 )
+from depone.agent_fabric.seal import seal_capture
 
 OBSERVER_INDEPENDENCE_MODEL = "separate-process-observer-owned-dir"
 OBSERVER_INDEPENDENCE_NOTE = (
     "Process- and directory-separated capture. Not privilege-isolated "
     "(same uid); full A2 requires a uid or container boundary, deferred."
 )
+SELF_TEST_OBSERVER_KEY = b"agent-fabric-observe-self-test-key"
 
 
 def _norm_path(path: Path) -> str:
@@ -215,4 +221,25 @@ def _self_test() -> None:
             errors = validate_capture_manifest(manifest)
             if errors:
                 raise AssertionError(f"capture manifest should validate: {errors}")
+            seal = seal_capture(
+                capture,
+                SELF_TEST_OBSERVER_KEY,
+                key_id="agent-fabric-observe-self-test-key",
+            )
+            provenance = build_trusted_observer_provenance(
+                manifest,
+                evidence_path="agent-fabric-capture-manifest.json",
+                seal=seal,
+                key=SELF_TEST_OBSERVER_KEY,
+            )
+            provenance_errors = validate_trusted_observer_provenance(
+                manifest,
+                evidence_path="agent-fabric-capture-manifest.json",
+                provenance=[provenance],
+                key=SELF_TEST_OBSERVER_KEY,
+            )
+            if provenance_errors:
+                raise AssertionError(
+                    f"trusted observer provenance should validate: {provenance_errors}"
+                )
     print("depone agent-fabric-observe --self-test: pass")
